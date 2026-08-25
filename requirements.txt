@@ -1,0 +1,9 @@
+# Konveyör Bant Denetim Sistemi — Gereksinimler
+opencv-python-headless>=4.8.0
+numpy>=1.24.0
+PyYAML>=6.0
+PyQt5>=5.15.0
+pymodbus>=3.6.0
+
+# Raspberry Pi HQ Kamera için (RPi'de zaten kurulu gelir):
+# picamera2
