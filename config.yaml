@@ -21,7 +21,7 @@ camera:
   awb_mode: Auto
   backend: picamera2
   color_gains: null
-  exposure_us: 500
+  exposure_us: 200
   fps: 20
   manual_exposure_enabled: true
   max_frame_age_ms: 1000
@@ -34,21 +34,31 @@ camera2:
   color_gains: null
   exposure_us: 500
   fps: 20
-  manual_exposure_enabled: true
+  manual_exposure_enabled: false
   max_frame_age_ms: 1000
   opencv_index: 1
   zoom: 1.0
 cameras:
   camera1_enabled: true
-  camera2_enabled: true
+  camera2_enabled: false
 disabled_rois: []
 disabled_rois_2: []
 dynamic_rois:
   '1':
-  - 33
-  - 121
-  - 46
-  - 46
+  - 118
+  - 285
+  - 192
+  - 195
+  '2':
+  - 396
+  - 266
+  - 230
+  - 207
+  '3':
+  - 94
+  - 15
+  - 485
+  - 107
 dynamic_rois_2:
   '1':
   - 571
@@ -91,8 +101,8 @@ resolution:
   height: 1088
   width: 1456
 resolution2:
-  height: 1088
-  width: 1456
+  height: 600
+  width: 800
 roi:
   decision_method: hole
   handedness_check: true
@@ -113,14 +123,14 @@ roi:
   hole_use_circle_check: false
   notch_dark_max: 95.0
   notch_dark_min: 50.0
-  point_overrides:
-    '1':
-      hole_core_ratio_min: 0.6
+  point_overrides: {}
   reference_box:
-  - 201
-  - 212
+  - 587
+  - 600
   roi_types:
     '1': hole
+    '2': hole
+    '3': notch
 roi2:
   handedness_check: true
   handedness_hole_diff: 48.44853334358504

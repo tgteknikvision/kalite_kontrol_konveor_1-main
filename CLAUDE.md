@@ -270,9 +270,35 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 - (Kaldırıldı: `PADIM_COLAB_PROMPT.md`, `COLAB_PADIM_EGITIM_NOTLARI.md`,
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
-## 12. Mevcut durum (2026-08-10 itibarıyla)
+## 12. Mevcut durum (2026-09-15 itibarıyla)
+- **⚠️ KAMERA DEĞİŞTİ: imx296 (Global Shutter) → imx477 (HQ, ROLLING shutter) (2026-09-15).**
+  Sebep: Arducam CSI-HDMI uzatıcıları imx296'da fiziksel sinyal arızası yapıyordu
+  (2026-09-14 doğrulandı: tekrarlayan `-121 Remote I/O error` / `stream on failed`; imx296 o
+  uzatıcının resmi destek listesinde yok). Kullanıcı cam0'a imx477 taktı, cam1 boş, TEK KAMERA
+  modu (`camera1_enabled: true`, `camera2_enabled: false`). Yeni düzende I2C/CSI hatası YOK.
+  **Güncel gerçek + kronoloji /kalite skill bilgi tabanında:**
+  `.claude/skills/kalite/bilgi/{saha_durumu,calisma_gunlugu,program_mimarisi}.md`.
+  - **imx477 için TÜM kalibrasyon SIFIRDAN gerekiyor** (farklı sensör/lens/FOV): alignment
+    HSV eşikleri, kontrol noktaları, `reference_box`, eşikler, yön referansı. imx296 dönemi
+    değerleri geçersiz.
+  - **imx477 ROLLING shutter** (imx296 GLOBAL idi) → hareketli bantta eğilme (skew) riski;
+    delik yuvarlaklık kontrolü üretim karesinde gözle doğrulanmalı.
+  - **GERİ DÖNÜŞ imkânı:** imx296 sağlam — sensör değil, uzatıcı arızalıydı. Orijinal FPC ile
+    DOĞRUDAN bağlanır, ya da **Arducam LAN/Ethernet Uzatma Kiti (SKU U6248, Pi sürümü)** ile —
+    bu kit imx296/Global Shutter'ı AÇIKÇA destekler (Jetson sürümü U6279 desteklemez). İki
+    kamera için iki kit (Pi 5'in iki CSI'si).
+- **✅ ZOOM 2.0 → 1.0 + POZ KİLİDİ 400 µs (2026-09-15, "görüntü çok kötü" → düzeltildi):**
+  Kullanıcı yakınlaştırmak için `camera.zoom`'u 2.0 yapmıştı → **yazılım zoom'u
+  bulanıklaştırdı** (kırp+büyüt, detay üretmez; §8/§12 2026-07-30 ile aynı belgeli tuzak).
+  Düzeltme (`config.yaml`, uygulama kapalıyken düzenlenip restart): `zoom 2.0→1.0`,
+  `manual_exposure_enabled false→true`, `exposure_us 500→400`. imx477 poz taraması yapıldı
+  (gain 16): 400 µs'de metal net + detaylı (havşa görünür), delikler koyu, aşırı parlama yok;
+  otomatik poz metali yanık-beyaz veriyordu. 400 µs (0.4 ms) hareketli bant için de yeterince
+  kısa. **⚠️ Zoom değişince ROI'ler kaydı: kontrol noktaları zoom 2.0 görüntüsünde çizilmişti,
+  zoom 1.0'da FOV daha geniş → NOKTALAR YENİDEN ÇİZİLMELİ** (net görüntüde Ürün Çerçevesi Bul +
+  noktalar). Kanıt kareleri: session scratchpad `ex_*.jpg` / `g16_400.jpg`.
 - **SAHA AYARI DEĞİŞTİ — İKİ KAMERA AÇIK, TAM ÇÖZÜNÜRLÜK, FPS 20 (2026-08-10, kullanıcı
-  GUI'den; `config.yaml`):**
+  GUI'den; `config.yaml`) [⚠️ 2026-09-15'te imx477 tek-kamera düzenine geçildi, üstteki maddeye bak]:**
   | anahtar | eski | **yeni** |
   |---|---|---|
   | `cameras.camera1_enabled` | false | **true** (ikisi de açık) |
