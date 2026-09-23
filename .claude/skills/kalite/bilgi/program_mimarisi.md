@@ -949,6 +949,16 @@ karşılığı — elle senkron tutulur.
   kategorisi `_nok_reason_category(msg)` (anahtar kelime tablosu; bilinmeyen → parantez öncesi).
 - **UI:** `_refresh_counter_panel` (lbl_counter_period/total/ok/nok/err/breakdown); `_reset_counters`
   (QMessageBox.question → Yes: yeni `_bos_sayac()`, CSV'ye SIFIRLA satırı, log).
+- **Paket (13:45):** `inspection.paket_adedi` (`_paket_adedi()`, vars. 100) ↔ `spin_paket`
+  (`_on_paket_adedi_changed` → config + `paket_esik = (paket_ok//n+1)*n`). Sayaçta `paket_ok`,
+  `paket_esik`. `_record_part`: OK → `paket_ok += 1`; `>= paket_esik` → `QTimer.singleShot(0,
+  _paket_uyarisi)`. `_paket_uyarisi`: beep + NonModal `QMessageBox` (Sıfırla varsayılan / Devam
+  et), `finished` → `_paket_pencere_kapandi` → `_paket_sifirla` (paket 0, esik n, CSV `PAKET`)
+  ya da `_paket_devam` (esik += n). `_paket_penceresini_kapat` (parti sıfırlamada, sinyalsiz).
+  `_refresh_counter_panel`: `lbl_paket` "Paket: n / esik" / turuncu "PAKET DOLDU".
+- **Spinbox okları:** `STYLESHEET` up/down-button/arrow kuralları (`__UP__/__DOWN__`),
+  `_arrow_icon_paths()` 10×6 PNG'leri `tempfile.gettempdir()/konveyor_ui/` altına çizer,
+  `build_stylesheet()` yolları yerine koyar; `MainWindow.__init__` `setStyleSheet(build_stylesheet())`.
 - **PDF:** `_build_report_html` (özet, dağılım, sistem hataları, son 300 NOK, CSV yolu) →
   `_write_report_pdf(path)` (`QTextDocument.print_` + `QPrinter(PdfFormat, A4)`) → `_export_pdf`
   (`QFileDialog.getSaveFileName`, varsayılan `~/Desktop/kalite_raporu_%Y-%m-%d_%H%M.pdf`,

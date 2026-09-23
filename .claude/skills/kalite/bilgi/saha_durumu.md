@@ -68,6 +68,8 @@
 - Sol panel "Sayaç": geçen/OK/NOK/sistem hatası + nokta-sebep dağılımı; `PDF Rapor` (masaüstüne)
   ve `Sıfırla`. Kalıcı: `~/konveyor_loglari/sayac.json`; parça başına `parca-YYYY-AA-GG.csv`.
   Resim KAYDEDİLMİYOR (kullanıcı kararı; 16.000 parça JPEG ≈ 2,5-5 GB olurdu).
+- **Paket adedi (13:45):** `inspection.paket_adedi` = 100 (varsayılan); paket sayacı OK parçaları
+  sayar, hedefte modal olmayan uyarı (Sıfırla/Devam et). Spinbox okları artık görünür.
 
 ## Uygulama ayarları (config.yaml — bugün 07:10'da GUI yazdı; 23 Eylül yerel commit'te)
 - `cameras`: camera1_enabled=**true**, camera2_enabled=**false** (kullanıcı bugün 3 kez değiştirdi).

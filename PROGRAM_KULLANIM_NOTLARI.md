@@ -52,6 +52,12 @@ kablo kontrolü için denetim programını açmaya gerek kalmaz.
 Sol paneldeki **Sayaç** kutusu parti başlangıcından beri **geçen parça, OK, NOK (yüzde), sistem
 hatası** ve **hata dağılımını** (hangi kontrol noktası, hangi sebeple, kaç kez) gösterir. Sayılar
 uygulama kapansa da kaybolmaz.
+- **Paket adedi:** OK/NOK satırlarının altındaki kutu (varsayılan 100). **Paket** satırı o
+  paketteki OK parçaları sayar (NOK parçalar pakete girmez). Sayı hedefe ulaşınca bip sesiyle
+  büyük bir uyarı çıkar: **"100 adete ulaşıldı!"** → **Sıfırla** = paketi kapat, sayaç 0'dan
+  başlar (günlük toplamlar kalır); **Devam et** = sayım sürer, bir sonraki uyarı 200'de, sonra
+  300'de… Uyarı açıkken denetim ve PLC durmaz; pencereyi X ile kapatmak "Devam et" sayılır.
+  Kutu değişince hedef, mevcut sayımın üstündeki ilk kata ayarlanır.
 - **PDF Rapor:** özet, nokta/sebep dağılımı, sistem hataları ve son 300 NOK parçanın listesi
   (zaman, resim no, sebep). Masaüstüne `kalite_raporu_TARİH_SAAT.pdf` olarak kaydeder ve açar.
 - **Sıfırla:** yeni parti/vardiya başlatır (onay sorar); önceki değerler loga ve CSV'ye yazılır.

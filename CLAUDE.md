@@ -96,7 +96,9 @@ yollar; PLC'den haberi yok. PLC tüm işlemleri GUI thread'inde `QTimer` ile (`p
 **Arayüz düzeni (main.py):** Sol kolon ("Sistem Durumu" + "Çalışma Modu": Elle Çekim Modu
 kutusu + **"Çekim Gecikmesi (ms)" kutusu (2026-09-23, canlı ayar; bkz. §8
 `inspection.trigger_delay_ms`)** + ipucu; **"Sayaç" grubu (2026-09-23): geçen parça / OK / NOK
-(yüzde) / sistem hatası + nokta-sebep dağılımı, "PDF Rapor" ve "Sıfırla" butonları — bkz. §12); **en dibinde "⚙ Ayarlar" butonu**; kaydırılabilir, sabit 320px) + sağda
+(yüzde) / sistem hatası + nokta-sebep dağılımı, **"Paket adedi" kutusu + "Paket: n / hedef"
+satırı** (OK parça sayar; hedefte modal OLMAYAN uyarı: Sıfırla / Devam et), "PDF Rapor" ve
+"Sıfırla" butonları — bkz. §12); **en dibinde "⚙ Ayarlar" butonu**; kaydırılabilir, sabit 320px) + sağda
 `content_widget`. **"⚙ Ayarlar" BİLİNÇLİ OLARAK SOL PANELDE (2026-07-30):** eskiden kamera
 satırındaydı; bir kamera kapatılınca o satır gizlendiği için Ayarlar'a ERİŞİLEMİYORDU
 (kamera 1 kapalıyken geri açmak imkânsızdı) — Ayarlar tüm kameralar+PLC için ortak olduğundan
@@ -256,6 +258,8 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 - `dynamic_rois`: ROI'ler `[x,y,w,h]` (alignment açıkken ürün çerçevesine göreli).
 - `plc.*`: host/port/unit_id/poll_ms/timeout_s/reconnect_s, registers {nok:100, trigger:101},
   **`manual_mode`** (true → PLC tamamen kapalı, elle çekim; bkz. §7).
+- `inspection.paket_adedi` (vars. 100): bir pakete konacak OK parça sayısı (sol panel "Paket
+  adedi" kutusu). Sayaç `sayac.json`'da `paket_ok`/`paket_esik`; hedefe ulaşınca uyarı (§12).
 - `inspection.trigger_delay_ms`: tetikten sonra çekime kadar bekleme (ürün ortalansın diye).
   **SOL PANELDEKİ "Çekim Gecikmesi" kutusundan CANLI ayarlanır (2026-09-23, kullanıcı isteği:
   "foto çekmeyi erteleme şansı, resme bakıp artırıp azaltacağım").** Ayarlar penceresinde de var ama
@@ -301,6 +305,29 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-23 ~13:45 — PAKET ADEDİ + DOLU PAKET UYARISI + GÖRÜNÜR SPINBOX OKLARI (kullanıcı:
+  "OK/NOK'un altına paket adedi kutusu, varsayılan 100, oklu; 100'e gelince ekranda '100 adete
+  ulaşıldı' + Sıfırla/Devam et; devam derse 200'de tekrar; diğer kutuların okları görünmüyor"):**
+  (1) Sol panel Sayaç grubunda `spin_paket` (1-100000, adım 10) → `inspection.paket_adedi`
+  (vars. 100, `_paket_adedi()`); altında `lbl_paket` "Paket: n / hedef". **Paket sayacı yalnız OK
+  parçaları sayar** (NOK kutuya girmez; toplam istenirse `_record_part`'ta tek satır). (2) Sayaçta
+  `paket_ok`/`paket_esik` (kalıcı). `_record_part` OK'ta `paket_ok += 1`; `paket_ok >= paket_esik`
+  ise **`QTimer.singleShot(0, _paket_uyarisi)`** (ERTELENİR: `_record_part` PLC sonucu yazılmadan
+  önce çağrılır, pencere PLC'yi geciktirmesin). (3) `_paket_uyarisi`: `QApplication.beep()` +
+  **MODAL OLMAYAN** `QMessageBox` (`Qt.NonModal`, `show()`; denetim ve PLC durmaz), RichText
+  "N adete ulaşıldı!", butonlar Sıfırla (varsayılan) / Devam et; açıkken yeni parçalar sayılmaya
+  devam eder ve metin güncellenir, ikinci pencere açılmaz. `finished` → `_paket_pencere_kapandi`:
+  Sıfırla → `_paket_sifirla` (paket_ok=0, esik=n, CSV `PAKET` satırı, log; **parti toplamları
+  DEĞİŞMEZ**); Devam et ya da X ile kapatma → `_paket_devam` (esik += n, paket_ok'u geçene kadar).
+  Panel dolunca `lbl_paket` turuncu "PAKET DOLDU: n / hedef". Paket adedi değişince
+  `paket_esik = (paket_ok // n + 1) * n`. Parti "Sıfırla" açık paket penceresini de kapatır
+  (`_paket_penceresini_kapat`, sinyalsiz). (4) **Spinbox/combobox okları:** Fusion'ın koyu temada
+  çizdiği ok görünmüyordu (ekransız render ile doğrulandı). `STYLESHEET`'e up/down-button +
+  up/down-arrow kuralları; ok resimleri `_arrow_icon_paths()` ile çalışma anında
+  `tempfile/konveyor_ui/ok_yukari.png`/`ok_asagi.png` olarak çizilir (repoya ikili dosya girmez),
+  `build_stylesheet()` `__UP__/__DOWN__` yerine yazar; `MainWindow.__init__`
+  `setStyleSheet(build_stylesheet())`. 24 ekransız test (`test_paket.py`) + önceki takımlar
+  (27+11+27) geçti; panel ve uyarı penceresi ekransız render edilip görsel doğrulandı.
 - **✅ 2026-09-23 ~13:30 — SAYAÇ + PARÇA KAYDI (CSV) + PDF RAPOR (kullanıcı: "resim olmaz;
   sayıcı koyalım, geçen/hatalı parçaları saysın, hatalar neler bilgisini versin, PDF çıkar butonu"):**
   Resim kaydı ÖLÇÜLDÜ ve reddedildi (16.000 parça × JPEG q90 ≈ 2,5-5 GB; PNG 20-26 GB). Yerine:

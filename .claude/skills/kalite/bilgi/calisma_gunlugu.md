@@ -77,6 +77,27 @@ ediyor. Bu aralıkta tetik gelmedi (log kontrolü) → PLC'ye çelişkili yazım
 Kullanıcının 13:18 örneği sayaç kodundan (13:21-13:25) ESKİ → sayaç için restart gerekiyor;
 kullanıcıya bırakıldı.
 
+## 2026-09-23 ~13:45 — Paket adedi kutusu + dolu paket uyarısı + görünür spinbox okları
+
+Kullanıcı: OK/NOK'un altına paket adedi kutusu (varsayılan 100, oklu); 100'e gelince ekranda
+"100 adete ulaşıldı" + Sıfırla/Devam et; sıfırlarsa 0'dan 100'e, devam derse 200'de tekrar,
+hep böyle; ayrıca "diğer kutuların okları gözükmüyor, temaya uygun açık renk yap".
+
+**Karar (varsayım, kullanıcıya söylendi):** paket sayacı **OK parçaları** sayar — NOK parça
+kutuya girmez; toplam parça istenirse tek satır. Paket "Sıfırla" yalnız paket sayacını sıfırlar,
+parti toplamları (Geçen/OK/NOK, PDF) korunur — aksi halde rapor hiç 100 parçayı geçemezdi.
+**Yapılan:** `spin_paket` → `inspection.paket_adedi`; sayaçta `paket_ok`/`paket_esik`;
+`_record_part` OK'ta sayar, hedefte `QTimer.singleShot(0, _paket_uyarisi)` (PLC yazımı
+gecikmesin); uyarı MODAL DEĞİL (`Qt.NonModal`, denetim sürer), bip, RichText büyük yazı,
+Sıfırla/Devam et; X = Devam et; açıkken ikinci pencere açılmaz, metin güncellenir. Devam:
+`esik += n` (paket_ok'u geçene kadar). Panel dolunca turuncu "PAKET DOLDU". Oklar: STYLESHEET'e
+up/down-button/arrow kuralları, ok PNG'leri çalışma anında `tempfile/konveyor_ui/`'ye çizilir
+(`_arrow_icon_paths`, `build_stylesheet`). Ekransız render: oklar görünür, dialog düzgün.
+Testler: `test_paket.py` 24/24; regresyon `test_23eylul` 29, `test_closeevent` 11, `test_sayac`
+27 geçti. Commit + push (GitHub artık çalışıyor).
+**Dağıtım:** kullanıcının 13:18 örneği eski kod → sayaç + paket için restart gerekli; ajan
+BAŞLATMADI (çalışan örnek varken başlatma kuralı). Kullanıcıya söylendi.
+
 ## 2026-09-23 ~13:35 — GitHub'a bağlandı ve push edildi (`kalite_kontrol_konveor_1-main`)
 
 Kullanıcı: "github tarafında olan repoya yükle dedim ya, ismi değişmiş olana". Sabah

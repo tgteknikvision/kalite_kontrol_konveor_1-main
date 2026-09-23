@@ -15,6 +15,7 @@ import time
 import yaml
 import json
 import csv
+import tempfile
 import cv2
 import numpy as np
 
@@ -24,8 +25,9 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QLineEdit, QSpinBox, QCheckBox, QDoubleSpinBox,
                              QScrollArea, QSizePolicy, QGridLayout, QFrame, QAbstractSpinBox,
                              QFileDialog)
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer, QUrl
-from PyQt5.QtGui import QImage, QPixmap, QFont, QPalette, QColor, QTextDocument, QDesktopServices
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer, QUrl, QPoint
+from PyQt5.QtGui import (QImage, QPixmap, QFont, QPalette, QColor, QTextDocument, QDesktopServices,
+                         QPainter, QPolygon)
 
 from inspector.worker import InspectionWorker
 from inspector.plc import InspectionState, create_plc_adapter
@@ -398,7 +400,64 @@ QScrollBar::handle:horizontal { background: #2f343f; border-radius: 6px; min-wid
 QScrollBar::handle:horizontal:hover { background: #3c4250; }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: transparent; }
+
+/* Sayi kutusu oklari (2026-09-23, kullanici: "oklar gozukmuyor"): koyu temada Fusion'in
+   cizdigi ok neredeyse gorunmezdi. Acik renkli ok resimleri calisma aninda uretilir
+   (build_stylesheet -> _arrow_icon_paths) ve __UP__/__DOWN__ yerine yazilir. */
+QSpinBox::up-button, QDoubleSpinBox::up-button {
+    subcontrol-origin: border; subcontrol-position: top right; width: 22px;
+    border-left: 1px solid #3c4250; border-bottom: 1px solid #3c4250;
+    background: #2a303b; border-top-right-radius: 5px;
+}
+QSpinBox::down-button, QDoubleSpinBox::down-button {
+    subcontrol-origin: border; subcontrol-position: bottom right; width: 22px;
+    border-left: 1px solid #3c4250; background: #2a303b; border-bottom-right-radius: 5px;
+}
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover { background: #345e8c; }
+QSpinBox::up-button:pressed, QDoubleSpinBox::up-button:pressed,
+QSpinBox::down-button:pressed, QDoubleSpinBox::down-button:pressed { background: #2c5179; }
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow { image: url(__UP__); width: 10px; height: 6px; }
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow { image: url(__DOWN__); width: 10px; height: 6px; }
+QSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:disabled,
+QSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:disabled { image: none; }
+QComboBox::down-arrow { image: url(__DOWN__); width: 10px; height: 6px; }
 """
+
+
+def _arrow_icon_paths() -> dict:
+    """Acik renkli yukari/asagi ok resimlerini (10x6 PNG) gecici klasore uretir, yollari doner.
+    Stylesheet'te url() yalniz dosya yolu kabul eder; repoya ikili dosya koymamak icin
+    calisma aninda ciziliyor (bir kez, sonra dosya varsa yeniden cizilmez)."""
+    d = os.path.join(tempfile.gettempdir(), "konveyor_ui")
+    paths = {}
+    try:
+        os.makedirs(d, exist_ok=True)
+        for name, up in (("ok_yukari", True), ("ok_asagi", False)):
+            path = os.path.join(d, f"{name}.png")
+            if not os.path.exists(path):
+                pm = QPixmap(10, 6)
+                pm.fill(Qt.transparent)
+                painter = QPainter(pm)
+                painter.setRenderHint(QPainter.Antialiasing)
+                painter.setBrush(QColor("#d6dae2"))
+                painter.setPen(Qt.NoPen)
+                pts = [QPoint(0, 6), QPoint(10, 6), QPoint(5, 0)] if up else [QPoint(0, 0), QPoint(10, 0), QPoint(5, 6)]
+                painter.drawPolygon(QPolygon(pts))
+                painter.end()
+                pm.save(path, "PNG")
+            paths[name] = path.replace("\\", "/")
+    except Exception:
+        return {}
+    return paths
+
+
+def build_stylesheet() -> str:
+    """STYLESHEET + ok resmi yollari. Resim uretilemezse ok kurallari duser (varsayilan ok)."""
+    icons = _arrow_icon_paths()
+    if not icons:
+        return STYLESHEET.replace("image: url(__UP__);", "").replace("image: url(__DOWN__);", "")
+    return STYLESHEET.replace("__UP__", icons["ok_yukari"]).replace("__DOWN__", icons["ok_asagi"])
 
 class SettingsDialog(QDialog):
     """PLC + kamera + çekim ayarları tek pencerede (sol panelden taşındı).
@@ -687,7 +746,7 @@ class MainWindow(QMainWindow):
 
         self.setWindowTitle("Konveyör Denetim Sistemi - ROI Eşik")
         self.resize(1180, 720)
-        self.setStyleSheet(STYLESHEET)
+        self.setStyleSheet(build_stylesheet())
 
         self._init_ui()
         self._start_worker()
@@ -833,8 +892,33 @@ class MainWindow(QMainWindow):
             "Hata dağılımı: hangi kontrol noktası, hangi sebeple, kaç kez NOK verdi.\n"
             "Bir parçada birden çok nokta NOK ise her biri ayrı sayılır.\n"
             "Tam liste ve NOK parçalar: 'PDF Rapor'.")
+        # PAKET ADEDI (kullanici istegi 2026-09-23): OK parcalar paket sayacina eklenir; hedefe
+        # ulasinca ekranda uyari + "Sifirla / Devam et" (bkz. _paket_uyarisi). Devam: bir sonraki
+        # uyari hedef+paket adedinde (100 -> 200 -> 300...). Sifirla: paket 0'dan; parti toplamlari
+        # (Gecen/OK/NOK) DEGISMEZ, onlar "Sifirla" butonuyla sifirlanir.
+        paket_row = QHBoxLayout()
+        paket_row.setContentsMargins(0, 2, 0, 0)
+        lbl_paket_ad = QLabel("Paket adedi:")
+        self.spin_paket = NoWheelSpinBox()
+        self.spin_paket.setRange(1, 100000)
+        self.spin_paket.setSingleStep(10)
+        self.spin_paket.setKeyboardTracking(False)
+        self.spin_paket.setValue(self._paket_adedi())
+        self.spin_paket.setToolTip(
+            "Bir pakete kaç OK (sağlam) parça konacak? Bu sayıya ulaşınca ekranda uyarı çıkar:\n"
+            "Sıfırla = paket sayacı 0'dan başlar; Devam et = bir sonraki uyarı bu kadar parça sonra.\n"
+            "NOK parçalar pakete sayılmaz. Uyarı açıkken denetim durmaz.")
+        self.spin_paket.valueChanged.connect(self._on_paket_adedi_changed)
+        paket_row.addWidget(lbl_paket_ad)
+        paket_row.addWidget(self.spin_paket, stretch=1)
+        self.lbl_paket = QLabel("Paket: 0 / 100")
+        self.lbl_paket.setFont(QFont("Arial", 11, QFont.Bold))
+        self.lbl_paket.setStyleSheet("color:#7cc4e8;")
         for wdg in (self.lbl_counter_period, self.lbl_counter_total, self.lbl_counter_ok,
-                    self.lbl_counter_nok, self.lbl_counter_err, self.lbl_counter_breakdown):
+                    self.lbl_counter_nok):
+            counter_layout.addWidget(wdg)
+        counter_layout.addLayout(paket_row)
+        for wdg in (self.lbl_paket, self.lbl_counter_err, self.lbl_counter_breakdown):
             counter_layout.addWidget(wdg)
         counter_btns = QHBoxLayout()
         self.btn_pdf = QPushButton("PDF Rapor")
@@ -2060,10 +2144,17 @@ class MainWindow(QMainWindow):
     def _sayac_path(self):
         return os.path.join(self.LOG_DIR, "sayac.json")
 
-    @staticmethod
-    def _bos_sayac():
+    def _paket_adedi(self) -> int:
+        try:
+            return max(1, int(self.config.get("inspection", {}).get("paket_adedi", 100) or 100))
+        except (TypeError, ValueError):
+            return 100
+
+    def _bos_sayac(self):
+        n = self._paket_adedi()
         return {"baslangic": time.strftime("%Y-%m-%d %H:%M:%S"), "toplam": 0, "ok": 0, "nok": 0,
-                "hata": 0, "noktalar": {}, "hata_sebepleri": {}, "son_nok": []}
+                "hata": 0, "noktalar": {}, "hata_sebepleri": {}, "son_nok": [],
+                "paket_ok": 0, "paket_esik": n}
 
     def _load_counters(self):
         try:
@@ -2135,6 +2226,11 @@ class MainWindow(QMainWindow):
             sonuc, failed, olcum = ("OK" if is_ok else "NOK"), [], []
             if is_ok:
                 c["ok"] += 1
+                c["paket_ok"] = int(c.get("paket_ok", 0)) + 1
+                if c["paket_ok"] >= int(c.get("paket_esik", self._paket_adedi())):
+                    # Uyari ERTELENIR: bu fonksiyon PLC sonucu yazilmadan once cagriliyor;
+                    # burada acilan pencere (modal olmasa da) kurulumu geciktirmesin.
+                    QTimer.singleShot(0, self._paket_uyarisi)
             else:
                 c["nok"] += 1
             coklu = len(results_by_cam) > 1
@@ -2178,6 +2274,17 @@ class MainWindow(QMainWindow):
         self.lbl_counter_ok.setText(f"OK: {c.get('ok', 0)}{pct(c.get('ok', 0))}")
         self.lbl_counter_nok.setText(f"NOK: {c.get('nok', 0)}{pct(c.get('nok', 0))}")
         self.lbl_counter_err.setText(f"Sistem hatası: {c.get('hata', 0)}")
+        p_ok, p_esik = int(c.get("paket_ok", 0)), int(c.get("paket_esik", self._paket_adedi()))
+        if p_ok >= p_esik:
+            self.lbl_paket.setText(f"PAKET DOLDU: {p_ok} / {p_esik}")
+            self.lbl_paket.setStyleSheet("color:#ffb454; background-color:#4a3410; border-radius:4px; padding:2px 4px;")
+        else:
+            self.lbl_paket.setText(f"Paket: {p_ok} / {p_esik}")
+            self.lbl_paket.setStyleSheet("color:#7cc4e8;")
+        if hasattr(self, "spin_paket") and self.spin_paket.value() != self._paket_adedi():
+            self.spin_paket.blockSignals(True)
+            self.spin_paket.setValue(self._paket_adedi())
+            self.spin_paket.blockSignals(False)
         satirlar = []
         noktalar = sorted(c.get("noktalar", {}).items(), key=lambda kv: -sum(kv[1].values()))
         # En fazla 6 satir (4 nokta + 2 sistem); tam liste PDF'te.
@@ -2196,6 +2303,7 @@ class MainWindow(QMainWindow):
         if yanit != QMessageBox.Yes:
             return
         eski = dict(self._counters)
+        self._paket_penceresini_kapat()
         self._counters = self._bos_sayac()
         self._save_counters()
         self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), "-", "-", "SIFIRLA", "",
@@ -2204,6 +2312,100 @@ class MainWindow(QMainWindow):
         self._refresh_counter_panel()
         self._append_log(f"[Sayaç] Sıfırlandı (önceki parti: toplam {eski.get('toplam', 0)}, "
                          f"OK {eski.get('ok', 0)}, NOK {eski.get('nok', 0)}, hata {eski.get('hata', 0)}).")
+
+    # ---- PAKET ADEDI / UYARI (kullanici istegi 2026-09-23) --------------------------
+    def _on_paket_adedi_changed(self, value):
+        n = max(1, int(value))
+        self.config.setdefault("inspection", {})["paket_adedi"] = n
+        self._save_config()
+        c = self._counters
+        p_ok = int(c.get("paket_ok", 0))
+        c["paket_esik"] = (p_ok // n + 1) * n          # mevcut sayimin ustundeki ilk katı
+        self._save_counters()
+        self._refresh_counter_panel()
+        self._append_log(f"[Paket] Paket adedi = {n} (paket şu an {p_ok}, bir sonraki uyarı {c['paket_esik']} adette).")
+
+    def _paket_metni(self) -> str:
+        c = self._counters
+        return (f"<b style='font-size:16pt'>{int(c.get('paket_esik', 0))} adete ulaşıldı!</b><br><br>"
+                f"Paketteki OK parça: <b>{int(c.get('paket_ok', 0))}</b><br>"
+                f"Parti toplamı: {int(c.get('toplam', 0))} parça, OK {int(c.get('ok', 0))}, NOK {int(c.get('nok', 0))}")
+
+    def _paket_uyarisi(self):
+        """Paket hedefine ulasildi: buyuk, MODAL OLMAYAN uyari (denetim/PLC durmaz).
+        Sifirla -> paket sayaci 0; Devam et -> bir sonraki uyari hedef + paket adedi."""
+        c = self._counters
+        if int(c.get("paket_ok", 0)) < int(c.get("paket_esik", 0)):
+            return                                    # bu arada sifirlanmis olabilir
+        QApplication.beep()
+        self._refresh_counter_panel()
+        dlg = getattr(self, "_paket_dlg", None)
+        if dlg is not None:
+            dlg.setText(self._paket_metni())
+            dlg.raise_()
+            return
+        n = self._paket_adedi()
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("Paket doldu")
+        dlg.setIcon(QMessageBox.Warning)
+        dlg.setTextFormat(Qt.RichText)
+        dlg.setText(self._paket_metni())
+        dlg.setInformativeText(f"Sıfırla: paket sayacı 0'dan başlar (günlük toplamlar kalır).\n"
+                               f"Devam et: sayım sürer, bir sonraki uyarı {n} parça sonra.")
+        dlg.setWindowModality(Qt.NonModal)            # PLC/denetim bloke olmasin
+        btn_reset = dlg.addButton("Sıfırla", QMessageBox.AcceptRole)
+        dlg.addButton("Devam et", QMessageBox.RejectRole)
+        dlg.setDefaultButton(btn_reset)
+        dlg.finished.connect(lambda _r, d=dlg: self._paket_pencere_kapandi(d))
+        self._paket_dlg = dlg
+        self._append_log(f"[Paket] {int(c.get('paket_esik', 0))} adete ulaşıldı — uyarı gösterildi.")
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+
+    def _paket_pencere_kapandi(self, dlg):
+        if getattr(self, "_paket_dlg", None) is not dlg:
+            return
+        self._paket_dlg = None
+        tiklanan = dlg.clickedButton()
+        if tiklanan is not None and tiklanan.text() == "Sıfırla":
+            self._paket_sifirla()
+        else:                                          # "Devam et" ya da X ile kapatma
+            self._paket_devam()
+
+    def _paket_penceresini_kapat(self):
+        dlg = getattr(self, "_paket_dlg", None)
+        if dlg is None:
+            return
+        self._paket_dlg = None
+        try:
+            dlg.blockSignals(True)
+            dlg.close()
+        except Exception:
+            pass
+
+    def _paket_sifirla(self):
+        c = self._counters
+        n = self._paket_adedi()
+        eski = int(c.get("paket_ok", 0))
+        c["paket_ok"] = 0
+        c["paket_esik"] = n
+        self._save_counters()
+        self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), "-", "-", "PAKET", "", "",
+                               f"paket kapatıldı: {eski} OK parça; yeni paket hedefi {n}", ""])
+        self._refresh_counter_panel()
+        self._append_log(f"[Paket] Paket sıfırlandı ({eski} OK parça ile kapatıldı); yeni hedef {n}.")
+
+    def _paket_devam(self):
+        c = self._counters
+        n = self._paket_adedi()
+        esik = int(c.get("paket_esik", n))
+        while esik <= int(c.get("paket_ok", 0)):
+            esik += n
+        c["paket_esik"] = esik
+        self._save_counters()
+        self._refresh_counter_panel()
+        self._append_log(f"[Paket] Devam edildi; bir sonraki uyarı {esik} adette.")
 
     def _build_report_html(self) -> str:
         import html as _h
