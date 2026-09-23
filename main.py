@@ -824,6 +824,11 @@ class MainWindow(QMainWindow):
         self.lbl_counter_breakdown = QLabel("Henüz NOK yok.")
         self.lbl_counter_breakdown.setWordWrap(True)
         self.lbl_counter_breakdown.setStyleSheet("color:#c4c9d2; font-size:11px;")
+        # Sabit 6 satirlik yer: wordWrap'li QLabel ic ice layout'ta yuksekligi zamaninda
+        # buyutemiyor, butonlar yazinin ustune biniyordu (ekransiz render ile goruldu).
+        self.lbl_counter_breakdown.setMinimumHeight(
+            self.lbl_counter_breakdown.fontMetrics().lineSpacing() * 6 + 8)
+        self.lbl_counter_breakdown.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         self.lbl_counter_breakdown.setToolTip(
             "Hata dağılımı: hangi kontrol noktası, hangi sebeple, kaç kez NOK verdi.\n"
             "Bir parçada birden çok nokta NOK ise her biri ayrı sayılır.\n"
@@ -2175,11 +2180,12 @@ class MainWindow(QMainWindow):
         self.lbl_counter_err.setText(f"Sistem hatası: {c.get('hata', 0)}")
         satirlar = []
         noktalar = sorted(c.get("noktalar", {}).items(), key=lambda kv: -sum(kv[1].values()))
-        for etiket, kats in noktalar[:6]:
-            detay = ", ".join(f"{k} {v}" for k, v in sorted(kats.items(), key=lambda kv: -kv[1])[:3])
-            satirlar.append(f"• {etiket}: {sum(kats.values())}   ({detay})")
-        for sebep, n in sorted(c.get("hata_sebepleri", {}).items(), key=lambda kv: -kv[1])[:3]:
-            satirlar.append(f"• Sistem: {sebep}: {n}")
+        # En fazla 6 satir (4 nokta + 2 sistem); tam liste PDF'te.
+        for etiket, kats in noktalar[:4]:
+            detay = ", ".join(f"{k} {v}" for k, v in sorted(kats.items(), key=lambda kv: -kv[1])[:2])
+            satirlar.append(f"• {etiket}: {sum(kats.values())}  ({detay})")
+        for sebep, n in sorted(c.get("hata_sebepleri", {}).items(), key=lambda kv: -kv[1])[:2]:
+            satirlar.append(f"• Sistem: {sebep[:34]}: {n}")
         self.lbl_counter_breakdown.setText("\n".join(satirlar) if satirlar else "Henüz NOK yok.")
 
     def _reset_counters(self):
