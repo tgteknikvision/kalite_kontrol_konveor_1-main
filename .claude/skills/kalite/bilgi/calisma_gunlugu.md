@@ -3,6 +3,14 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-23 ~15:20 — Oturum kapanışı: her şey kaydedildi, kullanıcı Pi'yi kapatıyor
+Kullanıcı "her şeyi kaydet, kapatacağım bilgisayarı" dedi. Çalışma ağacı temiz, `main` = `origin/main`
+(f3d79a8 + bu not). Gün sonu durumu: K1 kalibre, parçalar OK geçiyor; son kod değişikliği seçenek
+kutuları (restart'ta görünür — kapanışla zaten gelecek). **Açık işler:** (1) cam0 kablo/konnektör
+fiziksel kontrol (frontend timeout tekrarlıyor); (2) kamera bekçisi (auto-recovery) önerisi onay
+bekliyor; (3) config'teki ölü anahtarlar (calibration bloğu, v2 handedness kalıntısı) temizlenebilir.
+Sonraki açılışta /kalite → tam okuma (SKILL.md A) ile başla.
+
 ## 2026-09-23 ~15:10 — Seçenek (işaret) kutuları görünür yapıldı (tüm program)
 
 Kullanıcı ekran kesitiyle: "bu seçeneklerin kutuları gözükmüyor, tüm programda hepsini görünür açık
