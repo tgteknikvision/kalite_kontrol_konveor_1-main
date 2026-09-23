@@ -13,6 +13,8 @@ os.environ.setdefault("LIBCAMERA_LOG_LEVELS", "IPARPI:FATAL")
 import sys
 import time
 import yaml
+import json
+import csv
 import cv2
 import numpy as np
 
@@ -20,9 +22,10 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QPushButton, QSlider,
                              QTextEdit, QGroupBox, QFormLayout, QMessageBox, QComboBox, QDialog,
                              QLineEdit, QSpinBox, QCheckBox, QDoubleSpinBox,
-                             QScrollArea, QSizePolicy, QGridLayout, QFrame, QAbstractSpinBox)
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
-from PyQt5.QtGui import QImage, QPixmap, QFont, QPalette, QColor
+                             QScrollArea, QSizePolicy, QGridLayout, QFrame, QAbstractSpinBox,
+                             QFileDialog)
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer, QUrl
+from PyQt5.QtGui import QImage, QPixmap, QFont, QPalette, QColor, QTextDocument, QDesktopServices
 
 from inspector.worker import InspectionWorker
 from inspector.plc import InspectionState, create_plc_adapter
@@ -674,6 +677,10 @@ class MainWindow(QMainWindow):
         # ("Gecikme X ms | kare Y ms") -> resmin sol altina yazilir, log'a gercek sure duser.
         self._trigger_time = None
         self._last_capture_note = ""
+        # SAYAC (kullanici istegi 2026-09-23, resim kaydi YERINE): gecen/OK/NOK/hata + nokta
+        # ve sebep dagilimi; ~/konveyor_loglari/sayac.json'da kalici, parca basina bir CSV satiri.
+        self._last_results = {}                 # cam_no -> son evaluate sonuclari (kayit icin)
+        self._counters = self._load_counters()
         self._last_plc_connected = None
         self._nok_reset_pending = False
         self.plc = create_plc_adapter(self.config)
@@ -796,6 +803,47 @@ class MainWindow(QMainWindow):
         mode_layout.addWidget(hint)
 
         left_layout.addWidget(mode_group)
+
+        # 3. SAYAC (kullanici istegi 2026-09-23): "resim olmaz; sayici koyalim, gecen parcalari
+        # saysin, hatalilari saysin, hatalar neler bilgisini versin, PDF cikar butonu olsun".
+        counter_group = QGroupBox("Sayaç")
+        counter_layout = QVBoxLayout(counter_group)
+        counter_layout.setSpacing(3)
+        self.lbl_counter_period = QLabel("")
+        self.lbl_counter_period.setStyleSheet("color:#9aa0ab; font-size:11px;")
+        self.lbl_counter_total = QLabel("Geçen parça: 0")
+        self.lbl_counter_total.setFont(QFont("Arial", 12, QFont.Bold))
+        self.lbl_counter_ok = QLabel("OK: 0")
+        self.lbl_counter_ok.setFont(QFont("Arial", 11, QFont.Bold))
+        self.lbl_counter_ok.setStyleSheet("color:#62b87d;")
+        self.lbl_counter_nok = QLabel("NOK: 0")
+        self.lbl_counter_nok.setFont(QFont("Arial", 11, QFont.Bold))
+        self.lbl_counter_nok.setStyleSheet("color:#d96b6b;")
+        self.lbl_counter_err = QLabel("Sistem hatası: 0")
+        self.lbl_counter_err.setStyleSheet("color:#d8a657;")
+        self.lbl_counter_breakdown = QLabel("Henüz NOK yok.")
+        self.lbl_counter_breakdown.setWordWrap(True)
+        self.lbl_counter_breakdown.setStyleSheet("color:#c4c9d2; font-size:11px;")
+        self.lbl_counter_breakdown.setToolTip(
+            "Hata dağılımı: hangi kontrol noktası, hangi sebeple, kaç kez NOK verdi.\n"
+            "Bir parçada birden çok nokta NOK ise her biri ayrı sayılır.\n"
+            "Tam liste ve NOK parçalar: 'PDF Rapor'.")
+        for wdg in (self.lbl_counter_period, self.lbl_counter_total, self.lbl_counter_ok,
+                    self.lbl_counter_nok, self.lbl_counter_err, self.lbl_counter_breakdown):
+            counter_layout.addWidget(wdg)
+        counter_btns = QHBoxLayout()
+        self.btn_pdf = QPushButton("PDF Rapor")
+        self.btn_pdf.setProperty("accent", "primary")
+        self.btn_pdf.setToolTip("Sayaçları, hata dağılımını ve NOK parça listesini PDF olarak kaydeder (Masaüstü).")
+        self.btn_pdf.clicked.connect(self._export_pdf)
+        self.btn_counter_reset = QPushButton("Sıfırla")
+        self.btn_counter_reset.setToolTip("Yeni parti/vardiya: sayaçları sıfırlar (CSV kayıtları silinmez).")
+        self.btn_counter_reset.clicked.connect(self._reset_counters)
+        counter_btns.addWidget(self.btn_pdf)
+        counter_btns.addWidget(self.btn_counter_reset)
+        counter_layout.addLayout(counter_btns)
+        left_layout.addWidget(counter_group)
+        self._refresh_counter_panel()
 
         left_layout.addStretch()
 
@@ -1377,6 +1425,7 @@ class MainWindow(QMainWindow):
             self._last_snapshot = analysis_img.copy()
         is_ok, results, display_img = evaluate_with_profile(analysis_img, cfg_view)
         self._stamp_capture_note(display_img)      # "Gecikme X ms | kare Y ms" (sol alt)
+        self._last_results[cam_no] = results       # sayac/CSV kaydi icin (bkz. _record_part)
 
         self._display_snapshot(display_img, cam_no)
         self._update_live_errors(is_ok, results, cam_no)
@@ -1645,6 +1694,7 @@ class MainWindow(QMainWindow):
                     QMessageBox.warning(self, "Uyarı",
                                         f"{self._cam_prefix(n)}Henüz kamera görüntüsü alınmadı! "
                                         "Lütfen canlı görüntünün başlamasını bekleyin.")
+                self._record_part(None, False, {}, source, error=f"{self._cam_prefix(n)}Kamera görüntüsü yok")
                 self._publish_plc_error(f"{self._cam_prefix(n)}Kamera görüntüsü yok")
                 self._set_inspection_state(InspectionState.ERROR)
                 return
@@ -1679,6 +1729,7 @@ class MainWindow(QMainWindow):
                     + ", ".join(str(n) for n in stored)
                     + f"){timing}. 'Kontrol Noktaları' butonuyla ayarı BU kare üzerinden yapın "
                     "— elle konumlandırılmış kareyle üretim karesi örtüşmez.")
+            self._record_part(None, False, {}, source, error=ready_error)
             self._publish_plc_error(ready_error)
             self._set_inspection_state(InspectionState.ERROR)
             return
@@ -1697,6 +1748,8 @@ class MainWindow(QMainWindow):
             if len(cams) > 1:
                 self._append_log(f"[Sonuç] Birleşik karar (tüm kameralar OK olmalı): "
                                  f"{'OK' if is_ok else 'NOK'}")
+            self._record_part(self._capture_counter, is_ok,
+                              {n: self._last_results.get(n) for n in cams}, source)
             # Elle Cekim Modunda plc NullPLCAdapter'dir: publish her zaman True doner,
             # yani asagidaki dallanma hem sahada hem ev/test modunda dogru calisir.
             if self._publish_plc_result(is_ok):
@@ -1708,6 +1761,7 @@ class MainWindow(QMainWindow):
                 self._set_inspection_state(InspectionState.ERROR)
         except Exception as exc:
             self._append_log(f"[HATA] Analiz başarısız: {exc}")
+            self._record_part(self._capture_counter, False, {}, source, error=str(exc))
             self._publish_plc_error(str(exc))
             self._set_inspection_state(InspectionState.ERROR)
 
@@ -1990,6 +2044,250 @@ class MainWindow(QMainWindow):
             full = self._last_full_snapshot_2 if two else self._last_full_snapshot
             preview_frame = full if full is not None else snapshot
             self._handle_snapshot(0, preview_frame, cam_no)
+
+    # ======================================================================
+    # SAYAC + PARCA KAYDI + PDF RAPOR (kullanici istegi 2026-09-23)
+    # Resim KAYDEDILMEZ (kullanici karari: 16.000 parca icin GB'lar yer). Onun yerine:
+    #   - sayac.json: parti basindan beri gecen/OK/NOK/hata + nokta/sebep dagilimi (kalici)
+    #   - parca-YYYY-AA-GG.csv: parca basina bir satir (~0.3 KB; 16.000 parca ~5 MB)
+    #   - PDF Rapor: ozet + dagilim + NOK listesi (QTextDocument -> QPrinter, ek kutuphane yok)
+    # ======================================================================
+    def _sayac_path(self):
+        return os.path.join(self.LOG_DIR, "sayac.json")
+
+    @staticmethod
+    def _bos_sayac():
+        return {"baslangic": time.strftime("%Y-%m-%d %H:%M:%S"), "toplam": 0, "ok": 0, "nok": 0,
+                "hata": 0, "noktalar": {}, "hata_sebepleri": {}, "son_nok": []}
+
+    def _load_counters(self):
+        try:
+            with open(self._sayac_path(), "r", encoding="utf-8") as f:
+                data = json.load(f)
+            c = self._bos_sayac()
+            c.update({k: v for k, v in data.items() if k in c})
+            return c
+        except Exception:
+            return self._bos_sayac()
+
+    def _save_counters(self):
+        try:
+            os.makedirs(self.LOG_DIR, exist_ok=True)
+            tmp = self._sayac_path() + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self._counters, f, ensure_ascii=False, indent=1)
+            os.replace(tmp, self._sayac_path())       # yarim yazilmis dosya kalmasin
+        except Exception:
+            pass
+
+    @staticmethod
+    def _nok_reason_category(msg) -> str:
+        """Analiz mesajini kisa, sayilabilir bir sebep kategorisine indirger."""
+        m = str(msg or "").lower()
+        kurallar = [
+            ("kapali/eksik/tikali", "kapalı / eksik / tıkalı"),
+            ("sekil uygun degil", "şekil uygun değil"),
+            ("cekirdek", "derinlik yetersiz"),
+            ("arka plan/golge", "arka plan / gölge"),
+            ("bant disi", "oluk yok (oran bant dışı)"),
+            ("sekil yok", "oluk yok (şekil yok)"),
+            ("ayna/ters", "ayna / ters parça"),
+            ("roi bo", "nokta kare dışında"),
+            ("referans", "referans yok"),
+        ]
+        for anahtar, kategori in kurallar:
+            if anahtar in m:
+                return kategori
+        return (str(msg or "").split("(")[0].strip() or "bilinmeyen")[:40]
+
+    def _append_part_csv(self, row):
+        try:
+            os.makedirs(self.LOG_DIR, exist_ok=True)
+            path = os.path.join(self.LOG_DIR, f"parca-{time.strftime('%Y-%m-%d')}.csv")
+            yeni = not os.path.exists(path)
+            with open(path, "a", encoding="utf-8", newline="") as f:
+                w = csv.writer(f, delimiter=";")
+                if yeni:
+                    w.writerow(["zaman", "resim", "kaynak", "sonuc", "gecikme_ms",
+                                "hatali_noktalar", "sebepler", "olcumler"])
+                w.writerow(row)
+        except Exception:
+            pass
+
+    def _record_part(self, part_id, is_ok, results_by_cam, source="plc", error=None):
+        """Bir cekimi sayaca ve CSV'ye isler. error verilirse 'sistem hatasi' (parca
+        denetlenemedi, PLC'ye 1 yazildi). results_by_cam: {cam_no: evaluate sonuclari}."""
+        from inspector.features import roi_point_type
+        c = self._counters
+        c["toplam"] += 1
+        zaman = time.strftime("%Y-%m-%d %H:%M:%S")
+        if error:
+            c["hata"] += 1
+            kisa = str(error).split(".")[0].strip()[:60]
+            c["hata_sebepleri"][kisa] = c["hata_sebepleri"].get(kisa, 0) + 1
+            sonuc, failed, olcum = "HATA", [kisa], []
+        else:
+            sonuc, failed, olcum = ("OK" if is_ok else "NOK"), [], []
+            if is_ok:
+                c["ok"] += 1
+            else:
+                c["nok"] += 1
+            coklu = len(results_by_cam) > 1
+            for cam_no, results in results_by_cam.items():
+                roi_types = (self._camera_config_view(cam_no).get("roi", {}) or {}).get("roi_types", {}) or {}
+                for name, res in (results or {}).items():
+                    m = res.get("metrics", {}) or {}
+                    if name == "YON":
+                        etiket = "YÖN"
+                    else:
+                        tip = {"hole": "delik", "notch": "çentik", "yon": "yön"}.get(roi_point_type(name, roi_types), "")
+                        etiket = f"{name} ({tip})"
+                    if coklu:
+                        etiket = f"K{cam_no} {etiket}"
+                    if "black_ratio" in m:
+                        olcum.append(f"{etiket}: koyu {m.get('black_ratio', 0):.1f} / çek {m.get('core_ratio', 0):.1f}")
+                    if not res.get("ok", True):
+                        kat = self._nok_reason_category(res.get("msg", ""))
+                        nk = c["noktalar"].setdefault(etiket, {})
+                        nk[kat] = nk.get(kat, 0) + 1
+                        failed.append(f"{etiket} = {kat}")
+            if not is_ok:
+                c["son_nok"].append({"zaman": zaman, "resim": part_id, "sebep": "; ".join(failed) or "-"})
+                del c["son_nok"][:-500]           # PDF listesi icin son 500 NOK yeter
+        delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
+        self._append_part_csv([zaman, part_id if part_id is not None else "-",
+                               "plc" if source == "plc" else "elle", sonuc, delay_ms,
+                               "; ".join(f.split(" = ")[0] for f in failed), "; ".join(failed),
+                               " | ".join(olcum)])
+        self._save_counters()
+        self._refresh_counter_panel()
+
+    def _refresh_counter_panel(self):
+        if not hasattr(self, "lbl_counter_total"):
+            return
+        c = self._counters
+        t = int(c.get("toplam", 0))
+        pct = (lambda n: f"  (%{100.0 * n / t:.1f})") if t else (lambda n: "")
+        self.lbl_counter_period.setText(f"Başlangıç: {c.get('baslangic', '-')}")
+        self.lbl_counter_total.setText(f"Geçen parça: {t}")
+        self.lbl_counter_ok.setText(f"OK: {c.get('ok', 0)}{pct(c.get('ok', 0))}")
+        self.lbl_counter_nok.setText(f"NOK: {c.get('nok', 0)}{pct(c.get('nok', 0))}")
+        self.lbl_counter_err.setText(f"Sistem hatası: {c.get('hata', 0)}")
+        satirlar = []
+        noktalar = sorted(c.get("noktalar", {}).items(), key=lambda kv: -sum(kv[1].values()))
+        for etiket, kats in noktalar[:6]:
+            detay = ", ".join(f"{k} {v}" for k, v in sorted(kats.items(), key=lambda kv: -kv[1])[:3])
+            satirlar.append(f"• {etiket}: {sum(kats.values())}   ({detay})")
+        for sebep, n in sorted(c.get("hata_sebepleri", {}).items(), key=lambda kv: -kv[1])[:3]:
+            satirlar.append(f"• Sistem: {sebep}: {n}")
+        self.lbl_counter_breakdown.setText("\n".join(satirlar) if satirlar else "Henüz NOK yok.")
+
+    def _reset_counters(self):
+        yanit = QMessageBox.question(self, "Sayaçları sıfırla",
+                                     "Sayaçlar sıfırlanacak (yeni parti/vardiya).\n"
+                                     "CSV kayıtları silinmez. Devam edilsin mi?",
+                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if yanit != QMessageBox.Yes:
+            return
+        eski = dict(self._counters)
+        self._counters = self._bos_sayac()
+        self._save_counters()
+        self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), "-", "-", "SIFIRLA", "",
+                               "", f"önceki parti: toplam {eski.get('toplam', 0)}, OK {eski.get('ok', 0)}, "
+                                   f"NOK {eski.get('nok', 0)}, hata {eski.get('hata', 0)}", ""])
+        self._refresh_counter_panel()
+        self._append_log(f"[Sayaç] Sıfırlandı (önceki parti: toplam {eski.get('toplam', 0)}, "
+                         f"OK {eski.get('ok', 0)}, NOK {eski.get('nok', 0)}, hata {eski.get('hata', 0)}).")
+
+    def _build_report_html(self) -> str:
+        import html as _h
+        c = self._counters
+        t = int(c.get("toplam", 0)); ok = int(c.get("ok", 0)); nok = int(c.get("nok", 0)); err = int(c.get("hata", 0))
+        yuzde = (lambda n: f"%{100.0 * n / t:.1f}") if t else (lambda n: "-")
+        plc = self.config.get("plc", {}) or {}
+        cams = ", ".join(f"Kamera {n}" for n in self._active_cameras())
+        satir = lambda *hucre: "<tr>" + "".join(f"<td>{_h.escape(str(x))}</td>" for x in hucre) + "</tr>"
+        H = []
+        H.append("<html><head><meta charset='utf-8'><style>"
+                 "body{font-family:Arial,sans-serif;font-size:11pt;color:#111}"
+                 "h1{font-size:18pt;margin-bottom:2px} h2{font-size:13pt;margin-top:18px;border-bottom:1px solid #999}"
+                 "table{border-collapse:collapse;margin-top:6px} td,th{border:1px solid #888;padding:3px 8px;font-size:10pt}"
+                 "th{background:#e6e6e6;text-align:left} .ok{color:#1d7a3a;font-weight:bold} .nok{color:#b02a2a;font-weight:bold}"
+                 ".kucuk{color:#555;font-size:9pt}</style></head><body>")
+        H.append("<h1>Konveyör Denetim Raporu</h1>")
+        H.append(f"<div class='kucuk'>Rapor zamanı: {time.strftime('%Y-%m-%d %H:%M:%S')} &nbsp;|&nbsp; "
+                 f"Parti başlangıcı: {_h.escape(str(c.get('baslangic', '-')))} &nbsp;|&nbsp; "
+                 f"PLC: {_h.escape(str(plc.get('host', '-')))} &nbsp;|&nbsp; {cams} &nbsp;|&nbsp; "
+                 f"Çekim gecikmesi: {int(self.config.get('inspection', {}).get('trigger_delay_ms', 0))} ms</div>")
+        H.append("<h2>Özet</h2><table>")
+        H.append("<tr><th>Geçen parça</th><th>OK</th><th>NOK</th><th>Sistem hatası</th></tr>")
+        H.append(f"<tr><td><b>{t}</b></td><td class='ok'>{ok} ({yuzde(ok)})</td>"
+                 f"<td class='nok'>{nok} ({yuzde(nok)})</td><td>{err} ({yuzde(err)})</td></tr></table>")
+        H.append("<div class='kucuk'>Sistem hatası = parça denetlenemedi (kamera görüntüsü yok, kontrol noktası yok, "
+                 "ürün çerçevesi bulunamadı vb.); PLC'ye NOK (1) yazılır.</div>")
+        H.append("<h2>Hata dağılımı (kontrol noktası / sebep)</h2>")
+        noktalar = sorted(c.get("noktalar", {}).items(), key=lambda kv: -sum(kv[1].values()))
+        if noktalar:
+            H.append("<table><tr><th>Kontrol noktası</th><th>NOK sayısı</th><th>Sebep dağılımı</th></tr>")
+            for etiket, kats in noktalar:
+                detay = ", ".join(f"{k}: {v}" for k, v in sorted(kats.items(), key=lambda kv: -kv[1]))
+                H.append(satir(etiket, sum(kats.values()), detay))
+            H.append("</table><div class='kucuk'>Bir parçada birden çok nokta NOK ise her biri ayrı sayılır; "
+                     "bu yüzden toplam, NOK parça sayısından büyük olabilir.</div>")
+        else:
+            H.append("<p>Bu partide kontrol noktası kaynaklı NOK yok.</p>")
+        hs = sorted(c.get("hata_sebepleri", {}).items(), key=lambda kv: -kv[1])
+        if hs:
+            H.append("<h2>Sistem hataları</h2><table><tr><th>Sebep</th><th>Sayı</th></tr>")
+            for sebep, n in hs:
+                H.append(satir(sebep, n))
+            H.append("</table>")
+        son = list(c.get("son_nok", []))
+        H.append(f"<h2>NOK parçalar (son {min(len(son), 300)} / toplam {nok})</h2>")
+        if son:
+            H.append("<table><tr><th>Zaman</th><th>Resim</th><th>Sebep</th></tr>")
+            for kayit in son[-300:]:
+                H.append(satir(kayit.get("zaman", "-"), kayit.get("resim", "-"), kayit.get("sebep", "-")))
+            H.append("</table>")
+        else:
+            H.append("<p>NOK parça yok.</p>")
+        H.append(f"<div class='kucuk' style='margin-top:14px'>Parça bazında tam kayıt: {_h.escape(self.LOG_DIR)}/parca-YYYY-AA-GG.csv "
+                 "(Excel ile açılır, ayırıcı ';').</div>")
+        H.append("</body></html>")
+        return "".join(H)
+
+    def _write_report_pdf(self, path: str) -> None:
+        """Raporu verilen yola PDF olarak yazar (dialogsuz; testte de kullanilir)."""
+        from PyQt5.QtPrintSupport import QPrinter
+        doc = QTextDocument()
+        doc.setHtml(self._build_report_html())
+        printer = QPrinter(QPrinter.HighResolution)
+        printer.setOutputFormat(QPrinter.PdfFormat)
+        printer.setPageSize(QPrinter.A4)
+        printer.setOutputFileName(path)
+        doc.print_(printer)
+
+    def _export_pdf(self):
+        masaustu = os.path.join(os.path.expanduser("~"), "Desktop")
+        if not os.path.isdir(masaustu):
+            masaustu = os.path.expanduser("~")
+        varsayilan = os.path.join(masaustu, f"kalite_raporu_{time.strftime('%Y-%m-%d_%H%M')}.pdf")
+        path, _ = QFileDialog.getSaveFileName(self, "PDF Rapor Kaydet", varsayilan, "PDF (*.pdf)")
+        if not path:
+            return
+        if not path.lower().endswith(".pdf"):
+            path += ".pdf"
+        try:
+            self._write_report_pdf(path)
+        except Exception as exc:
+            self._append_log(f"[Rapor] PDF yazılamadı: {exc}")
+            QMessageBox.critical(self, "PDF Rapor", f"PDF yazılamadı:\n{exc}")
+            return
+        self._append_log(f"[Rapor] PDF kaydedildi: {path}")
+        try:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))     # varsayilan PDF goruntuleyicide ac
+        except Exception:
+            pass
 
     def _on_trigger_delay_changed(self, value):
         """Sol paneldeki 'Çekim Gecikmesi' kutusu: config'e yaz, kaydet, logla.

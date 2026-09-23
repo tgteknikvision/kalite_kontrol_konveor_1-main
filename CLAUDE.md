@@ -95,7 +95,8 @@ yollar; PLC'den haberi yok. PLC tüm işlemleri GUI thread'inde `QTimer` ile (`p
 
 **Arayüz düzeni (main.py):** Sol kolon ("Sistem Durumu" + "Çalışma Modu": Elle Çekim Modu
 kutusu + **"Çekim Gecikmesi (ms)" kutusu (2026-09-23, canlı ayar; bkz. §8
-`inspection.trigger_delay_ms`)** + ipucu; **en dibinde "⚙ Ayarlar" butonu**; kaydırılabilir, sabit 320px) + sağda
+`inspection.trigger_delay_ms`)** + ipucu; **"Sayaç" grubu (2026-09-23): geçen parça / OK / NOK
+(yüzde) / sistem hatası + nokta-sebep dağılımı, "PDF Rapor" ve "Sıfırla" butonları — bkz. §12); **en dibinde "⚙ Ayarlar" butonu**; kaydırılabilir, sabit 320px) + sağda
 `content_widget`. **"⚙ Ayarlar" BİLİNÇLİ OLARAK SOL PANELDE (2026-07-30):** eskiden kamera
 satırındaydı; bir kamera kapatılınca o satır gizlendiği için Ayarlar'a ERİŞİLEMİYORDU
 (kamera 1 kapalıyken geri açmak imkânsızdı) — Ayarlar tüm kameralar+PLC için ortak olduğundan
@@ -300,6 +301,31 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-23 ~13:30 — SAYAÇ + PARÇA KAYDI (CSV) + PDF RAPOR (kullanıcı: "resim olmaz;
+  sayıcı koyalım, geçen/hatalı parçaları saysın, hatalar neler bilgisini versin, PDF çıkar butonu"):**
+  Resim kaydı ÖLÇÜLDÜ ve reddedildi (16.000 parça × JPEG q90 ≈ 2,5-5 GB; PNG 20-26 GB). Yerine:
+  (1) **Sol panel "Sayaç" grubu:** Başlangıç, Geçen parça, OK/NOK (yüzde), Sistem hatası, hata
+  dağılımı (en çok NOK veren 6 nokta × en sık 3 sebep + sistem sebepleri); `PDF Rapor` /
+  `Sıfırla` butonları. (2) **Kalıcı sayaç `~/konveyor_loglari/sayac.json`** (`_load_counters` /
+  `_save_counters`, atomik yazım; parti başlangıcından beri; `Sıfırla` = yeni parti, onay sorar,
+  CSV'ye `SIFIRLA` satırı). (3) **Parça başına CSV** `~/konveyor_loglari/parca-YYYY-AA-GG.csv`
+  (`;` ayraçlı: zaman, resim, kaynak plc/elle, sonuç OK/NOK/HATA, gecikme_ms, hatalı noktalar,
+  sebepler, ölçümler koyu/çekirdek) ≈ 0,3 KB/parça → 16.000 parça ≈ 5 MB. (4) **Sebep
+  kategorileri** `_nok_reason_category`: analiz mesajından "kapalı / eksik / tıkalı", "şekil uygun
+  değil", "derinlik yetersiz", "arka plan / gölge", "oluk yok (oran bant dışı)", "oluk yok (şekil
+  yok)", "ayna / ters parça", "nokta kare dışında"; bilinmeyen → parantez öncesi. Etiket = `ad (tip)`,
+  iki kamerada `K1 ad (tip)`; `YON` → "YÖN". Bir parçada birden çok nokta NOK ise her biri sayılır
+  (dağılım toplamı ≥ NOK parça). (5) **Sistem hatası** = denetlenemeyen çekim (kare yok, nokta yok,
+  ürün çerçevesi yok, analiz istisnası) — `_capture_full_frame`'in 4 çıkış noktasından
+  `_record_part` çağrılır; `_handle_snapshot` sonuçları `_last_results[cam_no]`'ya koyar.
+  (6) **PDF:** `_build_report_html` (özet tablosu, nokta/sebep dağılımı, sistem hataları, son 300
+  NOK parça: zaman/resim/sebep, alt bilgi CSV yolu) → `QTextDocument` + `QtPrintSupport.QPrinter`
+  PdfFormat A4 (ek kütüphane YOK) → `_export_pdf` `QFileDialog` (varsayılan
+  `~/Desktop/kalite_raporu_TARIH_SAAT.pdf`) + kaydedince `QDesktopServices.openUrl`. Elle çekimler de
+  sayılır (CSV `kaynak=elle`). 27 ekransız testle doğrulandı (`test_sayac.py`: sayım, kategori,
+  CSV, kalıcılık, iki kamera etiketi, PDF %PDF-/22 KB, sıfırlama, uçtan uca `_capture_full_frame`).
+  **TUZAK:** `LOG_DIR` sınıf niteliği → testte geçici klasöre al (aksi halde gerçek sayac.json/CSV
+  bozulur).
 - **📌 2026-09-23 ~09:45 — GITHUB KARARI: uzak depo `kalite_kontrol_konveor_1-main`.**
   Kullanıcı seçti. O depo tek commit (00227cb, 25 Ağustos upload); `gh api` tarball ile indirilip
   karşılaştırıldı: 7 farklı dosyanın hepsi 10 Ağustos yerel commit'iyle (b235a18) BİREBİR AYNI →

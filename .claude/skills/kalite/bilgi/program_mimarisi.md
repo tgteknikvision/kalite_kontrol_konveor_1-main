@@ -935,6 +935,25 @@ karşılığı — elle senkron tutulur.
 - **TUZAK (test):** `MainWindow.LOG_DIR` sınıf niteliği → ekransız testte `_append_log` GERÇEK saha
   loguna yazar; testte `main.MainWindow.LOG_DIR = <geçici>` yap (2026-09-23'te 24 satır sızdı, silindi).
 
+### Sayaç + parça CSV + PDF rapor (2026-09-23, kullanıcı isteği; resim kaydı yerine)
+- **Veri:** `self._counters` = `{baslangic, toplam, ok, nok, hata, noktalar{etiket{kategori:n}},
+  hata_sebepleri{sebep:n}, son_nok[{zaman,resim,sebep}] (son 500)}`; `~/konveyor_loglari/sayac.json`
+  (`_load_counters` başlangıçta, `_save_counters` her parçada, tmp+`os.replace`).
+- **CSV:** `_append_part_csv` → `~/konveyor_loglari/parca-YYYY-AA-GG.csv` (`;`): zaman, resim,
+  kaynak (plc/elle), sonuc (OK/NOK/HATA/SIFIRLA), gecikme_ms, hatali_noktalar, sebepler, olcumler
+  (`etiket: koyu X / çek Y`).
+- **Kayıt noktası:** `_record_part(part_id, is_ok, {cam_no: results}, source, error=None)`;
+  `_capture_full_frame` içinde 4 çağrı (kare yok → error; `_production_ready_error` → error;
+  analiz sonrası; `except` → error). `_handle_snapshot` her analizde `self._last_results[cam_no] =
+  results`. Etiket: `ad (delik|çentik|yön)`, `YON`→`YÖN`, çok kamerada `K{n} ` öneki. Sebep
+  kategorisi `_nok_reason_category(msg)` (anahtar kelime tablosu; bilinmeyen → parantez öncesi).
+- **UI:** `_refresh_counter_panel` (lbl_counter_period/total/ok/nok/err/breakdown); `_reset_counters`
+  (QMessageBox.question → Yes: yeni `_bos_sayac()`, CSV'ye SIFIRLA satırı, log).
+- **PDF:** `_build_report_html` (özet, dağılım, sistem hataları, son 300 NOK, CSV yolu) →
+  `_write_report_pdf(path)` (`QTextDocument.print_` + `QPrinter(PdfFormat, A4)`) → `_export_pdf`
+  (`QFileDialog.getSaveFileName`, varsayılan `~/Desktop/kalite_raporu_%Y-%m-%d_%H%M.pdf`,
+  `QDesktopServices.openUrl`). Test: scratchpad `test_sayac.py` (27 test).
+
 ### Çekim gecikmesi — ana ekran + zamanlama damgası (2026-09-23, kullanıcı isteği)
 - **UI:** sol panel "Çalışma Modu" → `spin_trigger_delay` (NoWheelSpinBox 0-5000 ms, adım 10,
   `keyboardTracking(False)`) → `_on_trigger_delay_changed` → `inspection.trigger_delay_ms` +

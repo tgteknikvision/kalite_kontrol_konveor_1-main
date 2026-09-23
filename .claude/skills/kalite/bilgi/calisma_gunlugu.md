@@ -62,6 +62,26 @@ başarısız. **Düzeltme:** `worker.py::_open_camera` except bloğunda yarım k
 değil python pid'i. IPARPI log susturma (`LIBCAMERA_LOG_LEVELS=IPARPI:FATAL`) bu restart'ta
 doğrulanacak.
 
+## 2026-09-23 ~13:30 — Sayaç + parça CSV + PDF rapor eklendi (resim kaydı yerine)
+
+Kullanıcı önce "her fotoyu OK/NOK ve sebebiyle kaydetsek 16.000 parça ne kadar yer kaplar" diye
+sordu → gerçek kamera kareleriyle ölçüldü (cam1, 1456×1088): JPEG q90 130-150 KB, q95 200-260 KB,
+PNG 1,3-1,6 MB; 16.000 parça ≈ 2,5-5 GB (JPEG) / 21-26 GB (PNG); disk 46 GB boş. Kullanıcı
+"resim olmaz" dedi → **sayaç + hata dağılımı + PDF çıkar butonu** istedi.
+
+**Yapılan (main.py 2427 satır):** sol panel "Sayaç" grubu (geçen/OK/NOK yüzde/sistem hatası +
+dağılım + PDF Rapor + Sıfırla); `~/konveyor_loglari/sayac.json` kalıcı sayaç (atomik yazım);
+`parca-YYYY-AA-GG.csv` parça başına satır (~0,3 KB); `_record_part` `_capture_full_frame`'in 4
+çıkışından çağrılır (kare yok / hazır değil / başarılı analiz / istisna); `_nok_reason_category`
+mesaj→kategori; `_build_report_html` + `QTextDocument`→`QPrinter` PdfFormat (ek kütüphane yok;
+QtPrintSupport Pi'de mevcut); `_export_pdf` masaüstüne kaydedip açar. 27 ekransız test geçti
+(PDF gerçekten üretildi, 22 KB). Sol panel ekransız render edilip görsel kontrol yapıldı.
+CLAUDE.md §4/§12, PROGRAM_KULLANIM_NOTLARI §3c, mimari güncellendi.
+
+**Dağıtım:** kullanıcının 09:25'te açtığı örnek (pid 137655) eski kod; sayaç için uygulamanın
+yeniden başlatılması gerekiyor — kullanıcıya soruldu (üretim çalışırken izinsiz kapatılmadı).
+GitHub: remote komutlarını kullanıcı henüz çalıştırmadı, push yine başarısız.
+
 ## 2026-09-23 ~09:45 — GitHub kararı: `-main` deposuna gönderilecek (komutlar kullanıcıda)
 
 Kullanıcı "github'da ne kararı bekliyorsun" dedi; 3 seçenek sunuldu, **`kalite_kontrol_konveor_1-main`**

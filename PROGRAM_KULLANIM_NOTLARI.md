@@ -48,6 +48,21 @@ kablo kontrolü için denetim programını açmaya gerek kalmaz.
   kablosu/konnektörüdür** (2026-09-23'te Kamera 1'de görüldü).
 - Komut satırından: `bash tools/kamera_onizleme.sh` (test için `bash tools/kamera_onizleme.sh 5000` = 5 sn).
 
+## 3c. Sayaç ve PDF rapor
+Sol paneldeki **Sayaç** kutusu parti başlangıcından beri **geçen parça, OK, NOK (yüzde), sistem
+hatası** ve **hata dağılımını** (hangi kontrol noktası, hangi sebeple, kaç kez) gösterir. Sayılar
+uygulama kapansa da kaybolmaz.
+- **PDF Rapor:** özet, nokta/sebep dağılımı, sistem hataları ve son 300 NOK parçanın listesi
+  (zaman, resim no, sebep). Masaüstüne `kalite_raporu_TARİH_SAAT.pdf` olarak kaydeder ve açar.
+- **Sıfırla:** yeni parti/vardiya başlatır (onay sorar); önceki değerler loga ve CSV'ye yazılır.
+- Her çekim için resimsiz bir satır `~/konveyor_loglari/parca-YYYY-AA-GG.csv` dosyasına eklenir
+  (Excel ile açılır, ayırıcı `;`): zaman, resim no, kaynak (plc/elle), sonuç, gecikme, hatalı
+  noktalar, sebepler, ölçümler. 16.000 parça yaklaşık 5 MB yer tutar.
+- **Sistem hatası** = parça denetlenemedi (kamera görüntüsü yok, kontrol noktası yok, ürün
+  çerçevesi bulunamadı); PLC'ye NOK yazılır ve sebebi sayaçta ayrı görünür.
+- Sebep adları: "kapalı / eksik / tıkalı" (delikte koyu alan az), "şekil uygun değil" (koyu blob
+  yuvarlak değil), "derinlik yetersiz", "oluk yok (oran bant dışı / şekil yok)", "ayna / ters parça".
+
 ## 4. Ayarlar (⚙)
 PLC (tip, IP, port, unit id, poll) · **Kamera 1 / Kamera 2** (grup başlığındaki kutu = kamerayı
 kullan) · çözünürlük (imx477 doğal modları: 4056x3040 ağır, 2028x1520, 2028x1080, 1332x990) ·

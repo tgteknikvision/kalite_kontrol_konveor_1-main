@@ -1,7 +1,7 @@
 # Saha Durumu — Konveyör Kalite Kontrol
 
 > Bu dosya HEP güncel gerçeği tutar. Durum değişince ilgili satırı **üstüne yaz**.
-> Son güncelleme: 2026-09-23 ~09:35
+> Son güncelleme: 2026-09-23 ~13:30
 
 ## Donanım / Makine
 - **Raspberry Pi 5**, kullanıcı `tg_pi5_kalite_kontrol_konveor`, makine `tgpi5kalitekontrolkonveor`.
@@ -65,6 +65,11 @@
   commit + 23 Eylül yerel commit'ler; `surum1-sablon` dalı yok.
 - `saha_ayarlari.conf` ✅ imx477 × 2 olarak güncellendi.
 - Loglar: `~/konveyor_loglari/denetim-YYYY-AA-GG.log` (10 Ağustos'tan beri 5 gün var).
+
+## Sayaç / kayıt (2026-09-23 13:30, kodda hazır; çalışan örnek eski kod → restart gerekli)
+- Sol panel "Sayaç": geçen/OK/NOK/sistem hatası + nokta-sebep dağılımı; `PDF Rapor` (masaüstüne)
+  ve `Sıfırla`. Kalıcı: `~/konveyor_loglari/sayac.json`; parça başına `parca-YYYY-AA-GG.csv`.
+  Resim KAYDEDİLMİYOR (kullanıcı kararı; 16.000 parça JPEG ≈ 2,5-5 GB olurdu).
 
 ## Uygulama ayarları (config.yaml — bugün 07:10'da GUI yazdı; 23 Eylül yerel commit'te)
 - `cameras`: camera1_enabled=**true**, camera2_enabled=**false** (kullanıcı bugün 3 kez değiştirdi).
