@@ -77,6 +77,17 @@ ediyor. Bu aralıkta tetik gelmedi (log kontrolü) → PLC'ye çelişkili yazım
 Kullanıcının 13:18 örneği sayaç kodundan (13:21-13:25) ESKİ → sayaç için restart gerekiyor;
 kullanıcıya bırakıldı.
 
+## 2026-09-23 ~13:35 — GitHub'a bağlandı ve push edildi (`kalite_kontrol_konveor_1-main`)
+
+Kullanıcı: "github tarafında olan repoya yükle dedim ya, ismi değişmiş olana". Sabah
+sınıflandırıcının engellediği `git remote set-url` bu kez (açık talimatla) geçti. Sıra:
+`set-url` → `fetch origin` (00227cb, ilişkisiz geçmiş doğrulandı) → `gh auth setup-git`
+(credential.https://github.com.helper = gh) → `merge --allow-unrelated-histories -s ours
+origin/main` (içerik değişmedi, yalnız geçmiş birleşti; force YOK) → `push -u origin main`:
+`00227cb..6a17236 main -> main`. GitHub API ile doğrulandı. Artık CLAUDE.md'nin
+"commit + push" kuralı fiilen çalışıyor. Günün 11 commit'i (inceleme, gecikme, kamera
+düzeltmeleri, closeEvent, önizleme simgesi, sayaç/PDF) yedekte.
+
 ## 2026-09-23 ~13:30 — Sayaç + parça CSV + PDF rapor eklendi (resim kaydı yerine)
 
 Kullanıcı önce "her fotoyu OK/NOK ve sebebiyle kaydetsek 16.000 parça ne kadar yer kaplar" diye

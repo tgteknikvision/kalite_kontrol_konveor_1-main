@@ -26,11 +26,11 @@ Dil: arayüz ve yorumlar **Türkçe**, kod tanımlayıcıları İngilizce.
 > 2. **Commit'le ve GitHub'a push et:** anlamlı bir mesajla commit; **hemen ardından push**.
 >    "Commit'leyeyim mi?" diye SORMA — değişiklik tamamlanır tamamlanmaz otomatik yap.
 >    Terminalde GitHub girişi yoksa VS Code "Sync/Push" ya da `gh auth login` kullan.
->    **⚠️ 2026-09-23: eski `origin` (kalite_kontrol_konveor_1) GitHub'da YOK. KULLANICI KARARI:
->    yeni uzak depo = `tgteknikvision/kalite_kontrol_konveor_1-main` (içeriği 10 Ağustos
->    upload'ıyla birebir aynı, kayıp yok). Ajanın `git remote set-url`/`push` komutları güvenlik
->    sınıflandırıcısınca engellendiği için ilk bağlama komutlarını kullanıcı çalıştırır (bkz. §12);
->    sonrasında push normal çalışır. Kör `--force` yerine `merge --allow-unrelated-histories -s ours`.**
+>    **✅ 2026-09-23 13:35: uzak depo = `tgteknikvision/kalite_kontrol_konveor_1-main` (public).**
+>    Eski `kalite_kontrol_konveor_1` GitHub'da yoktu; kullanıcı kararıyla `-main`'e bağlandı
+>    (`remote set-url` + `merge --allow-unrelated-histories -s ours` + push; force YOK, 25 Ağustos
+>    yükleme commit'i geçmişte duruyor). Kimlik: `gh auth setup-git` (gh, tgteknikvision).
+>    **Push artık çalışıyor** — kural aynen geçerli: değişiklik → commit → push.
 >    Commit mesajının sonundaki `Co-Authored-By:` satırını koru.
 > - **KAPSAM:** Yalnız proje dosyaları (kod/konfig/doküman). Kişisel makine ayarları
 >   (`~/.claude`, VS Code `settings.json` vb., kişisel mutlak yollar) repoya GİRMEZ; `.claude/*`
@@ -326,6 +326,10 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   CSV, kalıcılık, iki kamera etiketi, PDF %PDF-/22 KB, sıfırlama, uçtan uca `_capture_full_frame`).
   **TUZAK:** `LOG_DIR` sınıf niteliği → testte geçici klasöre al (aksi halde gerçek sayac.json/CSV
   bozulur).
+- **✅ 2026-09-23 13:35 — GITHUB BAĞLANDI:** kullanıcı "ismi değişmiş olana yükle" deyince
+  ajan `set-url` + `fetch` + `merge -s ours --allow-unrelated-histories` + `gh auth setup-git` +
+  `push -u origin main` yaptı (ilk denemede sınıflandırıcı engellemişti, açık talimatla geçti).
+  11 commit `-main`'e çıktı (00227cb..6a17236), `main` → `origin/main` izliyor, push çalışıyor.
 - **📌 2026-09-23 ~09:45 — GITHUB KARARI: uzak depo `kalite_kontrol_konveor_1-main`.**
   Kullanıcı seçti. O depo tek commit (00227cb, 25 Ağustos upload); `gh api` tarball ile indirilip
   karşılaştırıldı: 7 farklı dosyanın hepsi 10 Ağustos yerel commit'iyle (b235a18) BİREBİR AYNI →
