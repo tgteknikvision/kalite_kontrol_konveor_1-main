@@ -21,9 +21,9 @@ camera:
   awb_mode: Auto
   backend: picamera2
   color_gains: null
-  exposure_us: 200
+  exposure_us: 1000
   fps: 20
-  manual_exposure_enabled: true
+  manual_exposure_enabled: false
   max_frame_age_ms: 1000
   opencv_index: 0
   zoom: 1.0
@@ -45,20 +45,20 @@ disabled_rois: []
 disabled_rois_2: []
 dynamic_rois:
   '1':
-  - 118
-  - 285
-  - 192
-  - 195
+  - 82
+  - 217
+  - 154
+  - 142
   '2':
-  - 396
-  - 266
-  - 230
-  - 207
+  - 307
+  - 203
+  - 191
+  - 168
   '3':
-  - 94
-  - 15
-  - 485
-  - 107
+  - 51
+  - 3
+  - 452
+  - 80
 dynamic_rois_2:
   '1':
   - 571
@@ -123,10 +123,12 @@ roi:
   hole_use_circle_check: false
   notch_dark_max: 95.0
   notch_dark_min: 50.0
-  point_overrides: {}
+  point_overrides:
+    '3':
+      notch_dark_min: 40.0
   reference_box:
-  - 587
-  - 600
+  - 550
+  - 410
   roi_types:
     '1': hole
     '2': hole

@@ -26,6 +26,8 @@ Dil: arayüz ve yorumlar **Türkçe**, kod tanımlayıcıları İngilizce.
 > 2. **Commit'le ve GitHub'a push et:** anlamlı bir mesajla commit; **hemen ardından push**.
 >    "Commit'leyeyim mi?" diye SORMA — değişiklik tamamlanır tamamlanmaz otomatik yap.
 >    Terminalde GitHub girişi yoksa VS Code "Sync/Push" ya da `gh auth login` kullan.
+>    **⚠️ 2026-09-23: `origin` (kalite_kontrol_konveor_1) GitHub'da YOK → push başarısız oluyor;
+>    commit yerelde atılır, remote kararı kullanıcının (bkz. §12).**
 >    Commit mesajının sonundaki `Co-Authored-By:` satırını koru.
 > - **KAPSAM:** Yalnız proje dosyaları (kod/konfig/doküman). Kişisel makine ayarları
 >   (`~/.claude`, VS Code `settings.json` vb., kişisel mutlak yollar) repoya GİRMEZ; `.claude/`
@@ -249,8 +251,11 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 
 ## 9. Tuzaklar / kurallar (DİKKAT)
 - **`*.sh` dosyaları LF olmalı** (`.gitattributes` zorluyor). Windows CRLF olursa Pi'de
-  `bash\r: not found` hatası verir.
+  `bash\r: not found` hatası verir. **⚠️ 2026-09-23: bu klonda `.gitattributes` YOK →
+  zorlama fiilen kapalı; dosya yeniden eklenmeli.**
 - **`app.png` gitignore istisnası** (`!app.png`): ikon repoda kalır; `*.png` diğerleri hariç.
+  **⚠️ 2026-09-23: bu klonda `.gitignore` da YOK** (`.claude/`, `__pycache__` untracked görünüyor;
+  `git add -A` yapılırsa repoya girerler — yeniden eklenmeli).
 - **config.yaml her UI etkileşiminde yeniden yazılır** (`yaml.dump`): yorumlar kaybolur,
   uzun vadede SD kart aşınması riski. Anahtar eklerken kod tarafında `setdefault` kullan.
 - **Ayarlar/Kontrol Noktaları penceresi açıkken PLC poll durur** (`_dialog_paused`).
@@ -270,12 +275,30 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 - (Kaldırıldı: `PADIM_COLAB_PROMPT.md`, `COLAB_PADIM_EGITIM_NOTLARI.md`,
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
-## 12. Mevcut durum (2026-09-15 itibarıyla)
+## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **⚠️ 2026-09-23 TAM OKUMA İNCELEMESİ (kod değiştirilmedi) — dört acil bulgu:**
+  (1) **UYGULAMA KAMERASIZ ÇALIŞIYOR:** 07:10:43'te Ayarlar kaydında (K1 aç + K2 kapa aynı
+  anda) Kamera 1 Picamera2 "Camera __init__ sequence did not complete" → OpenCV yedeğine düştü
+  → kare yok → her tetik "Kamera görüntüsü yok" + HR100=1. Program picamera2'yi kendiliğinden
+  yeniden denemez → **uygulama yeniden başlatılmalı.** Sebep adayı: `_apply_settings` önce
+  `_start_camera(1)` sonra `_stop_camera(2)` çağırıyor (libcamera yarışı). (2) **İKİ imx477
+  takılı** (cam0 + cam1; ikincisi 18 Eylül'de). Kalibrasyon hâlâ yapılmadı: K1 çerçevesi
+  x=440,y=0,w=397,h=1088 (yanlış), K2 çerçevesi tüm kare. Bugün GUI'den
+  `manual_exposure_enabled false` + `exposure_us 1000` yazıldı → **poz kilidi yine KAPALI**.
+  (3) **GitHub `origin` YOK:** `tgteknikvision/kalite_kontrol_konveor_1` "Repository not found";
+  hesapta yalnız `kalite_kontrol_konveor_1-main` (25 Ağustos upload, FARKLI geçmiş) var → yerel
+  `main` 15 Eylül'den beri push edilemiyor. Remote'a dokunulmadı; kullanıcı karar verecek.
+  (4) Bu klonda **`.gitignore`/`.gitattributes` YOK** (§9 uyarıları fiilen devre dışı).
+  **Gizli kod hatası:** `worker.py::_open_camera` satır 74 `cam_cfg`'yi picamera2 config'iyle
+  gölgeliyor → `camera.awb_mode`/`color_gains` HİÇ uygulanmıyor (bugün Auto/null → etkisiz).
+  `saha_ayarlari.conf` hâlâ imx296×2 bekliyor. Ayrıntı: `/kalite` günlüğü 2026-09-23 +
+  `program_mimarisi.md` §6 "Gizli kod hataları".
 - **⚠️ KAMERA DEĞİŞTİ: imx296 (Global Shutter) → imx477 (HQ, ROLLING shutter) (2026-09-15).**
   Sebep: Arducam CSI-HDMI uzatıcıları imx296'da fiziksel sinyal arızası yapıyordu
   (2026-09-14 doğrulandı: tekrarlayan `-121 Remote I/O error` / `stream on failed`; imx296 o
   uzatıcının resmi destek listesinde yok). Kullanıcı cam0'a imx477 taktı, cam1 boş, TEK KAMERA
-  modu (`camera1_enabled: true`, `camera2_enabled: false`). Yeni düzende I2C/CSI hatası YOK.
+  modu (`camera1_enabled: true`, `camera2_enabled: false`). [⚠️ 2026-09-23: cam1'e de imx477
+  takıldı (18 Eylül) — şimdi İKİ imx477.] Yeni düzende I2C/CSI hatası YOK.
   **Güncel gerçek + kronoloji /kalite skill bilgi tabanında:**
   `.claude/skills/kalite/bilgi/{saha_durumu,calisma_gunlugu,program_mimarisi}.md`.
   - **imx477 için TÜM kalibrasyon SIFIRDAN gerekiyor** (farklı sensör/lens/FOV): alignment

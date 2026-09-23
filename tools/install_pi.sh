@@ -5,18 +5,34 @@
 # Kullanim (Pi uzerinde, proje klasorunde):
 #   bash tools/install_pi.sh
 #
-# Onkosul: veri_toplama venv'i kurulu olmali (picamera2'ye erisim icin
-#          tercihen:  python3 -m venv --system-site-packages veri_toplama)
+# Onkosul: gerekli kutuphaneler kurulu olmali. venv VARSA venv, YOKSA sistem
+# python'u kullanilir (calistir.sh ile ayni mantik) — Debian 13'te picamera2/
+# PyQt5/opencv/pymodbus apt'tan geldigi icin venv sart degil.
 set -e
 
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
-PY="$DIR/veri_toplama/bin/python"
 
-if [ ! -x "$PY" ]; then
-  echo "HATA: $PY bulunamadi. Once venv kurun:"
-  echo "  python3 -m venv --system-site-packages veri_toplama"
-  echo "  veri_toplama/bin/pip install -r requirements.txt"
-  exit 1
+# venv VARSA onu, YOKSA sistem python'unu kullan.
+# NEDEN: sahadaki Pi'lerde venv kurulmuyor (kutuphaneler apt'tan geliyor) ve bu
+# betik "veri_toplama/bin/python bulunamadi" ile duruyordu — calistir.sh'ta
+# cozulen tuzagin aynisi burada da vardi.
+if [ -x "$DIR/veri_toplama/bin/python" ]; then
+  PY="$DIR/veri_toplama/bin/python"
+else
+  PY="$(command -v python3)"
+  if [ -z "$PY" ]; then
+    echo "HATA: python3 bulunamadi." >&2
+    exit 1
+  fi
+fi
+
+# Kisayol calisir durumda mi: eksik kutuphane varsa ikon SESSIZCE acilmaz,
+# o yuzden kurulum aninda uyar (kurulumu engellemez).
+if ! "$PY" -c "import picamera2, PyQt5, cv2, yaml, pymodbus" 2>/dev/null; then
+  echo "UYARI: $PY ile gerekli kutuphaneler ice aktarilamadi."
+  echo "       Ikon kurulacak ama uygulama acilmayabilir."
+  echo "       Kurulum:  bash tools/kurulum_pi.sh"
+  echo "       (ya da: sudo apt install python3-picamera2 python3-pyqt5 python3-opencv python3-yaml python3-pymodbus)"
 fi
 
 APP_DIR="$HOME/.local/share/applications"
@@ -37,10 +53,18 @@ StartupNotify=true
 EOF
 chmod +x "$DESKTOP"
 
-# Masaustune de kopyala (varsa)
-if [ -d "$HOME/Desktop" ]; then
-  cp "$DESKTOP" "$HOME/Desktop/konveyor-denetim.desktop"
-  chmod +x "$HOME/Desktop/konveyor-denetim.desktop" || true
+# Masaustune de kopyala. Klasor adi yerellestirilmis olabilir ("Masaüstü") —
+# once XDG'ye sor, sonra bilinen adlari dene.
+DESKTOP_DIR="$(xdg-user-dir DESKTOP 2>/dev/null || true)"
+if [ -z "$DESKTOP_DIR" ] || [ ! -d "$DESKTOP_DIR" ]; then
+  for d in "$HOME/Desktop" "$HOME/Masaüstü"; do
+    [ -d "$d" ] && DESKTOP_DIR="$d" && break
+  done
+fi
+if [ -n "$DESKTOP_DIR" ] && [ -d "$DESKTOP_DIR" ]; then
+  cp "$DESKTOP" "$DESKTOP_DIR/konveyor-denetim.desktop"
+  chmod +x "$DESKTOP_DIR/konveyor-denetim.desktop" || true
+  echo "Masaustu   : $DESKTOP_DIR/konveyor-denetim.desktop"
 fi
 
 # Menu onbellegini tazele (varsa)
