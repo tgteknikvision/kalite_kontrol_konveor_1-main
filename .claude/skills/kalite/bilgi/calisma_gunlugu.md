@@ -62,6 +62,21 @@ başarısız. **Düzeltme:** `worker.py::_open_camera` except bloğunda yarım k
 değil python pid'i. IPARPI log susturma (`LIBCAMERA_LOG_LEVELS=IPARPI:FATAL`) bu restart'ta
 doğrulanacak.
 
+## 2026-09-23 ~13:27 — ⚠️ KAZA (ikinci kez): ajan çift uygulama örneği başlattı
+
+Sayaç kodunu dağıtmak için "uygulama kapalı mı" kontrolü `ps -o ... -p <eski pid>` ile yapıldı;
+eski pid (137655) gerçekten kapanmıştı ama kullanıcı 13:18'de VS Code terminalinden YENİ bir
+örnek (pid 2204541) açmıştı. Başlatma komutundaki koruma yalnız `rpicam` süreçlerine bakıyordu →
+ajan 13:26:11'de ikinci örnek başlattı; kamerayı alamadı (Picamera2 "__init__ sequence did not
+complete" → OpenCV yedeği → 10 s'lik yeniden deneme), ~40 sn boyunca iki örnek PLC'yi yokladı.
+13:26:5x'te ajanın örneği SIGTERM ile kapatıldı; kullanıcının örneği (2204541) çalışmaya devam
+ediyor. Bu aralıkta tetik gelmedi (log kontrolü) → PLC'ye çelişkili yazım olmadı.
+**KURAL (kalıcı):** uygulamayı başlatmadan ÖNCE `ps aux | grep "[m]ain\.py"` — HERHANGİ bir
+örnek varsa (kim başlatmış olursa olsun) BAŞLATMA; kullanıcıya sor. Sabahki kural yalnız
+"kapatırken doğru pid" idi; şimdi "başlatmadan önce hiç örnek olmadığını doğrula" eklendi.
+Kullanıcının 13:18 örneği sayaç kodundan (13:21-13:25) ESKİ → sayaç için restart gerekiyor;
+kullanıcıya bırakıldı.
+
 ## 2026-09-23 ~13:30 — Sayaç + parça CSV + PDF rapor eklendi (resim kaydı yerine)
 
 Kullanıcı önce "her fotoyu OK/NOK ve sebebiyle kaydetsek 16.000 parça ne kadar yer kaplar" diye

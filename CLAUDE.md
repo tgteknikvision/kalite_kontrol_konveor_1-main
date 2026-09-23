@@ -407,7 +407,10 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   edilmediği için kamera bu süreçte ACQUIRED kalmıştı → sonraki her `Picamera2(0)` başarısız.
   **Düzeltme:** `worker.py::_open_camera` except bloğunda yarım nesne `cam.close()` edilir
   (testli). **KURAL:** uygulamayı kapatırken pid'i `pgrep -f "^/usr/bin/python3 main.py"` ile
-  al; iki örnek ASLA aynı anda çalışmasın (ikisi de HR100'e yazar). Ajan başlatma komutu:
+  al; iki örnek ASLA aynı anda çalışmasın (ikisi de HR100'e yazar). **BAŞLATMADAN ÖNCE de
+  `ps aux | grep "[m]ain\.py"` ile HİÇ örnek olmadığını doğrula** — 13:26'da kullanıcının VS
+  Code'dan açtığı örnek varken ajan ikinci örnek başlattı (kamera alınamadı, PLC çift yoklandı,
+  tetik gelmediği için zarar olmadı; ajanın örneği kapatıldı). Ajan başlatma komutu:
   `setsid nohup env DISPLAY=:0 WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000
   DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus python3 main.py >> ~/konveyor_loglari/
   uygulama-stdout.log 2>&1 &` (proje kökünden). `main.py` başında
