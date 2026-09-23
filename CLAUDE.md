@@ -84,6 +84,8 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
+tests/                  Ekransız regresyon testleri (91 test, 4 dosya) + calistir_testler.sh;
+                        gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
                         kamera_onizleme.sh (masaüstü "Kamera Önizleme" simgesi: programdan
@@ -284,6 +286,10 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   Kalibrasyon modu/kilidi 2026-07-10'da KALDIRILDI; config'teki eski `calibration.*`
   bloğu artık yazılmıyor (ölü anahtar, durabilir).
 - Kamera çözünürlük/zoom değişince template referansları sıfırlanır (ölçeğe bağımlı).
+- **TESTLER REPODA (`tests/`), /tmp'DE DEĞİL (2026-09-23):** ekransız testler önce oturum
+  scratchpad'inde (`/tmp/claude-…`) tutuluyordu; Pi yeniden başlayınca `/tmp` temizlendi ve
+  sabahki takım kayboldu. Kural: her yeni test `tests/test_*.py`'ye yazılır, `bash
+  tests/calistir_testler.sh` ile koşulur; kod değişince önce bu koşulur.
 - **Çökme güvenliği:** `main()` global `sys.excepthook` kurar → konsolsuz pythonw'da
   yakalanmamış hata uygulamayı SESSİZCE kapatmaz (dialog gösterir).
 - **✅ 2026-09-23, GERÇEK sahada yaşandı — "uygulama donuyor, kapatamıyorum":**

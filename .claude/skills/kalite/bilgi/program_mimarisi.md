@@ -602,6 +602,13 @@ yan yana `--preview x,60,w,h`, başlık `--info-text "Kamera N (camI) | poz %exp
 kancaları: `ONIZLEME_APP_KONTROL=0`, `ONIZLEME_SADECE="1"`; ilk argüman süre (ms). libcamera
 hataları ("Camera frontend has timed out" = kablo) terminalde canlı görünür.
 
+#### `tests/` — ekransız regresyon testleri (2026-09-23)
+`bash tests/calistir_testler.sh` (QT offscreen, her dosyanın TOPLAM satırı; çıkış = hatalı dosya
+sayısı). Dosyalar: `test_gecikme_kamera.py` (worker gölgeleme/yedek/yarım nesne; gecikme kutusu,
+damga, aç/kapa sırası, Enter, imx477 modları), `test_closeevent.py`, `test_sayac.py`,
+`test_paket.py`. Ortak kalıp: geçici config (`main.load_config` yaması), `MainWindow.LOG_DIR`
+geçici, `_start_worker` no-op, `QMessageBox` susturma, sahte worker/picamera2 modülleri.
+
 ### 3.8 CLAUDE.md ve PROGRAM_KULLANIM_NOTLARI.md
 
 - **CLAUDE.md (900 satır):** doğruluk kaynağı; koddan çıkarılamayan kararlar, saha

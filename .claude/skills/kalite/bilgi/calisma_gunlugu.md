@@ -77,6 +77,15 @@ ediyor. Bu aralıkta tetik gelmedi (log kontrolü) → PLC'ye çelişkili yazım
 Kullanıcının 13:18 örneği sayaç kodundan (13:21-13:25) ESKİ → sayaç için restart gerekiyor;
 kullanıcıya bırakıldı.
 
+## 2026-09-23 ~13:55 — Testler repoya taşındı (`tests/`), sabahki takım /tmp ile kaybolmuştu
+
+Regresyon koşarken `test_23eylul.py` bulunamadı: Pi 09:10'da yeniden başlayınca `/tmp` (oturum
+scratchpad'i) temizlenmiş; sabahki test dosyası ve saha log yedeği silinmişti. Dosya konuşma
+geçmişinden birebir yeniden yazıldı (`tests/test_gecikme_kamera.py`, 29 test) ve diğer üç test
+(`test_closeevent` 11, `test_sayac` 27, `test_paket` 24) göreli yolla `tests/`'e kopyalandı;
+`tests/calistir_testler.sh` koşucu + `tests/README.md`. Hepsi geçti (91/91). Kural CLAUDE.md
+§9'a eklendi: testler repoda yaşar, kod değişince önce koşulur.
+
 ## 2026-09-23 ~13:45 — Paket adedi kutusu + dolu paket uyarısı + görünür spinbox okları
 
 Kullanıcı: OK/NOK'un altına paket adedi kutusu (varsayılan 100, oklu); 100'e gelince ekranda
