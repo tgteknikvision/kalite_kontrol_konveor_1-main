@@ -276,6 +276,13 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 - Kamera çözünürlük/zoom değişince template referansları sıfırlanır (ölçeğe bağımlı).
 - **Çökme güvenliği:** `main()` global `sys.excepthook` kurar → konsolsuz pythonw'da
   yakalanmamış hata uygulamayı SESSİZCE kapatmaz (dialog gösterir).
+- **✅ 2026-09-23, GERÇEK sahada yaşandı — "uygulama donuyor, kapatamıyorum":**
+  `closeEvent`'teki eski `worker.wait()` (argümansız = SÜRESİZ) ile kamera worker thread'i
+  bir kare bekleyip takılırsa (gdb ile doğrulandı: ana thread `pthread_cond_wait`'te, worker
+  GIL/kare bekleme noktasında) KARŞILIKLI KİLİTLENME oluyordu — pencere asla kapanmıyordu.
+  Düzeltildi: `wait(3000)` sınırlı, zaman aşımında `os._exit(1)` ile zorla kapanır (11 testle
+  doğrulandı). Kameranın NEDEN donduğu (kök sebep) hâlâ açık; log'da `[HATA] Kamera thread'i
+  3 sn içinde kapanmadı` görülürse kamera tarafı ayrıca incelenmeli.
 
 ## 10. Geri dönüş (reversibility)
 - **`git checkout surum1-sablon`** → delik tespiti eklenmeden önceki (template) sürüm.
@@ -288,6 +295,20 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-23 ~09:20 — "KAPATAMIYORUM" DONMASI: GERÇEK KARŞILIKLI KİLİTLENME BULUNDU
+  VE DÜZELTİLDİ (kullanıcı: "uygulama dondu kapatamıyorum neden acaba"):** Pi 09:10'da yeniden
+  başlamış, uygulama boot'tan 28 sn sonra açılmış, ~5 dk sonra donmuş. **gdb ile canlı sürece
+  bağlanıp thread yığınları alındı (py-spy yoktu):** ana GUI thread'i `closeEvent` →
+  `worker.wait()` (argümansız, SÜRESİZ) → `pthread_cond_wait`'te asılıydı; kamera worker
+  thread'i de bir kare (libcamera tamamlanma callback'i) beklerken GIL/semafor noktasında
+  takılıydı — klasik karşılıklı kilitlenme, ikisi de ilerleyemiyordu. Bu tam olarak §9'da daha
+  önce "açık risk" diye not edilen madde, bugün ilk kez GERÇEK olayla doğrulandı. Donmuş süreç
+  `kill -9` ile kapatıldı, `closeEvent` düzeltildi (`wait(3000)` + zaman aşımında `os._exit(1)`
+  ile zorla kapanış — bkz. §9), 11 ekransız testle doğrulandı, uygulama yeni kodla yeniden
+  başlatıldı (Kamera 1 geldi). **Kameranın NEDEN donduğu kök sebep hâlâ açık** (cold-boot'ta
+  libcamera/CFE zamanlaması mı, sabah eklenen 10 sn'lik Picamera2 yeniden-deneme döngüsünden
+  kalma bir yarış mı — belli değil); tekrarlarsa `[HATA] Kamera thread'i 3 sn içinde kapanmadı`
+  logu iz bırakır.
 - **✅ 2026-09-23 — İNCELEME SONRASI DÜZELTMELER + ÇEKİM GECİKMESİ ANA EKRANDA (kullanıcı:
   "önerilerini yapalım" + "foto çekmeyi erteleme şansı, resme bakıp süreyi artırıp azaltacağım"):**
   (1) **`_apply_settings` kamera aç/kapa SIRASI:** önce KAPAT (`_stop_camera` + wait) sonra AÇ.

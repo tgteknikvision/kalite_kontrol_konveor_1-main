@@ -2038,15 +2038,34 @@ class MainWindow(QMainWindow):
             yaml.dump(self.config, f, default_flow_style=False)
 
     def closeEvent(self, event):
-        if self.worker:
-            self.worker.stop()
-            self.worker.wait()
-        if self.worker2:
-            self.worker2.stop()
-            self.worker2.wait()
-        if self.plc:
-            self.plc.close()
+        """2026-09-23 SAHADA GERÇEK KİLİTLENME: worker.wait() süresizdi (`QThread.wait()`
+        argümansız = sonsuz bekleme). Kamera worker'ı bir karenin gelmesini (Picamera2
+        capture_array -> libcamera'nın tamamlanma callback'i) beklerken tıkanırsa, GUI
+        thread'i closeEvent içinde bu bekleme yüzünden SONSUZA KADAR asılı kalıyor -
+        pencere KAPANMIYOR, tıklamalara cevap vermiyor ("donuyor"). Gerçek olayda gdb ile
+        doğrulandı: ana thread QThread::wait()->pthread_cond_wait'te, kamera worker
+        thread'i GIL/semafor beklemesinde - ikisi birbirini bekleyip kilitleniyordu.
+        Düzeltme: `_stop_camera` ile AYNI mantık - sınırlı bekleme (3 sn); dolmazsa
+        pencereyi yine de kapat ve kamera/libcamera thread'i C seviyesinde takılı
+        kalabileceği için normal Python kapanışını BEKLEMEDEN `os._exit` ile sonlandır
+        (aksi halde interpreter kapanışı da aynı şekilde asılı kalabilir)."""
+        for w in (self.worker, self.worker2):
+            if w:
+                w.stop()
+        timed_out = False
+        for w in (self.worker, self.worker2):
+            if w and not w.wait(3000):
+                timed_out = True
+        try:
+            if self.plc:
+                self.plc.close()
+        except Exception:
+            pass
         event.accept()
+        if timed_out:
+            self._append_log("[HATA] Kamera thread'i 3 sn içinde kapanmadı; "
+                             "uygulama zorla sonlandırılıyor (donma önlendi).")
+            os._exit(1)
 
 def apply_dark_palette(app):
     """Stylesheet'in dokunmadigi varsayilan-arka planli widget'lari (panel

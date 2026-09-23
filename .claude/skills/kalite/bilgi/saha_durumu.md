@@ -1,7 +1,7 @@
 # Saha Durumu — Konveyör Kalite Kontrol
 
 > Bu dosya HEP güncel gerçeği tutar. Durum değişince ilgili satırı **üstüne yaz**.
-> Son güncelleme: 2026-09-23 ~07:50
+> Son güncelleme: 2026-09-23 ~09:20
 
 ## Donanım / Makine
 - **Raspberry Pi 5**, kullanıcı `tg_pi5_kalite_kontrol_konveor`, makine `tgpi5kalitekontrolkonveor`.
@@ -14,6 +14,14 @@
   Pi eth0 statik `192.168.10.50/24` (gateway YOK, internet wlan0'dan).
 
 ## ⚠️ AKTİF SORUNLAR (2026-09-23)
+0. ✅ **ÇÖZÜLDÜ (09:20) — "kapatamıyorum" (gerçek karşılıklı kilitlenme, gdb ile doğrulandı):**
+   Pi 09:10'da yeniden başlamış, pid 5553 boot'tan 28 sn sonra açılmış, ~5 dk sonra donmuş.
+   Ana thread `closeEvent`'te süresiz `worker.wait()`'te, kamera worker'ı bir kare bekleyip
+   takılı kalmıştı — klasik karşılıklı kilitlenme. `kill -9` ile kapatıldı; `closeEvent` artık
+   sınırlı bekliyor (3 sn) ve zaman aşımında `os._exit` ile zorla kapanıyor (bir daha
+   "kapatamıyorum" olamaz). Kameranın NEDEN donduğu kök sebebi hâlâ açık — tekrarlarsa
+   `[HATA] Kamera thread'i 3 sn içinde kapanmadı` logunu izle. Uygulama pid 88319, 09:20'de
+   yeni kodla açık, Kamera 1 çalışıyor.
 1. ✅ **ÇÖZÜLDÜ (07:44) — kamerasız kalma.** 07:10:43'te K1 aç + K2 kapa aynı anda → Picamera2
    "Camera __init__ sequence did not complete" → OpenCV yedeği, kare yok, her tetik NOK. Kullanıcı
    07:25'te yeniden başlattı (kamera geldi); ajan 07:44, 07:48 ve 07:52'de YENİ KODLA yeniden başlattı (son: pid 446752, kamera + PLC OK, IPARPI spam yok):

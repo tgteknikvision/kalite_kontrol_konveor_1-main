@@ -907,8 +907,15 @@ karşılığı — elle senkron tutulur.
 - ✅ **DÜZELTİLDİ — Enter/BOŞLUK koruması:** `MainWindow.keyPressEvent` odak QAbstractSpinBox /
   QLineEdit / QTextEdit / QComboBox'taysa çekim tetiklemez (QSpinBox Enter'ı ignore edip üste
   geçiriyordu → eşik kutusunda Enter, Elle Çekim Modunda çekim yapıyordu).
-- ⏳ `closeEvent` `worker.wait()` zaman aşımsız (kamera okuma takılırsa kapanış asılabilir);
-  `_stop_camera` 3 s bekliyor.
+- ✅ **DÜZELTİLDİ (09:20, sahada GERÇEK olayla doğrulandı) — `closeEvent` `worker.wait()`
+  zaman aşımı:** eskiden argümansız (süresiz) `wait()` vardı; gdb ile canlı donmuş sürece
+  bağlanıp doğrulandı — ana thread `pthread_cond_wait`'te, worker thread'i GIL/kare bekleme
+  noktasında, klasik karşılıklı kilitlenme. Artık `_stop_camera` ile aynı mantık: `wait(3000)`
+  (sınırlı); zaman aşımına uğrarsa `event.accept()` ile pencere yine KAPANIR ve `os._exit(1)`
+  ile zorla sonlandırılır (interpreter kapanışı da aynı şekilde asılabileceği için normal
+  Python çıkışı beklenmez). 11 ekransız testle doğrulandı (`test_closeevent.py`). Kameranın
+  NEDEN donduğu (kök sebep) hâlâ açık soru; `[HATA] Kamera thread'i 3 sn içinde kapanmadı`
+  logu görülürse kamera tarafı ayrıca incelenmeli.
 - ⏳ `main.py` `if True:` kalıntı (zararsız). `features._has_circle` ve config `hole_use_circle_check`
   ölü. `reference_profile`/template yolu yalnız eski config için.
 - ⏳ `tools/plc_smoke_test.py` unit_id varsayılanı 1 (config'te 0; config okunduğu için sorun yok).

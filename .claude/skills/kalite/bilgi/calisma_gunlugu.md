@@ -62,6 +62,43 @@ başarısız. **Düzeltme:** `worker.py::_open_camera` except bloğunda yarım k
 değil python pid'i. IPARPI log susturma (`LIBCAMERA_LOG_LEVELS=IPARPI:FATAL`) bu restart'ta
 doğrulanacak.
 
+## 2026-09-23 ~09:20 — "Uygulama dondu, kapatamıyorum" — gerçek deadlock bulundu + düzeltildi
+
+Kullanıcı: uygulama donmuş, kapatamıyor, sebebini soruyor. (Bağlam: Pi 09:10:43'te yeniden
+başlamış — muhtemelen kullanıcı elle reboot etti — ve pid 5553 boot'tan 28 sn sonra otomatik/
+elle açılmış, ~5 dk sonra donmuş.)
+
+**Teşhis (gdb ile canlı sürece bağlanıp thread yığınları alındı — py-spy yoktu):**
+- Ana GUI thread'i: `closeEvent` → `worker.wait()` (argümansız = SÜRESİZ) → `QThread::wait` →
+  `pthread_cond_wait`'te SONSUZA KADAR bekliyordu. Kullanıcı pencereyi kapatmaya çalışmış,
+  Qt `closeEvent`'i çağırmış, orada asılı kalmış.
+- Kamera worker QThread'i (InspectionWorker): Python semafor/GIL bekleme noktasında
+  (`_PySemaphore_Wait`/`_PyParkingLot_Park`) — muhtemelen `cam.capture_array()` içinde bir
+  karenin (libcamera tamamlanma callback'i) gelmesini bekliyordu, kare hiç gelmedi.
+- **KLASİK KARŞILIKLI KİLİTLENME:** ana thread `worker.wait()`'te süresiz bekliyor, worker
+  thread'i de bir GIL/kare bekleme noktasında takılı — ikisi de ilerleyemiyor. Bu, CLAUDE.md/
+  program_mimarisi.md'de daha önce "açık risk" olarak not edilmiş ama sahada YAŞANMAMIŞTI
+  ("closeEvent worker.wait() zaman aşımsız") — bugün ilk kez gerçek olayla doğrulandı.
+- `dmesg` boot loglarında imx477 kayıtları normal görünüyordu (özel bir donanım hatası yoktu);
+  kamera thread'inin NEDEN tıkandığı (cold-boot'ta libcamera/CFE tam oturmadan mı, yoksa sabah
+  eklenen 10 sn'lik Picamera2 yeniden-deneme döngüsünden kalma bir yarış mı) kesin belli değil —
+  izlenecek açık soru.
+
+**Yapılan:**
+1. Donmuş süreç `kill -9` ile sonlandırıldı (SIGTERM denenmedi çünkü default davranış zaten
+   kernel seviyesinde anında öldürür — doğrudan -9 kullanıldı).
+2. `main.py::closeEvent` düzeltildi: `_stop_camera` ile AYNI mantık — `wait(3000)` (sınırlı),
+   zaman aşımına uğrarsa pencere yine `event.accept()` ile KAPANIR ve normal Python kapanışını
+   beklemeden `os._exit(1)` ile ZORLA sonlandırılır (kamera/libcamera thread'i C seviyesinde
+   takılı kalabileceği için interpreter kapanışı da aynı şekilde asılabilirdi). 11 ekransız
+   testle doğrulandı (normal kapanış / donmuş worker / iki kameradan biri donmuş / worker yok).
+3. Uygulama yeni kodla yeniden başlatıldı (pid 88319, Kamera 1 Picamera2 açıldı, 09:20).
+
+**Sonuç:** "Kapatamıyorum" sorunu ARTIK OLAMAZ — worker ne kadar takılı kalırsa kalsın pencere
+en geç 3 sn içinde kapanır (zorla). Kameranın NEDEN donduğu (kök sebep) hâlâ açık; sahada
+tekrarlarsa `[HATA] Kamera thread'i 3 sn içinde kapanmadı` logu iz bırakır — böyle bir log
+görülürse kamera tarafı (soğuk açılış zamanlaması / retry döngüsü) ayrıca incelenmeli.
+
 ## 2026-09-23 ~07:20 — Program baştan sona okundu + inceleme raporu; UYGULAMA KAMERASIZ (her tetik NOK)
 
 Kullanıcı: "programı en ince dosyasına kadar okuyup inceler misin". Tüm kaynak (main.py 1987,
