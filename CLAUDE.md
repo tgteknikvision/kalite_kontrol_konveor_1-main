@@ -30,8 +30,8 @@ Dil: arayüz ve yorumlar **Türkçe**, kod tanımlayıcıları İngilizce.
 >    commit yerelde atılır, remote kararı kullanıcının (bkz. §12).**
 >    Commit mesajının sonundaki `Co-Authored-By:` satırını koru.
 > - **KAPSAM:** Yalnız proje dosyaları (kod/konfig/doküman). Kişisel makine ayarları
->   (`~/.claude`, VS Code `settings.json` vb., kişisel mutlak yollar) repoya GİRMEZ; `.claude/`
->   gitignore'da. **Çapraz-makine:** Windows ve Pi aynı repoyu paylaşır → push'tan önce gerekiyorsa
+>   (`~/.claude`, VS Code `settings.json` vb., kişisel mutlak yollar) repoya GİRMEZ; `.claude/*`
+>   gitignore'da (**istisna: `.claude/skills/` TAKİP EDİLİR** — `/kalite` proje hafızası, 2026-09-23). **Çapraz-makine:** Windows ve Pi aynı repoyu paylaşır → push'tan önce gerekiyorsa
 >   `git pull` ile senkron ol, çakışmayı çözüp öyle push et (kör `--force` YOK).
 
 ## 1. Proje nedir
@@ -69,7 +69,8 @@ main.py                 PyQt5 GUI + tüm orkestrasyon (MainWindow + SettingsDial
                         _start_worker2 / _capture_full_frame(VE'leme).
 config.yaml             Tek kalıcı konfigürasyon (GUI okur/yazar).
 inspector/worker.py     InspectionWorker(config, cam_index) — kamera QThread'i; cam0='camera',
-                        cam1='camera2' anahtarları. picamera2 ana, OpenCV yedek.
+                        cam1='camera2' anahtarları. picamera2 ana, OpenCV yedek; yedekten kare
+                        gelmezse 10 s'de bir picamera2 yeniden denenir (2026-09-23).
 inspector/plc.py        NullPLCAdapter + ModbusTCPPLCAdapter. Tetik/sonuç handshake.
 inspector/features.py   ROI analiz motoru: 'hole' (delik açık-alan+şekil + delik/çentik tipi) +
                         'template' (eski) + YÖN/EL kontrolü (ayna/simetrik parça → NOK).
@@ -88,7 +89,8 @@ yollar; PLC'den haberi yok. PLC tüm işlemleri GUI thread'inde `QTimer` ile (`p
 20 ms) yürür. Köprü: tetikte GUI worker'ın `last_raw_frame`'ini okur.
 
 **Arayüz düzeni (main.py):** Sol kolon ("Sistem Durumu" + "Çalışma Modu": Elle Çekim Modu
-kutusu + ipucu; **en dibinde "⚙ Ayarlar" butonu**; kaydırılabilir, sabit 320px) + sağda
+kutusu + **"Çekim Gecikmesi (ms)" kutusu (2026-09-23, canlı ayar; bkz. §8
+`inspection.trigger_delay_ms`)** + ipucu; **en dibinde "⚙ Ayarlar" butonu**; kaydırılabilir, sabit 320px) + sağda
 `content_widget`. **"⚙ Ayarlar" BİLİNÇLİ OLARAK SOL PANELDE (2026-07-30):** eskiden kamera
 satırındaydı; bir kamera kapatılınca o satır gizlendiği için Ayarlar'a ERİŞİLEMİYORDU
 (kamera 1 kapalıyken geri açmak imkânsızdı) — Ayarlar tüm kameralar+PLC için ortak olduğundan
@@ -236,7 +238,8 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   DETAY ÜRETMEZ, bulanıklaştırır. Pi'de ölçüldü (aynı alanı gösteren çıktılar, Laplacian):
   640×480+zoom2 = gerçek detayın %21, 1280×960+zoom2 = %33, 1456×1088+zoom2 = %54,
   **zoom yok (native kırpma) = %100**. Keskinlik için: `1456x1088` (imx296 native, listeye
-  2026-07-30'da eklendi) + `zoom: 1.0`. Daha büyük görüntü gerekiyorsa tek gerçek çözüm
+  2026-07-30'da eklendi) + `zoom: 1.0`. **imx477 native modları (4056x3040 / 2028x1520 /
+  2028x1080 / 1332x990) listeye 2026-09-23'te eklendi** (4056x3040 ağır: ≤10 fps). Daha büyük görüntü gerekiyorsa tek gerçek çözüm
   OPTİK (kamerayı yaklaştır / lens değiştir).
 - **İKİ KAMERA (§13):** `cameras.camera1_enabled` / `cameras.camera2_enabled` (bool; her kamera
   BAĞIMSIZ açılır-kapanır, ikisi birden kapatılamaz; eski `cameras.enabled_count` geriye-uyumlu
@@ -248,14 +251,23 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 - `plc.*`: host/port/unit_id/poll_ms/timeout_s/reconnect_s, registers {nok:100, trigger:101},
   **`manual_mode`** (true → PLC tamamen kapalı, elle çekim; bkz. §7).
 - `inspection.trigger_delay_ms`: tetikten sonra çekime kadar bekleme (ürün ortalansın diye).
+  **SOL PANELDEKİ "Çekim Gecikmesi" kutusundan CANLI ayarlanır (2026-09-23, kullanıcı isteği:
+  "foto çekmeyi erteleme şansı, resme bakıp artırıp azaltacağım").** Ayarlar penceresinde de var ama
+  pencere açıkken PLC tetiği durduğu için ürün geçirerek deneme oradan yapılamıyordu. Her PLC
+  çekiminde resmin SOL ALTINA `Gecikme X ms | kare Y ms` damgası basılır (`_stamp_capture_note`;
+  editörün kullandığı saklanan kare TEMİZ kalır) ve loga `gecikme X ms, tetikten Z ms sonra, kare
+  yaşı Y ms` düşer (nokta çizilmemişken `[Kurulum]` satırında da → gecikme nokta çizmeden ayarlanır).
+  Ayar döngüsü: ürün geçir → resme bak → ürün gelmemişse ARTIR, geçmişse AZALT. `kare yaşı` =
+  worker'ın son karesinin eskiliği (20 fps'te ≤50 ms belirsizlik; kararlılık için FPS artır).
+  Işık tetikle yanıp sönüyorsa gecikme ışık süresini aşmamalı.
 
 ## 9. Tuzaklar / kurallar (DİKKAT)
 - **`*.sh` dosyaları LF olmalı** (`.gitattributes` zorluyor). Windows CRLF olursa Pi'de
-  `bash\r: not found` hatası verir. **⚠️ 2026-09-23: bu klonda `.gitattributes` YOK →
-  zorlama fiilen kapalı; dosya yeniden eklenmeli.**
+  `bash\r: not found` hatası verir. (2026-09-23: bu klonda eksikti, yeniden eklendi.)
 - **`app.png` gitignore istisnası** (`!app.png`): ikon repoda kalır; `*.png` diğerleri hariç.
-  **⚠️ 2026-09-23: bu klonda `.gitignore` da YOK** (`.claude/`, `__pycache__` untracked görünüyor;
-  `git add -A` yapılırsa repoya girerler — yeniden eklenmeli).
+  **2026-09-23: `.gitignore` yeniden eklendi.** Kural: `.claude/*` ignore, **`.claude/skills/` TAKİP
+  EDİLİR** (`/kalite` skill'i = proje hafızası; Windows ↔ Pi arasında taşınsın, SD arızasında
+  kaybolmasın); kişisel settings/hook'lar yine dışarıda. venv, `__pycache__`, `*.log` de ignore.
 - **config.yaml her UI etkileşiminde yeniden yazılır** (`yaml.dump`): yorumlar kaybolur,
   uzun vadede SD kart aşınması riski. Anahtar eklerken kod tarafında `setdefault` kullan.
 - **Ayarlar/Kontrol Noktaları penceresi açıkken PLC poll durur** (`_dialog_paused`).
@@ -276,23 +288,61 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
-- **⚠️ 2026-09-23 TAM OKUMA İNCELEMESİ (kod değiştirilmedi) — dört acil bulgu:**
-  (1) **UYGULAMA KAMERASIZ ÇALIŞIYOR:** 07:10:43'te Ayarlar kaydında (K1 aç + K2 kapa aynı
-  anda) Kamera 1 Picamera2 "Camera __init__ sequence did not complete" → OpenCV yedeğine düştü
-  → kare yok → her tetik "Kamera görüntüsü yok" + HR100=1. Program picamera2'yi kendiliğinden
-  yeniden denemez → **uygulama yeniden başlatılmalı.** Sebep adayı: `_apply_settings` önce
-  `_start_camera(1)` sonra `_stop_camera(2)` çağırıyor (libcamera yarışı). (2) **İKİ imx477
-  takılı** (cam0 + cam1; ikincisi 18 Eylül'de). Kalibrasyon hâlâ yapılmadı: K1 çerçevesi
-  x=440,y=0,w=397,h=1088 (yanlış), K2 çerçevesi tüm kare. Bugün GUI'den
-  `manual_exposure_enabled false` + `exposure_us 1000` yazıldı → **poz kilidi yine KAPALI**.
-  (3) **GitHub `origin` YOK:** `tgteknikvision/kalite_kontrol_konveor_1` "Repository not found";
-  hesapta yalnız `kalite_kontrol_konveor_1-main` (25 Ağustos upload, FARKLI geçmiş) var → yerel
-  `main` 15 Eylül'den beri push edilemiyor. Remote'a dokunulmadı; kullanıcı karar verecek.
-  (4) Bu klonda **`.gitignore`/`.gitattributes` YOK** (§9 uyarıları fiilen devre dışı).
-  **Gizli kod hatası:** `worker.py::_open_camera` satır 74 `cam_cfg`'yi picamera2 config'iyle
-  gölgeliyor → `camera.awb_mode`/`color_gains` HİÇ uygulanmıyor (bugün Auto/null → etkisiz).
-  `saha_ayarlari.conf` hâlâ imx296×2 bekliyor. Ayrıntı: `/kalite` günlüğü 2026-09-23 +
-  `program_mimarisi.md` §6 "Gizli kod hataları".
+- **✅ 2026-09-23 — İNCELEME SONRASI DÜZELTMELER + ÇEKİM GECİKMESİ ANA EKRANDA (kullanıcı:
+  "önerilerini yapalım" + "foto çekmeyi erteleme şansı, resme bakıp süreyi artırıp azaltacağım"):**
+  (1) **`_apply_settings` kamera aç/kapa SIRASI:** önce KAPAT (`_stop_camera` + wait) sonra AÇ.
+  Eski sıra (aç→kapa) 07:10:43'te Kamera 1'i "Camera __init__ sequence did not complete" ile
+  OpenCV yedeğine düşürmüş, kamera hiç gelmemiş, her tetik NOK olmuştu.
+  (2) **`worker.py` OpenCV yedeğinden Picamera2'ye GERİ DÖNÜŞ:** picamera2 tercihliyken yedekten
+  100 ardışık kare gelmezse `PICAM_RETRY_S`=10 s aralıkla Picamera2 yeniden denenir
+  (`_fallback_retry_due`); `_release_camera` nesne TİPİNE göre kapatır (eskiden yedek
+  VideoCapture'a stop() çağrılıp /dev/video* açık kalıyordu).
+  (3) **`worker.py::_open_camera` gölgeleme düzeltildi:** picamera2 yapılandırması `pc_cfg`;
+  `camera.awb_mode` / `color_gains` artık gerçekten uygulanıyor (testle doğrulandı).
+  (4) **ÇEKİM GECİKMESİ SOL PANELDE:** "Çalışma Modu" grubunda `Çekim Gecikmesi (ms)` kutusu
+  (`spin_trigger_delay`, 0-5000, adım 10, fare tekerleği kapalı) → `inspection.trigger_delay_ms`
+  canlı yazılır, `[Gecikme]` loglanır; Ayarlar'daki kutuyla iki yönlü eşit. Her PLC çekiminde
+  resmin SOL ALTINA `Gecikme X ms | kare Y ms` damgası (`_stamp_capture_note`; editörün
+  kullandığı saklanan kare TEMİZ), loga `gecikme X ms, tetikten Z ms sonra, kare yaşı Y ms`
+  (nokta çizilmemişken `[Kurulum]` satırında da → gecikme ayarı nokta çizmeden yapılabilir).
+  `_capture_full_frame(source="plc"|"manual")`; `_trigger_time` tetik anında `_capture_from_plc`'de.
+  **Enter koruması:** odak bir giriş kutusundayken (spinbox/metin) BOŞLUK/ENTER çekim tetiklemez
+  (`keyPressEvent`; eskiden eşik kutusuna Enter → Elle Çekim Modunda beklenmedik çekim).
+  (5) **Ayarlar çözünürlük listesine imx477 modları** (4056x3040, 2028x1520, 2028x1080,
+  1332x990) + combo/poz ipuçları. (6) `.gitignore` + `.gitattributes` yeniden eklendi
+  (`.claude/skills/` takip edilir, §9); `saha_ayarlari.conf` imx477×2;
+  `PROGRAM_KULLANIM_NOTLARI.md` güncel akışa göre yeniden yazıldı.
+  **27 ekransız testle doğrulandı** (session scratchpad `test_23eylul.py`: gölgeleme, yedekten
+  dönüş + release, aç/kapa sırası iki yönlü, gecikme kutusu↔config↔Ayarlar, damga/temiz kare,
+  Enter koruması). **TUZAK (test yazarken):** `MainWindow.LOG_DIR` sınıf niteliği gerçek saha
+  loguna yazar → testte geçici klasöre yönlendir (ilk koşuda 24 test satırı saha loguna sızdı,
+  temizlendi). Uygulama yeni kodla yeniden başlatıldı (bkz. `/kalite` günlüğü).
+  **GitHub `origin` HÂLÂ YOK** → push başarısız; kullanıcı karar verecek.
+- **✅ 2026-09-23 ~07:55 — YARIM KALAN Picamera2 NESNESİ KAPATILIYOR + RESTART TUZAĞI:**
+  Ajan yeniden başlatırken `pgrep -f "python.*main.py" | head -1` nohup SARMALAYICISININ pid'ini
+  verdi → eski uygulama kapanmadı, ikinci örnek açıldı ("Pipeline handler in use by another
+  process"), ~1 dk İKİ ÖRNEK PLC'yi yokladı (tetik gelmedi, HR100 çakışması olmadı). Eski örnek
+  kapatılınca yeni örneğin 10 s'lik yeniden denemeleri yine "Camera __init__ sequence did not
+  complete" verdi: bir deneme `start()`'ta "Invalid argument" ile patlamış, nesne `close()`
+  edilmediği için kamera bu süreçte ACQUIRED kalmıştı → sonraki her `Picamera2(0)` başarısız.
+  **Düzeltme:** `worker.py::_open_camera` except bloğunda yarım nesne `cam.close()` edilir
+  (testli). **KURAL:** uygulamayı kapatırken pid'i `pgrep -f "^/usr/bin/python3 main.py"` ile
+  al; iki örnek ASLA aynı anda çalışmasın (ikisi de HR100'e yazar). Ajan başlatma komutu:
+  `setsid nohup env DISPLAY=:0 WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000
+  DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus python3 main.py >> ~/konveyor_loglari/
+  uygulama-stdout.log 2>&1 &` (proje kökünden). `main.py` başında
+  `LIBCAMERA_LOG_LEVELS=IPARPI:FATAL` (setdefault): imx477 + libcamera v0.7.1 her karede "Embedded
+  data buffer parsing failed" ERROR basıyordu (~140 MB/gün stdout); kareler/poz metadata akıyor.
+- **⚠️ 2026-09-23 SABAH TAM OKUMA İNCELEMESİ — bulgular (düzeltmeler üstteki maddede):**
+  (1) 07:10:43'te Ayarlar kaydında (K1 aç + K2 kapa aynı anda) Kamera 1 Picamera2 açılamadı →
+  OpenCV yedeği → her tetik NOK; kullanıcı 07:25'te uygulamayı yeniden başlatınca kamera geldi.
+  (2) **İKİ imx477 takılı** (cam0 + cam1; ikincisi 18 Eylül'de). Kalibrasyon yapılmadı: K1
+  çerçevesi x=440,y=0,w=397,h=1088 (yanlış), K2 çerçevesi tüm kare. GUI'den
+  `manual_exposure_enabled false` + `exposure_us 1000` yazıldı → **poz kilidi KAPALI**.
+  (3) **GitHub `origin` YOK** ("Repository not found"; hesapta yalnız `kalite_kontrol_konveor_1-main`,
+  25 Ağustos upload, FARKLI geçmiş) → yerel `main` 15 Eylül'den beri push edilemiyor.
+  (4) `.gitignore`/`.gitattributes` eksikti (eklendi). `saha_ayarlari.conf` imx296 bekliyordu
+  (düzeltildi). Ayrıntı: `/kalite` günlüğü 2026-09-23 + `program_mimarisi.md` §6.
 - **⚠️ KAMERA DEĞİŞTİ: imx296 (Global Shutter) → imx477 (HQ, ROLLING shutter) (2026-09-15).**
   Sebep: Arducam CSI-HDMI uzatıcıları imx296'da fiziksel sinyal arızası yapıyordu
   (2026-09-14 doğrulandı: tekrarlayan `-121 Remote I/O error` / `stream on failed`; imx296 o
@@ -928,7 +978,8 @@ kamera 2'nin alignment ayarları da `roi2`/`camera2` altından okunacak şekilde
    satır gizlenince erişilemez olurdu): içinde PLC + Kamera 1 + Kamera 2 grupları
    (her grubun başlığındaki kutu o kamerayı açar/kapar); içerik kaydırılabilir, butonlar sabit.
    `_apply_settings` kutu değişince o kameranın worker'ını canlı başlatır/durdurur
-   (`_start_camera(n)`/`_stop_camera(n)`) ve satırını gösterir/gizler — **uygulama yeniden
+   (`_start_camera(n)`/`_stop_camera(n)`; **SIRA: önce TÜM kapatmalar + wait, sonra açmalar** —
+   2026-09-23 libcamera yarışı düzeltmesi) ve satırını gösterir/gizler — **uygulama yeniden
    başlatmaya gerek yok**. FPS etiketi tek olduğu için ilk AÇIK kameranın değerini gösterir
    (`_update_fps_for`; kamera 1 kapalıysa kamera 2'ninkini).
    `_open_roi_manager(cam_no)` kamera 2'nin noktalarını `dynamic_rois_2`/`roi2`'ye yazar.

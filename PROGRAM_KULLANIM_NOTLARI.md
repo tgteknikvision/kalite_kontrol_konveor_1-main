@@ -1,129 +1,85 @@
 # Program Kullanım Notları
 
-## Programı Başlatma
-
-Program PLC Modbus bağlantısı için sanal ortam içindeki Python ile çalıştırılmalıdır:
-
-```bash
-./calistir.sh
-```
-
-Alternatif komut:
-
-```bash
-veri_toplama/bin/python main.py
-```
-
-`python3 main.py` ile çalıştırılırsa sistem Python ortamında `pymodbus` olmadığı için PLC bağlantısında `No module named 'pymodbus'` hatası alınabilir.
-
-Bu not, Raspberry Pi 5 üzerindeki konveyör denetim programının sahada nasıl kullanılacağını anlatır.
+> 2026-09-23'te güncel arayüze göre yeniden yazıldı (eski "Kalibrasyon Modu / OK Referans Ekle /
+> template" akışı programdan kaldırılmıştı). Raspberry Pi 5 üzerindeki konveyör denetim
+> programının sahada nasıl kullanılacağını anlatır.
 
 ## 1. Başlatma
+- Menüdeki **"Konveyör Denetim Sistemi"** ikonu ya da proje klasöründe `./calistir.sh`.
+  Betik venv varsa onu, yoksa sistem Python'unu kullanır (bu Pi'de kütüphaneler apt'tan gelir).
+- Açılışta doğrudan denetim ekranı gelir (mod seçimi / kalibrasyon kilidi yoktur).
+- Sol üstte **Sistem Durumu**: Durum `CANLI` (kamera akıyor), PLC `READY` ve logda `PLC bağlı`.
+  **Poz** satırında 🔒 görünmeli; `⚠ OTO` yazıyorsa Ayarlar'dan Exposure/Gain kilidini aç.
 
-1. Kamera, PLC ve aydınlatmanın enerjili olduğundan emin olun.
-2. Raspberry Pi ile PLC'nin aynı Ethernet ağına bağlı olduğunu kontrol edin.
-3. Programı başlatın (doğrudan ROI/Eşik analiz ekranı açılır).
-4. Canlı kamera görüntüsü gelene kadar bekleyin.
-5. Sistem durumunda `CANLI`, PLC durumunda `READY` görülmelidir.
+## 2. Ekran düzeni
+- **Sol panel:** Sistem Durumu (Durum, FPS, Netlik, Poz, PLC) · Çalışma Modu (Elle Çekim Modu
+  kutusu, **Çekim Gecikmesi** kutusu) · en altta **⚙ Ayarlar**.
+- **Kamera satırı (her açık kamera için bir tane):** solda **Kontrol Merkezi** tablosu + canlı
+  görüntü; sağda **Son Alınan Tam Resim** (tıklayınca tam boy) + **Kontrol Noktaları** +
+  **Ürün Çerçevesi Bul** butonları.
+- **Altta Sistem Logları.** Aynı satırlar `~/konveyor_loglari/denetim-YYYY-AA-GG.log` dosyasına
+  da yazılır (uygulama kapansa da kalır).
 
-## 2. Kalibrasyon
+## 3. Çekim gecikmesi (sensör → kamera zamanlaması)
+Sensör ürünü görünce PLC tetik verir; program **Çekim Gecikmesi** kadar bekleyip resmi çeker.
+Kamera sensörden ileride duruyorsa ürünün kadraja gelmesi için bu süre gerekir.
+1. Sol paneldeki **Çekim Gecikmesi** kutusuna bir başlangıç değeri yaz (ör. 100 ms) ve Enter'a bas.
+2. Bir ürün geçir. **Son Alınan Tam Resim**'in sol altında `Gecikme 100 ms | kare 23 ms` yazar.
+3. Ürün resimde **henüz gelmemişse değeri artır, geçmişse azalt**; tekrar ürün geçir.
+4. Log satırı gerçek süreyi gösterir: `gecikme 100 ms, tetikten 112 ms sonra, kare yaşı 23 ms`.
+   `kare yaşı` kullanılan karenin eskiliğidir; 20 fps'te 50 ms'ye kadar oynar. Daha kararlı
+   zamanlama için Ayarlar'dan FPS'i artır.
+- Kontrol noktası çizilmemişken de tetikle gelen kare saklanır ve damgalanır; yani gecikme
+  ayarı nokta çizmeden yapılabilir. Değer bir sonraki tetikten itibaren geçerlidir.
+- Aydınlatma tetikle yanıp sönüyorsa gecikme, ışığın açık kaldığı süreyi aşmamalı.
+- Ayarlar penceresinde de aynı kutu vardır ama **pencere açıkken PLC tetiği durur**; deneme
+  yaparken ayarı sol panelden yap.
 
-Kalibrasyon sadece ürün tipi, kamera konumu, ışık, zoom, çözünürlük, PLC adresi veya ROI alanları değiştiğinde yapılmalıdır.
+## 4. Ayarlar (⚙)
+PLC (tip, IP, port, unit id, poll) · **Kamera 1 / Kamera 2** (grup başlığındaki kutu = kamerayı
+kullan) · çözünürlük (imx477 doğal modları: 4056x3040 ağır, 2028x1520, 2028x1080, 1332x990) ·
+FPS · dijital zoom (**1.0 bırak**, detay üretmez) · **Exposure/Gain Kilidi** (üretimde AÇIK;
+hareketli bantta poz ≤1 ms, imx477'de 400 µs iyi sonuç verdi) · çekim gecikmesi.
+- **Pencere açıkken PLC tetiği işlenmez.** Kaydet ile yalnız değişen taraf uygulanır
+  (kamera yeniden başlatma / PLC bağlantısını yenileme).
+- Kameraları açıp kapatırken program önce kapatır sonra açar. Yine de kamera gelmezse 10 s içinde
+  kendiliğinden yeniden dener; hâlâ gelmiyorsa uygulamayı kapatıp açın.
 
-1. `Kalibrasyon Modunu Aç` düğmesine basın.
-2. Kamera çözünürlüğünü seçin.
-3. Kamera FPS değerini seçin.
-4. Dijital zoom değerini ayarlayın.
-5. Gerekirse `Çekim Gecikmesi ms` değerini girin.
-6. Işık sabitse ve görüntü kararlı isteniyorsa `Exposure/Gain Kilidi` değerini aktif edin.
-7. Manuel exposure aktifse `Exposure us` ve `Analog Gain` değerlerini ayarlayın.
-8. `Kalibrasyon Resmi Al` ile örnek görüntü alın.
-9. `Ürün Çerçevesi Bul` ile ürün konturunun bulunduğunu doğrulayın.
-10. `Ürün İçinde ROI Çiz / Ayarla` ile kontrol edilecek alanları ürün çerçevesinin içinde çizin.
-11. Uygun ürün takılıyken `OK Referans Ekle` düğmesine basın.
-12. PLC tipi, IP, port, unit id ve poll süresini kontrol edin.
-13. `Kaydet ve Kilitle` düğmesine basın.
+## 5. Kalibrasyon sırası (ürün, kamera, ışık ya da lens değişince)
+1. Ayarlar → poz kilidi + kısa poz; **Netlik** göstergesiyle odak (sayı tepe yaptığı yerde bırak).
+2. Çekim gecikmesini §3'teki gibi ayarla (ürün kadrajın ortasında olsun).
+3. **Ürün Çerçevesi Bul** → sarı çerçeve tüm braketi sarmalı (ray / arka plan girmemeli).
+4. **Kontrol Noktaları** → **＋ Yeni Kontrol Noktası** → Delik (daire) / Çentik (kutu) → resimde
+   sürükleyerek çiz. Her nokta otomatik numara alır. Noktaya sağ tık → Ayarlar (eşik) / Sil.
+   **Kaydet ve Kapat**. En sağlıklısı, noktaları otomatikte gelen **gerçek üretim karesi**
+   üzerinde çizmektir (editör her zaman son tetik karesini kullanır).
+5. Eşikler: **Kontrol Merkezi**'ndeki "en az" kutularından canlı ayarlanır; her değişiklikte son
+   kare yeniden değerlendirilir (PLC'ye yazılmaz). İyi ve hatalı parça ölçümlerinin ortasına koy.
+6. Yön/el: doğru parça görüntüsü açıkken Kontrol Noktaları menüsünden **🧭 Yön Referansı Al**
+   (en az 2 delik noktası gerekir) → ters/ayna parça NOK verir.
+7. İki kamera açıksa 3-6 adımları her kamera için ayrı yapılır; PLC'ye tek (VE'lenmiş) sonuç yazılır.
 
-Kalibrasyon açıkken PLC trigger okumaları durur. Bu sırada üretim sonucu PLC'ye gönderilmez.
+## 6. Üretim
+- Elle Çekim Modu KAPALI, PLC bağlı, her açık kamerada en az bir delik/çentik noktası.
+- Tetik: HR101 0→1. Sonuç: HR100 = 0 OK, 1 NOK/hata; yaklaşık 1 s sonra 0'a çekilir.
+- Nokta yoksa, kamera karesi yoksa ya da ürün çerçevesi bulunamazsa PLC'ye hata (1) yazılır ve
+  durum ERROR olur; sebep logda yazar.
 
-Not: ROI'ler artık tam kamera görüntüsüne değil, bulunan ürün çerçevesinin içine göre kaydedilir. Bu yüzden bu özellik aktifken eski tam-resim ROI/referansları yeniden çizilmelidir.
+## 7. Elle test (PLC yokken)
+**Elle Çekim Modu (PLC devre dışı)** kutusunu işaretle → BOŞLUK/ENTER ya da canlı görüntüye tık
+ile çek. Sahaya dönerken kutuyu KAPAT. Bir giriş kutusu (gecikme, eşik) odaktayken Enter çekim
+yapmaz, yalnız değeri onaylar.
 
-## 3. Çekim Gecikmesi
+## 8. Logları okuma
+- `[Tetik] … | gecikme 100 ms, tetikten 112 ms sonra, kare yaşı 23 ms` → zamanlama.
+- `ürün çerçevesi: x=, y=, w=, h=` → tetikten tetiğe çok oynuyorsa hizalama / ışık sorunu.
+- Delik: `acik %X` (koyu oran, "açıklık" eşiği), `cekirdek %` ("derinlik"), `yuvarlak`, `dolgu`.
+- Çentik: `koyu %X`, `blob %`, `en/boy`. Yön: `delik fark ±X, ref ±Y`.
+- Kamera: `Picamera2 açıldı (cam0)` normaldir; `OpenCV'ye geçiliyor` görülürse kamera bağlantısını
+  kontrol et (program 10 s sonra kendiliğinden yeniden dener).
 
-`Çekim Gecikmesi ms`, PLC sensörden ürün algıladıktan sonra kameranın kaç milisaniye bekleyip resim alacağını belirler.
-
-Bu değer ürün sensörden geçtikten sonra kameranın görüş merkezine gelmesi için kullanılır.
-
-Örnek:
-
-```text
-trigger_delay_ms = 120
-```
-
-Bu durumda PLC trigger geldikten 120 ms sonra resim alınır.
-
-## 4. Exposure/Gain Kilidi
-
-`Exposure/Gain Kilidi` aktifse kamera otomatik pozlamayı kapatır ve sabit değerlerle çalışır.
-
-Bu ayar üretimde önerilir, çünkü otomatik pozlama ışık değişiminde görüntüyü oynatabilir.
-
-Başlangıç için öneri:
-
-```text
-Exposure us: 8000
-Analog Gain: 1.0
-```
-
-Görüntü karanlıksa exposure veya gain artırılır. Görüntü patlıyorsa exposure veya gain azaltılır.
-
-## 5. Üretim
-
-1. Kalibrasyonun kaydedildiğinden emin olun.
-2. Program üretim modundayken ayarlar kilitlidir.
-3. PLC sensör ürünü algılayınca `trigger` verir.
-4. Program ayarlı gecikme kadar bekler.
-5. Resim alınır ve ROI analizi yapılır.
-6. Sonuç PLC'ye `OK` veya `NOK` olarak gönderilir.
-
-## 6. Üretim Öncesi Kontrol
-
-Üretime başlamadan önce şu şartlar sağlanmalıdır:
-
-- Canlı kamera görüntüsü akıyor olmalı.
-- PLC durumu bağlı görünmeli.
-- En az bir aktif ROI olmalı.
-- Her aktif ROI için OK referans alınmış olmalı.
-- Kamera/ışık/ürün pozisyonu kalibrasyon sırasında olduğu gibi kalmalı.
-- `Çekim Gecikmesi ms` sensör ile kamera mesafesine göre ayarlanmış olmalı.
-
-Program bu şartlar yoksa üretimde PLC trigger geldiğinde analiz yapmak yerine hata durumuna geçer.
-
-## 7. Dikkat Edilecekler
-
-- Kamera veya aydınlatma oynarsa yeniden kalibrasyon yapılmalıdır.
-- Ürün tipi değişirse yeniden kalibrasyon yapılmalıdır.
-- ROI yoksa veya OK referans yoksa üretime geçilmemelidir.
-- PLC IP değişirse kalibrasyondan PLC ayarı güncellenip tekrar kilitlenmelidir.
-- Exposure/gain kilidi aktifken ışık seviyesi sabit tutulmalıdır.
-
-## 8. ROI Ölçüm Logları
-
-Programın ana OK/NOK kararı `template_score_max` değerine göre yapılır. Bu skor, ROI görüntüsünün OK referansa ne kadar benzediğini gösterir.
-
-Loglarda ayrıca her ROI için yardımcı ölçümler gösterilir:
-
-- `siyah %`: ROI içinde Otsu eşik sonrası siyah kalan alan oranı.
-- `beyaz %`: ROI içinde Otsu eşik sonrası beyaz kalan alan oranı.
-- `parlaklık`: normalize gri görüntünün ortalama parlaklığı.
-
-`OK bant` satırı, referans resimlerden hesaplanan alt/üst aralığı gösterir. Bu değerler ayar yaparken yol gösterir; kararın ana eşiği yine ROI skorudur.
-
-Pratik kullanım:
-
-1. ROI alanlarını çiz.
-2. Sağlam ürünle `OK Referans Ekle` düğmesine bas.
-3. Logdaki `referans ölçüm` ve `OK alt/üst bant` satırlarını oku.
-4. Ürünü tekrar analiz et.
-5. Sağlam ürün NOK çıkıyorsa `template_score_max` veya oran toleranslarını biraz artır.
-6. Hatalı ürün OK çıkıyorsa toleransı daralt.
+## 9. Dikkat edilecekler
+- Ayarlar / Kontrol Noktaları penceresi açıkken otomatik çekim olmaz; pencereyi kapat.
+- Zoom 1.0 bırak; çözünürlük ya da zoom değişince noktalar yeniden çizilmeli.
+- Fare tekerleği hiçbir ayarı değiştirmez (kazara değişmesin diye); tıklayıp yaz ya da ok tuşları.
+- `config.yaml` her ayar değişikliğinde yeniden yazılır; elle düzenlemek için uygulamayı kapat.

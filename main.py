@@ -5,6 +5,11 @@ Konveyör Bant Denetim Sistemi — Ana GUI Çalışma Dosyası
 import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["MKL_NUM_THREADS"] = "1"
+# libcamera (imx477, v0.7.1 rpt20260609) her karede "IPARPI cam_helper.cpp: Embedded data
+# buffer parsing failed" ERROR basiyor (2026-09-23 olculdu: ~20 satir/s -> stdout dosyasi
+# gunde ~140 MB; kareler ve poz metadata'si yine geliyor). Bu kategori yalniz FATAL'e
+# indirilir; gerekirse ortam degiskeniyle geri acilir (setdefault -> disaridan verilen kazanir).
+os.environ.setdefault("LIBCAMERA_LOG_LEVELS", "IPARPI:FATAL")
 import sys
 import time
 import yaml
@@ -15,7 +20,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QLabel, QPushButton, QSlider,
                              QTextEdit, QGroupBox, QFormLayout, QMessageBox, QComboBox, QDialog,
                              QLineEdit, QSpinBox, QCheckBox, QDoubleSpinBox,
-                             QScrollArea, QSizePolicy, QGridLayout, QFrame)
+                             QScrollArea, QSizePolicy, QGridLayout, QFrame, QAbstractSpinBox)
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer
 from PyQt5.QtGui import QImage, QPixmap, QFont, QPalette, QColor
 
@@ -399,12 +404,16 @@ class SettingsDialog(QDialog):
     PLC adapter yenileme, config yazma) 'Kaydet' sonrası MainWindow._apply_settings'te.
     """
 
-    # 1456x1088 = imx296 Global Shutter'in DOGAL (native) cozunurlugu: en keskin
-    # goruntu. Dijital zoom yazilimda kirpip geri buyuttugu icin DETAY URETMEZ,
-    # bulaniklastirir (olculdu: zoom 2.0 -> gercek detayin ~%33'u). Buyutme gerekiyorsa
-    # once dogal cozunurluk + zoom 1.0 denenmeli; hala kucukse kamerayi fiziksel
-    # yaklastirmak (optik) tek gercek cozumdur.
-    RESOLUTIONS = ["1456x1088", "1280x960", "800x600", "640x640", "640x480"]
+    # DOGAL (native) cozunurlukler en keskin goruntuyu verir; dijital zoom yazilimda
+    # kirpip geri buyuttugu icin DETAY URETMEZ, bulaniklastirir (olculdu: zoom 2.0 ->
+    # gercek detayin ~%33'u). Buyutme gerekiyorsa once dogal cozunurluk + zoom 1.0;
+    # hala kucukse kamerayi fiziksel yaklastirmak (optik) tek gercek cozumdur.
+    #   imx477 (HQ, 2026-09-15'ten beri sahada): 4056x3040 (tam kare, AGIR: <=10 fps),
+    #            2028x1520, 2028x1080, 1332x990 (hizli mod).
+    #   imx296 (Global Shutter, eski): 1456x1088.
+    # Listede olmayan ozel cozunurluk config'ten gelirse combo'ya eklenir (sessizce degismez).
+    RESOLUTIONS = ["4056x3040", "2028x1520", "2028x1080", "1456x1088", "1332x990",
+                   "1280x960", "800x600", "640x640", "640x480"]
 
     def __init__(self, config: dict, parent=None):
         super().__init__(parent)
@@ -523,6 +532,10 @@ class SettingsDialog(QDialog):
             w["res"].insertItem(0, curr_res)
             idx = 0
         w["res"].setCurrentIndex(idx)
+        w["res"].setToolTip(
+            "imx477 (HQ) doğal modları: 4056x3040 (ağır, ≤10 fps), 2028x1520, 2028x1080, 1332x990.\n"
+            "imx296 (Global Shutter) doğal modu: 1456x1088.\n"
+            "Doğal mod + zoom 1.0 en keskin görüntüdür; dijital zoom detay üretmez.")
 
         w["fps"] = NoWheelSpinBox()
         w["fps"].setRange(1, 120)
@@ -556,7 +569,8 @@ class SettingsDialog(QDialog):
             "Sensör alt sınırı 29 µs (altı yazılsa da kırpılır).\n"
             "Sahada ölçüldü (aydınlatma açık, Gain 16): 300 µs -> metal 148,\n"
             "500 µs -> 186, 1000 µs -> 232, 4000 µs -> DOYGUN (delik kaybolur!).\n"
-            "Hareketli bantta önerilen: 300-500 µs. Fazla poz da az poz kadar zararlı.")
+            "Hareketli bantta önerilen: 300-500 µs. Fazla poz da az poz kadar zararlı.\n"
+            "(Ölçümler imx296; imx477'de 2026-09-15 taramasında gain 16 + 400 µs iyi sonuç verdi.)")
         # ANALOG GAIN TAVANI = 16: imx296'nin GERCEK analog tavani 15.7 (Pi'de olculdu).
         # Ustunu istersen libcamera SESSIZCE DIJITAL kazanca cevirir (gain 26/43/64
         # istendi -> analog hep 15.7, kalani dijital 1.7/2.8/8.0). Dijital kazanc
@@ -656,6 +670,10 @@ class MainWindow(QMainWindow):
         # (eski kalibrasyon modunun tek gerekli kalintisi).
         self._dialog_paused = False
         self._capture_pending = False
+        # Cekim zamanlamasi (kullanici istegi 2026-09-23): tetik ani + son cekimin notu
+        # ("Gecikme X ms | kare Y ms") -> resmin sol altina yazilir, log'a gercek sure duser.
+        self._trigger_time = None
+        self._last_capture_note = ""
         self._last_plc_connected = None
         self._nok_reset_pending = False
         self.plc = create_plc_adapter(self.config)
@@ -741,9 +759,38 @@ class MainWindow(QMainWindow):
         self.chk_manual_mode.stateChanged.connect(self._on_manual_mode_changed)
         mode_layout.addWidget(self.chk_manual_mode)
 
+        # CEKIM GECIKMESI — ANA EKRANDA (kullanici istegi 2026-09-23). Sensor kameradan
+        # ONCE oldugu icin tetik aninda urun henuz kadraja gelmemis ya da gecmis olabilir;
+        # operator son cekime bakip (resmin sol altinda "Gecikme X ms | kare Y ms") bu
+        # degeri artirip azaltir. Ayarlar penceresinde de var ama pencere ACIKKEN PLC
+        # tetigi DURDUGU icin urun gecirerek deneme yapmak oradan mumkun degildi.
+        delay_row = QHBoxLayout()
+        delay_row.setContentsMargins(0, 0, 0, 0)
+        lbl_delay = QLabel("Çekim Gecikmesi:")
+        self.spin_trigger_delay = NoWheelSpinBox()
+        self.spin_trigger_delay.setRange(0, 5000)
+        self.spin_trigger_delay.setSingleStep(10)
+        self.spin_trigger_delay.setSuffix(" ms")
+        self.spin_trigger_delay.setKeyboardTracking(False)     # Enter/odak cikisinda tek sinyal
+        self.spin_trigger_delay.setValue(
+            int(self.config.get("inspection", {}).get("trigger_delay_ms", 0)))
+        self.spin_trigger_delay.setToolTip(
+            "PLC tetiği (sensör ürünü gördü) ile resim çekimi arasındaki bekleme.\n"
+            "Ürün resimde HENÜZ GELMEMİŞSE değeri artır, GEÇMİŞSE azalt; bir sonraki\n"
+            "tetikten itibaren geçerlidir. Son resmin sol altında 'Gecikme X ms | kare Y ms'\n"
+            "yazar: 'kare' = kullanılan karenin yaşı (FPS'e bağlı belirsizlik; 20 fps'te ≤50 ms,\n"
+            "daha kararlı zamanlama için FPS'i artır). Aydınlatma tetikle yanıp sönüyorsa\n"
+            "gecikme ışık süresini aşmamalı. Fare tekerleği bilerek devre dışı.")
+        self.spin_trigger_delay.valueChanged.connect(self._on_trigger_delay_changed)
+        delay_row.addWidget(lbl_delay)
+        delay_row.addWidget(self.spin_trigger_delay, stretch=1)
+        mode_layout.addLayout(delay_row)
+
         hint = QLabel("Elle çekim: BOŞLUK/ENTER ya da canlı görüntüye tıkla.\n"
+                      "Gecikme ayarı: ürün geçir → son resmin sol altındaki\n"
+                      "'Gecikme X ms' yazısına bak → ürün gelmemişse artır, geçmişse azalt.\n"
                       "Kamera/PLC ayarları: aşağıdaki '⚙ Ayarlar'.\n"
-                      "Eşikler: Kontrol Noktaları → noktaya sağ tık → Ayarlar.")
+                      "Eşikler: Kontrol Merkezi kutuları ya da Kontrol Noktaları → sağ tık.")
         hint.setWordWrap(True)
         hint.setStyleSheet("color:#a6adc8; font-size:11px;")
         mode_layout.addWidget(hint)
@@ -968,6 +1015,14 @@ class MainWindow(QMainWindow):
         # Elle test: BOSLUK/ENTER -> resim cek + test et. keyPressEvent yalniz odaktaki
         # widget tusu KULLANMADIYSA cagrilir; boylece metin kutularina yazmayi bozmaz.
         if event.key() in (Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter):
+            # Odak bir GIRIS kutusundaysa (gecikme/esik spinbox'i, metin) tus ORAYA aittir:
+            # Enter degeri onaylar, cekim tetiklemez. (QSpinBox Enter'i 'ignore' ettigi icin
+            # olay buraya kadar geliyordu -> gecikme yazip Enter'a basmak Elle Cekim Modunda
+            # beklenmedik cekim yapardi.)
+            fw = QApplication.focusWidget()
+            if isinstance(fw, (QAbstractSpinBox, QLineEdit, QTextEdit, QComboBox)):
+                super().keyPressEvent(event)
+                return
             self._manual_capture()
             event.accept()
             return
@@ -1005,7 +1060,7 @@ class MainWindow(QMainWindow):
         if not self._manual_mode_on():
             self._append_log("[ELLE TEST] Önce 'Elle Çekim Modu (PLC devre dışı)' kutusunu işaretle.")
             return
-        self._capture_full_frame()
+        self._capture_full_frame(source="manual")
 
     def _on_video_clicked(self, event=None):
         # Canli goruntuye tiklayinca elle cekim (yalniz elle modda).
@@ -1039,6 +1094,12 @@ class MainWindow(QMainWindow):
         plc_cfg["poll_ms"] = v["plc_poll_ms"]
 
         self.config.setdefault("inspection", {})["trigger_delay_ms"] = v["trigger_delay_ms"]
+        # Sol paneldeki gecikme kutusunu da esitle (programatik: sinyal tetiklemesin).
+        spin = getattr(self, "spin_trigger_delay", None)
+        if spin is not None:
+            spin.blockSignals(True)
+            spin.setValue(int(v["trigger_delay_ms"]))
+            spin.blockSignals(False)
 
         camera_cfg = self.config.setdefault("camera", {})
         res_cfg = self.config.setdefault("resolution", {})
@@ -1105,11 +1166,17 @@ class MainWindow(QMainWindow):
                     self.worker2.set_zoom(c2["zoom"])
 
         # Ac/kapa: yalniz DURUMU DEGISEN kameraya dokunulur (uygulama yeniden baslamaz).
+        # SIRA KRITIK (2026-09-23 arizasi): ONCE kapat (thread'in bitmesi beklenir),
+        # SONRA ac. Eski kod ayni dongude once _start_camera(1) sonra _stop_camera(2)
+        # yapiyordu -> worker1 Picamera2(0) acarken worker2 ayni anda kapaniyor, libcamera
+        # "Camera __init__ sequence did not complete" veriyor, kamera OpenCV yedegine
+        # dusup KARE VEREMIYORDU (her tetik NOK).
+        for n in (1, 2):
+            if not want[n] and was[n]:
+                self._stop_camera(n)
         for n in (1, 2):
             if want[n] and not was[n]:
                 self._start_camera(n)
-            elif not want[n] and was[n]:
-                self._stop_camera(n)
         if self._cam1_row is not None:
             self._cam1_row.setVisible(want[1])
         if self._cam2_row is not None:
@@ -1309,6 +1376,7 @@ class MainWindow(QMainWindow):
         else:
             self._last_snapshot = analysis_img.copy()
         is_ok, results, display_img = evaluate_with_profile(analysis_img, cfg_view)
+        self._stamp_capture_note(display_img)      # "Gecikme X ms | kare Y ms" (sol alt)
 
         self._display_snapshot(display_img, cam_no)
         self._update_live_errors(is_ok, results, cam_no)
@@ -1555,10 +1623,12 @@ class MainWindow(QMainWindow):
             self._last_snapshot_2 = analysis_img.copy()
         else:
             self._last_snapshot = analysis_img.copy()
-        self._display_snapshot(analysis_img, cam_no)
+        # Ekrana zamanlama notuyla; SAKLANAN kare (editorun kullandigi) temiz kalir.
+        self._display_snapshot(self._stamp_capture_note(analysis_img.copy()), cam_no)
         return True
 
-    def _capture_full_frame(self):
+    def _capture_full_frame(self, source: str = "plc"):
+        """source: 'plc' (HR101 tetigi, gecikme uygulanmis) | 'manual' (tus/tik)."""
         if self._inspection_state == InspectionState.BUSY:
             return
         # TEK tetik -> etkin TUM kameralardan ayni anda kare al (§13).
@@ -1580,15 +1650,34 @@ class MainWindow(QMainWindow):
                 return
             frames[n] = frame
 
+        # ZAMANLAMA NOTU (kullanici istegi 2026-09-23): operator "urun kadrajda mi" diye
+        # son resme bakarken hangi gecikmeyle cekildigini gorsun -> gecikmeyi artirip
+        # azaltarak ayarlar. "kare" = worker'in SON karesinin yasi (fps'e bagli
+        # belirsizlik; 20 fps'te <=50 ms). Log'a ayrica tetikten cekime gecen GERCEK sure.
+        now = time.time()
+        ages = [self._latest_frame_age_ms(n, now) for n in cams]
+        age_ms = max(ages) if ages else 0.0
+        if source == "plc":
+            delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
+            since_ms = (now - self._trigger_time) * 1000.0 if self._trigger_time else 0.0
+            self._last_capture_note = f"Gecikme {delay_ms} ms | kare {age_ms:.0f} ms"
+            timing = (f" | gecikme {delay_ms} ms, tetikten {since_ms:.0f} ms sonra, "
+                      f"kare yaşı {age_ms:.0f} ms")
+        else:
+            self._last_capture_note = "Elle cekim"
+            timing = f" | elle çekim, kare yaşı {age_ms:.0f} ms"
+
         ready_error = self._production_ready_error()
         if ready_error:
             self._append_log(f"[HATA] Üretim hazır değil: {ready_error}")
             stored = [n for n in cams if self._store_setup_snapshot(frames[n], n)]
             if stored:
+                # Zamanlama burada da loglanir: gecikme ayari cogu zaman NOKTA CIZILMEDEN
+                # once, bu kurulum kareleriyle yapilir.
                 self._append_log(
                     "[Kurulum] Tetikle gelen GERÇEK üretim karesi saklandı (kamera "
                     + ", ".join(str(n) for n in stored)
-                    + "). 'Kontrol Noktaları' butonuyla ayarı BU kare üzerinden yapın "
+                    + f"){timing}. 'Kontrol Noktaları' butonuyla ayarı BU kare üzerinden yapın "
                     "— elle konumlandırılmış kareyle üretim karesi örtüşmez.")
             self._publish_plc_error(ready_error)
             self._set_inspection_state(InspectionState.ERROR)
@@ -1597,7 +1686,8 @@ class MainWindow(QMainWindow):
             self._set_inspection_state(InspectionState.BUSY)
             self._capture_counter += 1
             cam_info = f" ({len(cams)} kamera)" if len(cams) > 1 else ""
-            self._append_log(f"[Tetik] Tam resim alındı{cam_info}. Analiz başlatılıyor. Resim #{self._capture_counter:04d}")
+            self._append_log(f"[Tetik] Tam resim alındı{cam_info}. Analiz başlatılıyor. "
+                             f"Resim #{self._capture_counter:04d}{timing}")
             # IKI YUZ DENETIMI: her kamera KENDI ROI/esikleriyle analiz edilir, kararlar
             # VE'lenir (ikisi de OK ise parca OK) ve PLC'ye TEK sonuc yazilir.
             # Kisa-devre YOK: operator her iki yuzun sonucunu da gorsun diye hepsi analiz edilir.
@@ -1697,9 +1787,11 @@ class MainWindow(QMainWindow):
     def _capture_from_plc(self):
         if self._capture_pending or self._inspection_state == InspectionState.BUSY:
             return
+        # Tetik ani: gecikme ve log'daki "tetikten X ms sonra" buradan sayilir.
+        self._trigger_time = time.time()
         delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
         if delay_ms <= 0:
-            self._capture_full_frame()
+            self._capture_full_frame(source="plc")
             return
         self._capture_pending = True
         self._append_log(f"[Tetik] PLC trigger alındı. Çekim {delay_ms} ms geciktirildi.")
@@ -1709,7 +1801,7 @@ class MainWindow(QMainWindow):
         self._capture_pending = False
         if self._dialog_paused:
             return
-        self._capture_full_frame()
+        self._capture_full_frame(source="plc")
 
     def _update_plc_connection_status(self):
         connected = bool(self.plc.is_connected())
@@ -1898,6 +1990,37 @@ class MainWindow(QMainWindow):
             full = self._last_full_snapshot_2 if two else self._last_full_snapshot
             preview_frame = full if full is not None else snapshot
             self._handle_snapshot(0, preview_frame, cam_no)
+
+    def _on_trigger_delay_changed(self, value):
+        """Sol paneldeki 'Çekim Gecikmesi' kutusu: config'e yaz, kaydet, logla.
+        Bir sonraki PLC tetiginden itibaren gecerli (bekleyen cekim etkilenmez)."""
+        ms = int(value)
+        self.config.setdefault("inspection", {})["trigger_delay_ms"] = ms
+        self._save_config()
+        self._append_log(f"[Gecikme] Çekim gecikmesi = {ms} ms (bir sonraki tetikten itibaren; "
+                         "son resimdeki 'Gecikme' yazısıyla karşılaştır).")
+
+    def _latest_frame_age_ms(self, cam_no: int, now: float = None) -> float:
+        """Worker'in son karesinin yasi (ms). Kare yoksa 0."""
+        worker = self.worker2 if cam_no == 2 else self.worker
+        t = float(getattr(worker, "last_frame_time", 0.0) or 0.0) if worker else 0.0
+        if not t:
+            return 0.0
+        return max(0.0, ((now if now is not None else time.time()) - t) * 1000.0)
+
+    def _stamp_capture_note(self, img):
+        """Son cekimin zamanlama notunu ('Gecikme X ms | kare Y ms' ya da 'Elle cekim')
+        resmin SOL ALTINA yazar; ayni resmi dondurur. Operator 'urun kadrajda mi' diye
+        bakarken hangi gecikmeyle cekildigini gorsun (ASCII: cv2 Turkce harf cizemez)."""
+        note = self._last_capture_note
+        if not note or img is None or getattr(img, "size", 0) == 0:
+            return img
+        h, w = img.shape[:2]
+        fs = max(0.45, min(0.8, w / 900.0))
+        (tw, th), _ = cv2.getTextSize(note, cv2.FONT_HERSHEY_SIMPLEX, fs, 2)
+        cv2.rectangle(img, (4, h - th - 14), (12 + tw, h - 3), (0, 0, 0), -1)
+        cv2.putText(img, note, (8, h - 8), cv2.FONT_HERSHEY_SIMPLEX, fs, (0, 255, 255), 2, cv2.LINE_AA)
+        return img
 
     def _get_latest_camera_frame(self, cam_no: int = 1):
         worker = self.worker2 if cam_no == 2 else self.worker

@@ -1,0 +1,20 @@
+# --- Konveyör Denetim Sistemi ---
+# Sanal ortam (makineye özel; tools/kurulum_pi.sh yeniden kurar)
+veri_toplama/
+# Python
+__pycache__/
+*.pyc
+# Claude Code: kişisel makine ayarları/hook'lar/settings repoya GİRMEZ (mutlak yollar).
+# Yalnız /kalite skill'i (proje hafızası: saha durumu, günlük, mimari) takip edilir ki
+# Windows ↔ Pi arasında taşınsın ve SD kart arızasında kaybolmasın (2026-09-23).
+.claude/*
+!.claude/skills/
+# Görseller: yalnız uygulama ikonu repoda kalır (tools/make_icon.py üretir)
+*.png
+!app.png
+*.ico
+*.jpg
+*.jpeg
+# Loglar / editör
+*.log
+.vscode/

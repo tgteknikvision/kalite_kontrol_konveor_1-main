@@ -1,0 +1,8 @@
+# Kabuk betikleri Pi'de LF olmalı (Windows CRLF → "bash\r: not found")
+*.sh    text eol=lf
+*.conf  text eol=lf
+# Windows başlatıcısı
+*.bat   text eol=crlf
+# İkili dosyalar
+*.png   binary
+*.ico   binary

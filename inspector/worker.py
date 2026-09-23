@@ -39,7 +39,21 @@ class InspectionWorker(QThread):
         self.last_exposure_us = 0
         self.last_gain = 0.0
         self._meta_last = 0.0
+        # Picamera2 acilamayip OpenCV yedegine dusuldu mu? Pi'de /dev/video0 rp1-cfe
+        # dugumudur, KARE VERMEZ; yedekte takili kalmamak icin run() belirli araliklarla
+        # Picamera2'yi yeniden dener (2026-09-23 arizasi: diger kamera ayni anda kapanirken
+        # libcamera "Camera __init__ sequence did not complete" verdi, kamera hic gelmedi).
+        self._on_fallback = False
+        self._last_picam_retry = 0.0
         self._zoom = float(self._cam_cfg().get("zoom", 1.0))
+
+    PICAM_RETRY_S = 10.0       # OpenCV yedeginde kare gelmezse Picamera2'yi bu aralikla dene
+
+    def _fallback_retry_due(self, failed_reads: int) -> bool:
+        """Picamera2 tercih edilmisken OpenCV yedegine dusuldu ve kare gelmiyorsa,
+        son denemeden >= PICAM_RETRY_S gectiyse Picamera2 yeniden denensin."""
+        return (self._on_fallback and failed_reads >= 100
+                and (time.time() - self._last_picam_retry) >= self.PICAM_RETRY_S)
 
     def _cam_cfg(self) -> dict:
         """Bu kameranin ayar sozlugu. Kamera 2 icin yazilmamis anahtarlar kamera 1'den
@@ -64,17 +78,21 @@ class InspectionWorker(QThread):
         fps = cam_cfg.get("fps", 60)
 
         if backend == "picamera2":
+            cam = None
             try:
                 from picamera2 import Picamera2
                 # Pi'de cam0/cam1 CSI girisleri: her worker kendi kamerasini acar.
                 cam = Picamera2(self._cam_index)
                 camera_controls = {"FrameRate": fps}
                 camera_controls.update(self._camera_controls())
-                cam_cfg = cam.create_video_configuration(
+                # DIKKAT: ayri ad! Eskiden 'cam_cfg' (config sozlugu) burada picamera2
+                # yapilandirmasiyla GOLGELENIYORDU -> asagidaki awb_mode/color_gains
+                # okumalari hep varsayilani goruyor, config anahtarlari HIC uygulanmiyordu.
+                pc_cfg = cam.create_video_configuration(
                     main={"size": (w, h), "format": "BGR888"},
                     controls=camera_controls,
                 )
-                cam.configure(cam_cfg)
+                cam.configure(pc_cfg)
 
                 awb_mode = cam_cfg.get("awb_mode", "Auto")
                 if awb_mode != "Auto":
@@ -115,14 +133,27 @@ class InspectionWorker(QThread):
 
                 self._read_fn = safe_read
                 self._meta_fn = cam.capture_metadata
+                self._on_fallback = False
                 self.log_message.emit(
                     f"[Kamera {self._cam_no}] Picamera2 açıldı (cam{self._cam_index}) - {w}x{h} @ {fps}fps")
                 return True
             except Exception as e:
+                # YARIM KALAN NESNEYI KAPAT (2026-09-23 saha): cam olusturulup configure/
+                # start'ta patlarsa kamera bu surecte ACQUIRED kalir -> sonraki her
+                # Picamera2(idx) denemesi "Camera __init__ sequence did not complete" verir;
+                # 10 s'lik yeniden denemeler bu yuzden hic tutmadi. close() serbest birakir.
+                if cam is not None:
+                    try:
+                        cam.close()
+                    except Exception:
+                        pass
+                self._last_picam_retry = time.time()
                 self.log_message.emit(
-                    f"[UYARI] Kamera {self._cam_no}: Picamera2 başlatılamadı: {e} -> OpenCV'ye geçiliyor")
+                    f"[UYARI] Kamera {self._cam_no}: Picamera2 başlatılamadı: {e} -> OpenCV'ye geçiliyor "
+                    f"(kare gelmezse {int(self.PICAM_RETRY_S)} s sonra Picamera2 yeniden denenir)")
 
         self._meta_fn = None          # OpenCV yedeginde poz/gain okunamaz
+        self._on_fallback = (backend == "picamera2")   # tercih picamera2 idi, yedekteyiz
         idx = int(cam_cfg.get("opencv_index", self._cam_index))
         cap = cv2.VideoCapture(idx)
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
@@ -140,13 +171,15 @@ class InspectionWorker(QThread):
     def _release_camera(self):
         if self._cap is None:
             return
-        backend = self._cam_cfg().get("backend", "picamera2")
+        # Nesnenin TIPINE gore kapat (config'teki backend'e gore DEGIL): picamera2
+        # tercihliyken OpenCV yedegine dusulmusse eski kod VideoCapture'a stop() cagirip
+        # sessizce hata yutuyor, /dev/video* acik kaliyordu.
         try:
-            if backend == "picamera2":
+            if hasattr(self._cap, "release"):          # OpenCV VideoCapture (yedek)
+                self._cap.release()
+            else:                                      # Picamera2
                 self._cap.stop()
                 self._cap.close()
-            else:
-                self._cap.release()
         except Exception:
             pass
         self._cap = None
@@ -202,6 +235,13 @@ class InspectionWorker(QThread):
                 if failed_reads >= 100 and not read_error_reported:
                     self.error_occurred.emit("Kamera görüntüsü okunamıyor.")
                     read_error_reported = True
+                if self._fallback_retry_due(failed_reads):
+                    self.log_message.emit(
+                        f"[Kamera {self._cam_no}] OpenCV yedeğinden kare gelmiyor; "
+                        "Picamera2 yeniden deneniyor...")
+                    self._restart_camera_requested = True
+                    failed_reads = 0
+                    continue
                 time.sleep(0.02)
                 continue
 
