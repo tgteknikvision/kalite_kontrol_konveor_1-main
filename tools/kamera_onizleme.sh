@@ -57,8 +57,7 @@ if [ -n "${PIDS// /}" ]; then
     for p in $PIDS; do timeout 5 tail --pid="$p" -f /dev/null; kill -9 "$p" 2>/dev/null || true; done
     msg "Uygulama kapatıldı."
   else
-    err "Vazgeçildi (uygulama açıkken kamera başka programdan açılamaz)."
-    exit 1
+    warn "Uygulama açık kalıyor: onun kullandığı kamera açılamaz, yalnız BOŞ kameralar gösterilecek."
   fi
 fi
 
