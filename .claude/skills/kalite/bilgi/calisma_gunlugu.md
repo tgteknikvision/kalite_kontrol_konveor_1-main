@@ -62,6 +62,17 @@ başarısız. **Düzeltme:** `worker.py::_open_camera` except bloğunda yarım k
 değil python pid'i. IPARPI log susturma (`LIBCAMERA_LOG_LEVELS=IPARPI:FATAL`) bu restart'ta
 doğrulanacak.
 
+## 2026-09-23 ~09:45 — GitHub kararı: `-main` deposuna gönderilecek (komutlar kullanıcıda)
+
+Kullanıcı "github'da ne kararı bekliyorsun" dedi; 3 seçenek sunuldu, **`kalite_kontrol_konveor_1-main`**
+seçildi. Ajanın `git remote set-url` komutu (ve zinciri) auto-mode sınıflandırıcısınca "Data
+Exfiltration" gerekçesiyle engellendi — aşılmaya çalışılmadı. Yalnız-okuma yolla (`gh api …/tarball/main`)
+uzak depo indirildi ve karşılaştırıldı: 7 farklı dosya (CLAUDE.md, config.yaml, worker.py, main.py,
+PROGRAM_KULLANIM_NOTLARI.md, saha_ayarlari.conf, install_pi.sh) 10 Ağustos yerel commit'i b235a18 ile
+**0 satır fark** → uzak depoda bizde olmayan hiçbir şey yok. Yöntem: `merge --allow-unrelated-histories
+-s ours origin/main` + normal push (force yok, 00227cb geçmişte kalır). Komutlar CLAUDE.md §12'de;
+kullanıcı çalıştırınca `git status -sb` ile doğrulanacak. Yerelde bekleyen: 5+ commit (15 Eylül'den beri).
+
 ## 2026-09-23 ~09:35 — Masaüstü "Kamera Önizleme" simgesi + donmanın ASIL sebebi: kamera frontend timeout (KABLO)
 
 **Donmanın kök sebebi bulundu (stdout, 09:20 yeniden başlatılan örnek):** Kamera 1 (cam0)

@@ -52,7 +52,10 @@
 5. **imx477 ROLLING shutter** → hareketli bantta eğilme riski; kısa pozla üretim karesinde izlenmeli.
 
 ## ⚠️ Depo / altyapı (2026-09-23)
-- **GitHub uzak depo YOK:** `origin` = github.com/tgteknikvision/kalite_kontrol_konveor_1 →
+- **GitHub KARARI (09:45): uzak depo `kalite_kontrol_konveor_1-main`** (içeriği 10 Ağustos
+  upload'ıyla birebir aynı, kayıp yok). Bağlama komutlarını kullanıcı çalıştıracak (ajanın
+  set-url/push'u sınıflandırıcıca engellendi; komutlar CLAUDE.md §12'de). Tamamlanınca bu
+  satırı "push çalışıyor" diye güncelle. Eski durum: `origin` = kalite_kontrol_konveor_1 →
   "Repository not found". Hesapta `kalite_kontrol_konveor_1-main` (public, tek commit 00227cb
   25 Ağustos upload, FARKLI geçmiş) ve `GI_PI_KAMERA_SISTEM-main` (private) var. Yerel `main`
   origin'den önde → **15 Eylül'den beri push edilemiyor**; commit'ler yerelde birikiyor.

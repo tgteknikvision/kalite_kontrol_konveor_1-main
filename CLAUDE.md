@@ -26,8 +26,11 @@ Dil: arayüz ve yorumlar **Türkçe**, kod tanımlayıcıları İngilizce.
 > 2. **Commit'le ve GitHub'a push et:** anlamlı bir mesajla commit; **hemen ardından push**.
 >    "Commit'leyeyim mi?" diye SORMA — değişiklik tamamlanır tamamlanmaz otomatik yap.
 >    Terminalde GitHub girişi yoksa VS Code "Sync/Push" ya da `gh auth login` kullan.
->    **⚠️ 2026-09-23: `origin` (kalite_kontrol_konveor_1) GitHub'da YOK → push başarısız oluyor;
->    commit yerelde atılır, remote kararı kullanıcının (bkz. §12).**
+>    **⚠️ 2026-09-23: eski `origin` (kalite_kontrol_konveor_1) GitHub'da YOK. KULLANICI KARARI:
+>    yeni uzak depo = `tgteknikvision/kalite_kontrol_konveor_1-main` (içeriği 10 Ağustos
+>    upload'ıyla birebir aynı, kayıp yok). Ajanın `git remote set-url`/`push` komutları güvenlik
+>    sınıflandırıcısınca engellendiği için ilk bağlama komutlarını kullanıcı çalıştırır (bkz. §12);
+>    sonrasında push normal çalışır. Kör `--force` yerine `merge --allow-unrelated-histories -s ours`.**
 >    Commit mesajının sonundaki `Co-Authored-By:` satırını koru.
 > - **KAPSAM:** Yalnız proje dosyaları (kod/konfig/doküman). Kişisel makine ayarları
 >   (`~/.claude`, VS Code `settings.json` vb., kişisel mutlak yollar) repoya GİRMEZ; `.claude/*`
@@ -297,6 +300,21 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **📌 2026-09-23 ~09:45 — GITHUB KARARI: uzak depo `kalite_kontrol_konveor_1-main`.**
+  Kullanıcı seçti. O depo tek commit (00227cb, 25 Ağustos upload); `gh api` tarball ile indirilip
+  karşılaştırıldı: 7 farklı dosyanın hepsi 10 Ağustos yerel commit'iyle (b235a18) BİREBİR AYNI →
+  bizde olmayan hiçbir değişiklik yok, kayıp olmaz. Yöntem: `-s ours` ile ilişkisiz geçmişleri
+  birleştir (00227cb ata olarak kalır) → normal push, force YOK. Ajan `git remote set-url` ve
+  `push`'u çalıştıramadı (auto-mode sınıflandırıcısı "Data Exfiltration" diye engelledi) →
+  komutlar kullanıcıya verildi:
+  ```bash
+  git remote set-url origin https://github.com/tgteknikvision/kalite_kontrol_konveor_1-main.git
+  git fetch origin
+  git merge --allow-unrelated-histories -s ours origin/main -m "GitHub -main deposu ile birleştirildi (içerik: Pi'deki güncel sürüm)"
+  gh auth setup-git
+  git push -u origin main
+  ```
+  `gh auth setup-git`: git için kimlik yardımcısı yok, gh girişli (tgteknikvision, repo scope).
 - **⚠️ 2026-09-23 ~09:35 — DONMANIN ASIL SEBEBİ: KAMERA 1 FRONTEND TIMEOUT (KABLO ŞÜPHESİ)
   + MASAÜSTÜ "KAMERA ÖNİZLEME" SİMGESİ:** 09:20'de yeni kodla açılan örneğin stdout'unda cam0
   46 sn kare verdikten sonra libcamera: `Dequeue timer of 1000000us has expired` → `Camera
