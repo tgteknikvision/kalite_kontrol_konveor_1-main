@@ -27,7 +27,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QFileDialog)
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer, QUrl, QPoint
 from PyQt5.QtGui import (QImage, QPixmap, QFont, QPalette, QColor, QTextDocument, QDesktopServices,
-                         QPainter, QPolygon)
+                         QPainter, QPolygon, QPen)
 
 from inspector.worker import InspectionWorker
 from inspector.plc import InspectionState, create_plc_adapter
@@ -346,8 +346,27 @@ QPushButton[accent="primary"]:disabled,
 QPushButton[accent="success"]:disabled,
 QPushButton[accent="danger"]:disabled { background-color: #1d2026; color: #5a606b; border: 1px solid #262a31; }
 
-QCheckBox { color: #c4c9d2; font-size: 13px; background: transparent; }
+QCheckBox { color: #c4c9d2; font-size: 13px; background: transparent; spacing: 8px; }
 QCheckBox:disabled { color: #5a606b; }
+
+/* Secenek (isaret) kutulari (2026-09-23, kullanici: "secenek kutulari gozukmuyor, oklarin
+   renginde acik renk yap"): Fusion'in koyu temada cizdigi kutu zeminle ayni tondaydi.
+   Kutu: ok rengiyle (#d6dae2) 2 px acik cerceve; isaretli: mavi dolgu + beyaz tik
+   (tik resmi calisma aninda uretilir, build_stylesheet TICK yer tutucusunun yerine yolu yazar).
+   QGroupBox::indicator = Ayarlar'daki "Kamera N (kullan)" baslik kutusu. */
+QCheckBox::indicator, QGroupBox::indicator {
+    width: 16px; height: 16px;
+    border: 2px solid #d6dae2;
+    border-radius: 4px;
+    background-color: #1e222a;
+}
+QCheckBox::indicator:hover, QGroupBox::indicator:hover { border-color: #ffffff; background-color: #2a303b; }
+QCheckBox::indicator:checked, QGroupBox::indicator:checked {
+    background-color: #3f6fa3; border-color: #d6dae2; image: url(__TICK__);
+}
+QCheckBox::indicator:checked:hover, QGroupBox::indicator:checked:hover { background-color: #4880bd; }
+QCheckBox::indicator:disabled, QGroupBox::indicator:disabled { border-color: #5a606b; background-color: #191c22; }
+QCheckBox::indicator:checked:disabled, QGroupBox::indicator:checked:disabled { background-color: #2c3a4d; }
 
 /* Girisler */
 QComboBox, QSpinBox, QDoubleSpinBox, QLineEdit {
@@ -403,7 +422,7 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal { background: t
 
 /* Sayi kutusu oklari (2026-09-23, kullanici: "oklar gozukmuyor"): koyu temada Fusion'in
    cizdigi ok neredeyse gorunmezdi. Acik renkli ok resimleri calisma aninda uretilir
-   (build_stylesheet -> _arrow_icon_paths) ve __UP__/__DOWN__ yerine yazilir. */
+   (build_stylesheet -> _arrow_icon_paths) ve asagidaki UP/DOWN yer tutucularinin yerine yazilir. */
 QSpinBox::up-button, QDoubleSpinBox::up-button {
     subcontrol-origin: border; subcontrol-position: top right; width: 22px;
     border-left: 1px solid #3c4250; border-bottom: 1px solid #3c4250;
@@ -426,7 +445,8 @@ QComboBox::down-arrow { image: url(__DOWN__); width: 10px; height: 6px; }
 
 
 def _arrow_icon_paths() -> dict:
-    """Acik renkli yukari/asagi ok resimlerini (10x6 PNG) gecici klasore uretir, yollari doner.
+    """Acik renkli yukari/asagi ok (10x6) ve isaret kutusu tik (12x10) resimlerini gecici
+    klasore uretir, yollari doner (anahtarlar: ok_yukari, ok_asagi, tik).
     Stylesheet'te url() yalniz dosya yolu kabul eder; repoya ikili dosya koymamak icin
     calisma aninda ciziliyor (bir kez, sonra dosya varsa yeniden cizilmez)."""
     d = os.path.join(tempfile.gettempdir(), "konveyor_ui")
@@ -447,17 +467,35 @@ def _arrow_icon_paths() -> dict:
                 painter.end()
                 pm.save(path, "PNG")
             paths[name] = path.replace("\\", "/")
+        # Beyaz tik: isaretli secenek kutusunun icine (16x16 kutu, 2 px cerceve -> 12x12 ic alan).
+        path = os.path.join(d, "tik.png")
+        if not os.path.exists(path):
+            pm = QPixmap(12, 10)
+            pm.fill(Qt.transparent)
+            painter = QPainter(pm)
+            painter.setRenderHint(QPainter.Antialiasing)
+            pen = QPen(QColor("#ffffff"), 2.2)
+            pen.setCapStyle(Qt.RoundCap)
+            pen.setJoinStyle(Qt.RoundJoin)
+            painter.setPen(pen)
+            painter.drawPolyline(QPolygon([QPoint(2, 5), QPoint(5, 8), QPoint(10, 2)]))
+            painter.end()
+            pm.save(path, "PNG")
+        paths["tik"] = path.replace("\\", "/")
     except Exception:
         return {}
     return paths
 
 
 def build_stylesheet() -> str:
-    """STYLESHEET + ok resmi yollari. Resim uretilemezse ok kurallari duser (varsayilan ok)."""
+    """STYLESHEET + ok/tik resmi yollari. Resim uretilemezse resim kurallari duser
+    (ok: varsayilan ok; tik: isaretli kutu yalniz mavi dolguyla ayirt edilir)."""
     icons = _arrow_icon_paths()
     if not icons:
-        return STYLESHEET.replace("image: url(__UP__);", "").replace("image: url(__DOWN__);", "")
-    return STYLESHEET.replace("__UP__", icons["ok_yukari"]).replace("__DOWN__", icons["ok_asagi"])
+        return (STYLESHEET.replace("image: url(__UP__);", "").replace("image: url(__DOWN__);", "")
+                .replace("image: url(__TICK__);", ""))
+    return (STYLESHEET.replace("__UP__", icons["ok_yukari"]).replace("__DOWN__", icons["ok_asagi"])
+            .replace("__TICK__", icons["tik"]))
 
 class SettingsDialog(QDialog):
     """PLC + kamera + çekim ayarları tek pencerede (sol panelden taşındı).

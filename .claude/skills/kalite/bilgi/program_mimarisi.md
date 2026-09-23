@@ -970,6 +970,11 @@ karşılığı — elle senkron tutulur.
 - **Spinbox okları:** `STYLESHEET` up/down-button/arrow kuralları (`__UP__/__DOWN__`),
   `_arrow_icon_paths()` 10×6 PNG'leri `tempfile.gettempdir()/konveyor_ui/` altına çizer,
   `build_stylesheet()` yolları yerine koyar; `MainWindow.__init__` `setStyleSheet(build_stylesheet())`.
+- **Seçenek (işaret) kutuları (2026-09-23):** `QCheckBox::indicator` + `QGroupBox::indicator`
+  kuralları — 16×16, 2 px açık çerçeve `#d6dae2` (ok rengi), işaretli: mavi `#3f6fa3` + beyaz tik
+  (`tik.png`, `_arrow_icon_paths()["tik"]`, 12×10, `QPen` 2.2 px); `__TICK__` yer tutucusu.
+  Ayarlar'daki "Kamera N (kullan)" başlık kutusu `QGroupBox::indicator` ile aynı görünümde.
+  Test: `tests/test_stil.py` (Fusion + `apply_dark_palette` ile render, piksel sayımı).
 - **PDF:** `_build_report_html` (özet, dağılım, sistem hataları, son 300 NOK, CSV yolu) →
   `_write_report_pdf(path)` (`QTextDocument.print_` + `QPrinter(PdfFormat, A4)`) → `_export_pdf`
   (`QFileDialog.getSaveFileName`, varsayılan `~/Desktop/kalite_raporu_%Y-%m-%d_%H%M.pdf`,

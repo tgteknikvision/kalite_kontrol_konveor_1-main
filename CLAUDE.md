@@ -84,7 +84,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (91 test, 4 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (107 test, 5 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -311,6 +311,22 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-23 ~15:10 — SEÇENEK (İŞARET) KUTULARI GÖRÜNÜR (kullanıcı, ekran kesitiyle:
+  "bu seçeneklerin kutuları gözükmüyor, tüm programda açık renk yap, okların renginde olabilir"):**
+  Fusion'ın koyu palette çizdiği `QCheckBox` kutusu zeminle aynı tondaydı — temiz süreçte ekransız
+  ölçüldü: kutu şeridinde **6 parlak piksel** (yalnız soluk tik), Ayarlar'daki "Kamera N (kullan)"
+  başlık kutusunda **0**. `STYLESHEET`'e `QCheckBox::indicator` + `QGroupBox::indicator` kuralları:
+  16×16, **2 px açık çerçeve `#d6dae2` (ok rengiyle aynı)**, koyu iç; işaretli → mavi dolgu
+  `#3f6fa3` + **beyaz tik** (`tik.png`, `_arrow_icon_paths` artık `tik` anahtarını da üretir,
+  `build_stylesheet` `__TICK__` yerine yolu yazar; resim üretilemezse yalnız mavi dolgu kalır);
+  hover/pasif durumları da tanımlı. Etkilenen tüm kutular: sol panel "Elle Çekim Modu", Ayarlar'da
+  "Exposure/Gain Kilidi" ve iki kamera grubunun başlık kutusu (programda başka işaret kutusu yok;
+  hepsi pencere stilini alır, özel stil yok). Yeni ölçüm: boş kutu 144 parlak piksel, işaretli
+  223 mavi + 21 beyaz; grup kutuları 92/123. **TUZAK (test yazarken):** ekransız testte
+  `app.setStyle("Fusion") + apply_dark_palette(app)` ÇAĞRILMALI — çağrılmazsa qt5ct stiliyle
+  render edilir ve eski kutu zaten görünür çıkar (ilk ölçümde böyle yanıldı). 16 test
+  (`tests/test_stil.py`), takım 107/107. Çalışan uygulama (kullanıcı, 14:40) yeniden
+  başlatılmadı — yeni görünüm restart'ta gelir.
 - **📌 2026-09-23 14:45 — DÜZELTME: KAMERA 1 KALİBRASYONU YAPILDI (kullanıcı, 12:58-13:14,
   GUI'den; ajanın tam config okumasında fark edildi).** Aşağıdaki sabah maddelerindeki
   "kalibrasyon yapılmadı / poz kilidi KAPALI / delay 1 ms" ifadeleri ARTIK GEÇERSİZ. Güncel

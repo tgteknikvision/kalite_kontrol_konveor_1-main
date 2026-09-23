@@ -79,7 +79,7 @@ inspection:
   trigger_delay_ms: 300
 plc:
   host: 192.168.10.10
-  manual_mode: false
+  manual_mode: true
   poll_ms: 20
   port: 502
   reconnect_s: 3.0

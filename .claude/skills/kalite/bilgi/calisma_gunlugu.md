@@ -3,79 +3,21 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
-## 2026-09-23 ~07:50 — Öneriler uygulandı + ÇEKİM GECİKMESİ ana ekranda; uygulama yeni kodla yeniden başlatıldı
+## 2026-09-23 ~15:10 — Seçenek (işaret) kutuları görünür yapıldı (tüm program)
 
-Kullanıcı: "önerilerini yapalım" + "sensör görünce ışık yanıp foto çekiliyor ya, bunu ERTELEME
-şansı olsun; kamerayı sensörden ileriye alacağım, fotoya bakıp süreyi artırıp azaltacağım".
-NOT: `inspection.trigger_delay_ms` zaten vardı (Ayarlar → "Çekim Gecikmesi ms", 1 ms) ama Ayarlar
-penceresi açıkken PLC tetiği durduğu için ürün geçirerek deneme yapılamıyordu → kullanıcı
-farkında değildi/kullanamıyordu. Yapılan: kutu SOL PANELE taşındı + her çekim damgalanıyor.
-
-**Kod değişiklikleri (main.py 2105, worker.py 319 satır):**
-- `main.py`: sol panel "Çalışma Modu" → `spin_trigger_delay` (0-5000 ms, adım 10) →
-  `_on_trigger_delay_changed` config+kaydet+`[Gecikme]` log; Ayarlar ile iki yönlü eşit.
-  `_capture_from_plc` tetik anını (`_trigger_time`) alır; `_capture_full_frame(source)` kare
-  yaşını ölçer, `_last_capture_note = "Gecikme X ms | kare Y ms"`; `_stamp_capture_note` resmin
-  sol altına yazar (`_handle_snapshot` display_img + `_store_setup_snapshot` ekran kopyası;
-  saklanan kare temiz). Log: `| gecikme X ms, tetikten Z ms sonra, kare yaşı Y ms` ([Tetik] ve
-  nokta yokken [Kurulum] satırında). `keyPressEvent`: odak giriş kutusundayken Enter/Boşluk çekim
-  tetiklemez. `_apply_settings`: ÖNCE kapat SONRA aç (07:10 arızası). `RESOLUTIONS`: imx477
-  modları. Başta `LIBCAMERA_LOG_LEVELS=IPARPI:FATAL` (setdefault) — aşağıya bak.
-- `worker.py`: `pc_cfg` (gölgeleme düzeltildi → awb_mode/color_gains uygulanır); OpenCV yedeğinde
-  100 başarısız okumadan sonra `PICAM_RETRY_S`=10 s aralıkla Picamera2 yeniden denenir
-  (`_on_fallback`, `_fallback_retry_due`); `_release_camera` nesne tipine göre kapatır.
-- Yeni: `.gitignore` (`.claude/*` hariç `!.claude/skills/` — skill KB artık git'te; venv, pycache,
-  *.png hariç app.png, *.log), `.gitattributes` (*.sh LF, *.bat CRLF, png/ico binary).
-  `saha_ayarlari.conf` imx477×2. `PROGRAM_KULLANIM_NOTLARI.md` sıfırdan (gecikme akışı §3).
-- CLAUDE.md §4/§8/§9/§12/§13 + program_mimarisi.md güncellendi.
-
-**Test:** 27 ekransız test (scratchpad `test_23eylul.py`) 27/27 geçti. **KAZA:** ilk koşuda
-`MainWindow.LOG_DIR` gerçek saha loguna yazdı → 24 test satırı (07:39-07:40) saha logundan
-`sed` ile silindi (yedek scratchpad'de), testte LOG_DIR geçici klasöre alındı.
-
-**Uygulama yeniden başlatma:** kullanıcı zaten 07:25'te eski kodla yeniden başlatmıştı (VS Code
-terminalinden; kamera geldi, 07:25:36 Resim #0002 → OK). Ajan 07:44'te YENİ kodla yeniden
-başlattı (`kill -TERM` + `setsid nohup env DISPLAY=:0 WAYLAND_DISPLAY=wayland-0
-XDG_RUNTIME_DIR=/run/user/1000 … python3 main.py >> ~/konveyor_loglari/uygulama-stdout.log`):
-Kamera 1 Picamera2 açıldı, PLC bağlandı, HATA yok. Stdout'ta libcamera her karede
-`ERROR IPARPI cam_helper.cpp:217 Embedded data buffer parsing failed` basıyordu (2812 satır /
-2.5 dk ≈ 140 MB/gün, imx477 + libcamera v0.7.1 rpt20260609; kareler yine akıyor) → `main.py`
-başında `LIBCAMERA_LOG_LEVELS=IPARPI:FATAL` setdefault + ~07:50'de bir kez daha restart.
-
-**Açık iş:** (1) kullanıcı gecikmeyi sol panelden ayarlayacak (ürün geçir → resimde "Gecikme"
-→ artır/azalt); (2) poz kilidi + kısa poz; (3) imx477 kalibrasyonu (çerçeve → noktalar →
-eşikler → yön), iki kamera için ayrı; (4) **GitHub remote kararı** (push hâlâ başarısız);
-(5) IPARPI "embedded data" mesajının kökü (kernel/libcamera sürümü?) — Poz göstergesi metadata'yı
-libcamera'nın kendi hesabından alıyor olabilir, izlenmeli.
-
-**⚠️ RESTART KAZASI + YENİ BUG (07:48-07:55):** İkinci restart'ta `pgrep -f "python.*main.py" |
-head -1` nohup SARMALAYICISININ pid'ini verdi → eski uygulama (380502) kapanmadı, yeni örnek
-(412531) açıldı ama kamerayı alamadı ("Pipeline handler in use by another process") → ~1 dk
-İKİ ÖRNEK PLC'yi yokladı (tetik gelmedi, HR100 çakışması olmadı). Eski örnek elle kapatıldı;
-yeni örneğin 10 s'lik Picamera2 yeniden denemeleri ÇALIŞTI ama hep "Camera __init__ sequence did
-not complete" verdi: 07:49:37'de bir deneme `start()`'ta "Invalid argument" ile patlamış, nesne
-`close()` edilmediğinden kamera bu süreçte ACQUIRED kalmıştı → sonraki her `Picamera2(0)`
-başarısız. **Düzeltme:** `worker.py::_open_camera` except bloğunda yarım kalan `cam.close()`
-(test eklendi: start() patlayınca close() çağrılıyor → 29 test). Uygulama tam pid ile
-(`pgrep -f "^/usr/bin/python3 main.py"`) kapatılıp yeni kodla tekrar başlatıldı.
-**KURAL:** iki örnek ASLA aynı anda çalışmasın (ikisi de HR100'e yazar); kapatırken sarmalayıcı
-değil python pid'i. IPARPI log susturma (`LIBCAMERA_LOG_LEVELS=IPARPI:FATAL`) bu restart'ta
-doğrulanacak.
-
-## 2026-09-23 ~13:27 — ⚠️ KAZA (ikinci kez): ajan çift uygulama örneği başlattı
-
-Sayaç kodunu dağıtmak için "uygulama kapalı mı" kontrolü `ps -o ... -p <eski pid>` ile yapıldı;
-eski pid (137655) gerçekten kapanmıştı ama kullanıcı 13:18'de VS Code terminalinden YENİ bir
-örnek (pid 2204541) açmıştı. Başlatma komutundaki koruma yalnız `rpicam` süreçlerine bakıyordu →
-ajan 13:26:11'de ikinci örnek başlattı; kamerayı alamadı (Picamera2 "__init__ sequence did not
-complete" → OpenCV yedeği → 10 s'lik yeniden deneme), ~40 sn boyunca iki örnek PLC'yi yokladı.
-13:26:5x'te ajanın örneği SIGTERM ile kapatıldı; kullanıcının örneği (2204541) çalışmaya devam
-ediyor. Bu aralıkta tetik gelmedi (log kontrolü) → PLC'ye çelişkili yazım olmadı.
-**KURAL (kalıcı):** uygulamayı başlatmadan ÖNCE `ps aux | grep "[m]ain\.py"` — HERHANGİ bir
-örnek varsa (kim başlatmış olursa olsun) BAŞLATMA; kullanıcıya sor. Sabahki kural yalnız
-"kapatırken doğru pid" idi; şimdi "başlatmadan önce hiç örnek olmadığını doğrula" eklendi.
-Kullanıcının 13:18 örneği sayaç kodundan (13:21-13:25) ESKİ → sayaç için restart gerekiyor;
-kullanıcıya bırakıldı.
+Kullanıcı ekran kesitiyle: "bu seçeneklerin kutuları gözükmüyor, tüm programda hepsini görünür açık
+renkte yap, okların renginde olabilir." Kesit: "Elle Çekim Modu (PLC devre dışı)" — kutu koyu zeminde
+kayıp. **Ölçüm (temiz süreç, Fusion + koyu palet, ekransız):** eski stilde kutu şeridinde 6 parlak
+piksel (yalnız soluk tik), Ayarlar'daki "Kamera N (kullan)" başlık kutusunda 0.
+**Yapılan:** `STYLESHEET`'e `QCheckBox::indicator` + `QGroupBox::indicator` — 2 px açık çerçeve
+`#d6dae2` (spinbox oklarıyla aynı renk), işaretli: mavi dolgu + beyaz tik (`tik.png`,
+`_arrow_icon_paths()["tik"]`, `__TICK__`); hover/pasif tanımlı. Kapsanan kutular: Elle Çekim Modu,
+Exposure/Gain Kilidi, Kamera 1/2 (kullan) — programda başka işaret kutusu yok. Yeni ölçüm: 144 parlak
+(boş), 223 mavi + 21 beyaz (işaretli), grup 92/123. `tests/test_stil.py` 16 test; takım 107/107.
+**Ders:** ekransız stil testinde `app.setStyle("Fusion") + apply_dark_palette` çağrılmazsa qt5ct
+stiliyle render olur ve sorun görünmez (ilk ölçümde eski/yeni aynı çıktı, bu yüzden). Uygulama
+(kullanıcı 14:40) yeniden BAŞLATILMADI — görünüm restart'ta gelir. Kullanıcının yapıştırdığı görsel bir
+e-posta kesitiydi (yanlış pano); asıl kesit `~/Pictures/kesitler/son.png`'den alındı.
 
 ## 2026-09-23 ~14:55 — Kullanıcı kuralı tekrarladı: "skill'e koy, her çağırdığımda programı okusun"
 Kural zaten 2da7541'de vardı (A bölümü). Görünürlük için güçlendirildi: SKILL.md'nin en
@@ -200,6 +142,21 @@ CLAUDE.md §4/§12, PROGRAM_KULLANIM_NOTLARI §3c, mimari güncellendi.
 yeniden başlatılması gerekiyor — kullanıcıya soruldu (üretim çalışırken izinsiz kapatılmadı).
 GitHub: remote komutlarını kullanıcı henüz çalıştırmadı, push yine başarısız.
 
+## 2026-09-23 ~13:27 — ⚠️ KAZA (ikinci kez): ajan çift uygulama örneği başlattı
+
+Sayaç kodunu dağıtmak için "uygulama kapalı mı" kontrolü `ps -o ... -p <eski pid>` ile yapıldı;
+eski pid (137655) gerçekten kapanmıştı ama kullanıcı 13:18'de VS Code terminalinden YENİ bir
+örnek (pid 2204541) açmıştı. Başlatma komutundaki koruma yalnız `rpicam` süreçlerine bakıyordu →
+ajan 13:26:11'de ikinci örnek başlattı; kamerayı alamadı (Picamera2 "__init__ sequence did not
+complete" → OpenCV yedeği → 10 s'lik yeniden deneme), ~40 sn boyunca iki örnek PLC'yi yokladı.
+13:26:5x'te ajanın örneği SIGTERM ile kapatıldı; kullanıcının örneği (2204541) çalışmaya devam
+ediyor. Bu aralıkta tetik gelmedi (log kontrolü) → PLC'ye çelişkili yazım olmadı.
+**KURAL (kalıcı):** uygulamayı başlatmadan ÖNCE `ps aux | grep "[m]ain\.py"` — HERHANGİ bir
+örnek varsa (kim başlatmış olursa olsun) BAŞLATMA; kullanıcıya sor. Sabahki kural yalnız
+"kapatırken doğru pid" idi; şimdi "başlatmadan önce hiç örnek olmadığını doğrula" eklendi.
+Kullanıcının 13:18 örneği sayaç kodundan (13:21-13:25) ESKİ → sayaç için restart gerekiyor;
+kullanıcıya bırakıldı.
+
 ## 2026-09-23 ~09:45 — GitHub kararı: `-main` deposuna gönderilecek (komutlar kullanıcıda)
 
 Kullanıcı "github'da ne kararı bekliyorsun" dedi; 3 seçenek sunuldu, **`kalite_kontrol_konveor_1-main`**
@@ -285,6 +242,65 @@ elle açılmış, ~5 dk sonra donmuş.)
 en geç 3 sn içinde kapanır (zorla). Kameranın NEDEN donduğu (kök sebep) hâlâ açık; sahada
 tekrarlarsa `[HATA] Kamera thread'i 3 sn içinde kapanmadı` logu iz bırakır — böyle bir log
 görülürse kamera tarafı (soğuk açılış zamanlaması / retry döngüsü) ayrıca incelenmeli.
+
+## 2026-09-23 ~07:50 — Öneriler uygulandı + ÇEKİM GECİKMESİ ana ekranda; uygulama yeni kodla yeniden başlatıldı
+
+Kullanıcı: "önerilerini yapalım" + "sensör görünce ışık yanıp foto çekiliyor ya, bunu ERTELEME
+şansı olsun; kamerayı sensörden ileriye alacağım, fotoya bakıp süreyi artırıp azaltacağım".
+NOT: `inspection.trigger_delay_ms` zaten vardı (Ayarlar → "Çekim Gecikmesi ms", 1 ms) ama Ayarlar
+penceresi açıkken PLC tetiği durduğu için ürün geçirerek deneme yapılamıyordu → kullanıcı
+farkında değildi/kullanamıyordu. Yapılan: kutu SOL PANELE taşındı + her çekim damgalanıyor.
+
+**Kod değişiklikleri (main.py 2105, worker.py 319 satır):**
+- `main.py`: sol panel "Çalışma Modu" → `spin_trigger_delay` (0-5000 ms, adım 10) →
+  `_on_trigger_delay_changed` config+kaydet+`[Gecikme]` log; Ayarlar ile iki yönlü eşit.
+  `_capture_from_plc` tetik anını (`_trigger_time`) alır; `_capture_full_frame(source)` kare
+  yaşını ölçer, `_last_capture_note = "Gecikme X ms | kare Y ms"`; `_stamp_capture_note` resmin
+  sol altına yazar (`_handle_snapshot` display_img + `_store_setup_snapshot` ekran kopyası;
+  saklanan kare temiz). Log: `| gecikme X ms, tetikten Z ms sonra, kare yaşı Y ms` ([Tetik] ve
+  nokta yokken [Kurulum] satırında). `keyPressEvent`: odak giriş kutusundayken Enter/Boşluk çekim
+  tetiklemez. `_apply_settings`: ÖNCE kapat SONRA aç (07:10 arızası). `RESOLUTIONS`: imx477
+  modları. Başta `LIBCAMERA_LOG_LEVELS=IPARPI:FATAL` (setdefault) — aşağıya bak.
+- `worker.py`: `pc_cfg` (gölgeleme düzeltildi → awb_mode/color_gains uygulanır); OpenCV yedeğinde
+  100 başarısız okumadan sonra `PICAM_RETRY_S`=10 s aralıkla Picamera2 yeniden denenir
+  (`_on_fallback`, `_fallback_retry_due`); `_release_camera` nesne tipine göre kapatır.
+- Yeni: `.gitignore` (`.claude/*` hariç `!.claude/skills/` — skill KB artık git'te; venv, pycache,
+  *.png hariç app.png, *.log), `.gitattributes` (*.sh LF, *.bat CRLF, png/ico binary).
+  `saha_ayarlari.conf` imx477×2. `PROGRAM_KULLANIM_NOTLARI.md` sıfırdan (gecikme akışı §3).
+- CLAUDE.md §4/§8/§9/§12/§13 + program_mimarisi.md güncellendi.
+
+**Test:** 27 ekransız test (scratchpad `test_23eylul.py`) 27/27 geçti. **KAZA:** ilk koşuda
+`MainWindow.LOG_DIR` gerçek saha loguna yazdı → 24 test satırı (07:39-07:40) saha logundan
+`sed` ile silindi (yedek scratchpad'de), testte LOG_DIR geçici klasöre alındı.
+
+**Uygulama yeniden başlatma:** kullanıcı zaten 07:25'te eski kodla yeniden başlatmıştı (VS Code
+terminalinden; kamera geldi, 07:25:36 Resim #0002 → OK). Ajan 07:44'te YENİ kodla yeniden
+başlattı (`kill -TERM` + `setsid nohup env DISPLAY=:0 WAYLAND_DISPLAY=wayland-0
+XDG_RUNTIME_DIR=/run/user/1000 … python3 main.py >> ~/konveyor_loglari/uygulama-stdout.log`):
+Kamera 1 Picamera2 açıldı, PLC bağlandı, HATA yok. Stdout'ta libcamera her karede
+`ERROR IPARPI cam_helper.cpp:217 Embedded data buffer parsing failed` basıyordu (2812 satır /
+2.5 dk ≈ 140 MB/gün, imx477 + libcamera v0.7.1 rpt20260609; kareler yine akıyor) → `main.py`
+başında `LIBCAMERA_LOG_LEVELS=IPARPI:FATAL` setdefault + ~07:50'de bir kez daha restart.
+
+**Açık iş:** (1) kullanıcı gecikmeyi sol panelden ayarlayacak (ürün geçir → resimde "Gecikme"
+→ artır/azalt); (2) poz kilidi + kısa poz; (3) imx477 kalibrasyonu (çerçeve → noktalar →
+eşikler → yön), iki kamera için ayrı; (4) **GitHub remote kararı** (push hâlâ başarısız);
+(5) IPARPI "embedded data" mesajının kökü (kernel/libcamera sürümü?) — Poz göstergesi metadata'yı
+libcamera'nın kendi hesabından alıyor olabilir, izlenmeli.
+
+**⚠️ RESTART KAZASI + YENİ BUG (07:48-07:55):** İkinci restart'ta `pgrep -f "python.*main.py" |
+head -1` nohup SARMALAYICISININ pid'ini verdi → eski uygulama (380502) kapanmadı, yeni örnek
+(412531) açıldı ama kamerayı alamadı ("Pipeline handler in use by another process") → ~1 dk
+İKİ ÖRNEK PLC'yi yokladı (tetik gelmedi, HR100 çakışması olmadı). Eski örnek elle kapatıldı;
+yeni örneğin 10 s'lik Picamera2 yeniden denemeleri ÇALIŞTI ama hep "Camera __init__ sequence did
+not complete" verdi: 07:49:37'de bir deneme `start()`'ta "Invalid argument" ile patlamış, nesne
+`close()` edilmediğinden kamera bu süreçte ACQUIRED kalmıştı → sonraki her `Picamera2(0)`
+başarısız. **Düzeltme:** `worker.py::_open_camera` except bloğunda yarım kalan `cam.close()`
+(test eklendi: start() patlayınca close() çağrılıyor → 29 test). Uygulama tam pid ile
+(`pgrep -f "^/usr/bin/python3 main.py"`) kapatılıp yeni kodla tekrar başlatıldı.
+**KURAL:** iki örnek ASLA aynı anda çalışmasın (ikisi de HR100'e yazar); kapatırken sarmalayıcı
+değil python pid'i. IPARPI log susturma (`LIBCAMERA_LOG_LEVELS=IPARPI:FATAL`) bu restart'ta
+doğrulanacak.
 
 ## 2026-09-23 ~07:20 — Program baştan sona okundu + inceleme raporu; UYGULAMA KAMERASIZ (her tetik NOK)
 
