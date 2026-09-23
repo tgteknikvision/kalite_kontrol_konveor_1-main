@@ -67,6 +67,30 @@ if [ -n "$DESKTOP_DIR" ] && [ -d "$DESKTOP_DIR" ]; then
   echo "Masaustu   : $DESKTOP_DIR/konveyor-denetim.desktop"
 fi
 
+# --- KAMERA ONIZLEME kisayolu (2026-09-23, kullanici istegi): denetim programindan
+# BAGIMSIZ canli kamera goruntusu (tools/kamera_onizleme.sh). Terminal=true: libcamera
+# hatalari (orn. "Camera frontend has timed out" = kablo) ayni pencerede gorunsun.
+KAMERA_DESKTOP="$APP_DIR/kamera-onizleme.desktop"
+cat > "$KAMERA_DESKTOP" <<EOF2
+[Desktop Entry]
+Type=Application
+Name=Kamera Önizleme
+Comment=Denetim programından bağımsız canlı kamera görüntüsü (odak / ışık / kablo kontrolü)
+Exec=bash $DIR/tools/kamera_onizleme.sh
+Path=$DIR
+Icon=camera-photo
+Terminal=true
+Categories=Utility;Engineering;
+StartupNotify=true
+EOF2
+chmod +x "$KAMERA_DESKTOP"
+if [ -n "$DESKTOP_DIR" ] && [ -d "$DESKTOP_DIR" ]; then
+  cp "$KAMERA_DESKTOP" "$DESKTOP_DIR/kamera-onizleme.desktop"
+  chmod +x "$DESKTOP_DIR/kamera-onizleme.desktop" || true
+  command -v gio >/dev/null 2>&1 && gio set "$DESKTOP_DIR/kamera-onizleme.desktop" metadata::trusted true 2>/dev/null || true
+  echo "Masaustu   : $DESKTOP_DIR/kamera-onizleme.desktop"
+fi
+
 # Menu onbellegini tazele (varsa)
 command -v update-desktop-database >/dev/null 2>&1 && \
   update-desktop-database "$APP_DIR" >/dev/null 2>&1 || true

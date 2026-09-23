@@ -1,7 +1,7 @@
 # Saha Durumu — Konveyör Kalite Kontrol
 
 > Bu dosya HEP güncel gerçeği tutar. Durum değişince ilgili satırı **üstüne yaz**.
-> Son güncelleme: 2026-09-23 ~09:20
+> Son güncelleme: 2026-09-23 ~09:35
 
 ## Donanım / Makine
 - **Raspberry Pi 5**, kullanıcı `tg_pi5_kalite_kontrol_konveor`, makine `tgpi5kalitekontrolkonveor`.
@@ -14,6 +14,13 @@
   Pi eth0 statik `192.168.10.50/24` (gateway YOK, internet wlan0'dan).
 
 ## ⚠️ AKTİF SORUNLAR (2026-09-23)
+00. ⚠️ **KAMERA 1 (cam0) FİZİKSEL BAĞLANTI ŞÜPHELİ (09:20 stdout):** 46 sn kare verdikten
+   sonra libcamera `Camera frontend has timed out! Please check that your camera sensor
+   connector is attached securely` → sensörden kare akışı donanım seviyesinde kesildi; donmanın
+   asıl sebebi bu. Kablo/konnektör kontrol edilmeli (14 Eylül'deki imx296+uzatıcı arızasıyla
+   aynı sınıf). Tekrarını görmek için masaüstündeki **Kamera Önizleme** simgesi (terminalde aynı
+   mesaj canlı görünür). Uygulama şu an kullanıcı tarafından 09:25'te açılmış (pid 137655, VS
+   Code terminali), Kamera 1 çalışıyor, gecikme ayarı sahada kullanılıyor.
 0. ✅ **ÇÖZÜLDÜ (09:20) — "kapatamıyorum" (gerçek karşılıklı kilitlenme, gdb ile doğrulandı):**
    Pi 09:10'da yeniden başlamış, pid 5553 boot'tan 28 sn sonra açılmış, ~5 dk sonra donmuş.
    Ana thread `closeEvent`'te süresiz `worker.wait()`'te, kamera worker'ı bir kare bekleyip

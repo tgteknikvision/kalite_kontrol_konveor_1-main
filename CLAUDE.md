@@ -82,7 +82,9 @@ saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/por
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
-                        yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler)
+                        yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
+                        kamera_onizleme.sh (masaüstü "Kamera Önizleme" simgesi: programdan
+                        bağımsız canlı kamera pencereleri, 2026-09-23)
 ```
 **Threading:** Kamera arka plan QThread'inde (`worker`), Qt sinyalleriyle GUI'ye kare
 yollar; PLC'den haberi yok. PLC tüm işlemleri GUI thread'inde `QTimer` ile (`poll_ms`,
@@ -295,6 +297,19 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **⚠️ 2026-09-23 ~09:35 — DONMANIN ASIL SEBEBİ: KAMERA 1 FRONTEND TIMEOUT (KABLO ŞÜPHESİ)
+  + MASAÜSTÜ "KAMERA ÖNİZLEME" SİMGESİ:** 09:20'de yeni kodla açılan örneğin stdout'unda cam0
+  46 sn kare verdikten sonra libcamera: `Dequeue timer of 1000000us has expired` → `Camera
+  frontend has timed out! Please check that your camera sensor connector is attached securely.
+  Alternatively, try another cable and/or sensor.` Sensörden kare akışı DONANIM seviyesinde
+  kesildi; worker `capture_array()`'de bekledi; kullanıcı kapatınca yeni `closeEvent` 3 sn'de
+  zorla kapattı (düzeltme sahada doğrulandı). **14 Eylül'deki imx296+HDMI-uzatıcı arızasıyla
+  aynı sınıf → cam0 kablosu/konnektörü fiziksel kontrol.** Kullanıcı isteğiyle
+  `tools/kamera_onizleme.sh` + `kamera-onizleme.desktop` (masaüstü + menü, Terminal=true,
+  `install_pi.sh` kurar): tüm kameralar için yan yana `rpicam-hello` EGL önizleme pencereleri
+  (config'teki poz/gain kilidi ve çözünürlükle), uygulama açıksa zenity ile kapatma onayı;
+  libcamera hataları terminalde canlı görünür. Wayland oturumunda doğrulandı (cam1 ile uçtan
+  uca). Ayrıntı: `PROGRAM_KULLANIM_NOTLARI.md` §3b, `/kalite` günlüğü.
 - **✅ 2026-09-23 ~09:20 — "KAPATAMIYORUM" DONMASI: GERÇEK KARŞILIKLI KİLİTLENME BULUNDU
   VE DÜZELTİLDİ (kullanıcı: "uygulama dondu kapatamıyorum neden acaba"):** Pi 09:10'da yeniden
   başlamış, uygulama boot'tan 28 sn sonra açılmış, ~5 dk sonra donmuş. **gdb ile canlı sürece

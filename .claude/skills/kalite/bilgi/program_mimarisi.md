@@ -591,6 +591,17 @@ düzeltildi, unit_id 0 doğrulandı (2026-07-29).
 (çoklu boyut) + `app.png`. Bağımlılık Pillow (yalnız bu araç için). `app.png` gitignore
 istisnası (`!app.png`).
 
+#### `tools/kamera_onizleme.sh` — programdan bağımsız canlı önizleme (2026-09-23)
+Masaüstü/menü simgesi "Kamera Önizleme" (`kamera-onizleme.desktop`, Terminal=true,
+Icon=camera-photo; `install_pi.sh` kurar). Akış: (1) denetim uygulaması açıksa (`ps args`
+`python*main.py`) zenity ile kapatma onayı, SIGTERM→5 s→SIGKILL; (2) `rpicam-hello
+--list-cameras` ile indeksler; (3) config.yaml'dan kamera başına `--width/--height` (+ kilit
+açıksa `--shutter/--gain`; kamera 2 kamera 1'den devralır); (4) `xrandr` ile ekran, pencereler
+yan yana `--preview x,60,w,h`, başlık `--info-text "Kamera N (camI) | poz %exp | gain %ag |
+%fps"`; (5) `rpicam-hello --camera I -t SURE &`, trap ile kapanışta hepsini öldürür. Test
+kancaları: `ONIZLEME_APP_KONTROL=0`, `ONIZLEME_SADECE="1"`; ilk argüman süre (ms). libcamera
+hataları ("Camera frontend has timed out" = kablo) terminalde canlı görünür.
+
 ### 3.8 CLAUDE.md ve PROGRAM_KULLANIM_NOTLARI.md
 
 - **CLAUDE.md (900 satır):** doğruluk kaynağı; koddan çıkarılamayan kararlar, saha

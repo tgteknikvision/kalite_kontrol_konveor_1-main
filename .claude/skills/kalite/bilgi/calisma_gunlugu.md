@@ -62,6 +62,44 @@ başarısız. **Düzeltme:** `worker.py::_open_camera` except bloğunda yarım k
 değil python pid'i. IPARPI log susturma (`LIBCAMERA_LOG_LEVELS=IPARPI:FATAL`) bu restart'ta
 doğrulanacak.
 
+## 2026-09-23 ~09:35 — Masaüstü "Kamera Önizleme" simgesi + donmanın ASIL sebebi: kamera frontend timeout (KABLO)
+
+**Donmanın kök sebebi bulundu (stdout, 09:20 yeniden başlatılan örnek):** Kamera 1 (cam0)
+46 sn kare verdikten sonra libcamera:
+`WARN V4L2 /dev/video12[36:cap]: Dequeue timer of 1000000.00us has expired!` →
+`ERROR RPI pipeline_base.cpp:1371 Camera frontend has timed out!` →
+`Please check that your camera sensor connector is attached securely. Alternatively, try
+another cable and/or sensor.` Yani sensörden kare AKIŞI donanım seviyesinde kesildi; worker
+`capture_array()` içinde sonsuza kadar bekledi. 09:21:05'te (kullanıcı kapatınca) yeni closeEvent
+3 sn'de zorla kapattı — düzeltme sahada doğrulandı. **Bu, imx296+HDMI uzatıcı (14 Eylül) ile
+aynı sınıf arıza: cam0'ın FİZİKSEL bağlantısı şüpheli** (kablo/konnektör; hangi kablo/uzatıcı
+takılı olduğu sorulacak). Tekrarlarsa 07:10'daki "Camera __init__ sequence did not complete"
+olayları da buna bağlı olabilir. (Not: ilk donmanın (pid 5553) stdout'u restart öncesi
+truncate edildiği için o örnekte aynı mesaj doğrulanamadı; örüntü aynı.)
+
+**Kullanıcı isteği:** "program haricinde masaüstünde bir simge; çift tıklayınca kameralar
+açılsın ve göstersin." Yapılan:
+- `tools/kamera_onizleme.sh`: `rpicam-hello --list-cameras` ile kameraları bulur, her biri için
+  yan yana X/EGL önizleme penceresi açar (`--preview x,y,w,h`, ekran 1920×1080'e göre; başlıkta
+  `--info-text` poz/gain/fps); config.yaml'da poz kilidi açıksa `--shutter/--gain` aynı;
+  çözünürlük config'ten. Denetim uygulaması açıksa (kamerayı tutar) zenity ile "kapatılsın mı?"
+  sorar, evetse SIGTERM→5 sn→SIGKILL. Test kancaları: `ONIZLEME_APP_KONTROL=0`,
+  `ONIZLEME_SADECE="1"`; süre argümanı ms (0 = kapatana kadar).
+- `~/Desktop/kamera-onizleme.desktop` + `~/.local/share/applications/` (Icon=camera-photo,
+  **Terminal=true** → libcamera hataları, özellikle "frontend has timed out", aynı pencerede
+  görünsün). `tools/install_pi.sh` de bunu kuruyor (yeni Pi ikizliği).
+- Doğrulama: oturum Wayland (labwc), `rpicam-hello` EGL önizlemesi çalışıyor (cam1 ile test);
+  betik uçtan uca cam1 ile 3 sn koştu, exit 0. cam0 o sırada kullanıcının 09:25'te VS Code
+  terminalinden yeniden başlattığı uygulama (pid 137655) tarafından tutuluyordu ("Device or
+  resource busy" — normal). `PROGRAM_KULLANIM_NOTLARI.md` §3b eklendi.
+
+**Saha durumu:** uygulama kullanıcı tarafından 09:25'te açık (eski kod? — hayır, main.py
+09:2x'te düzeltilmiş haliyle; closeEvent fix dahil), 09:25-09:27 arası 24 tetik/analiz,
+**gecikme kutusu sahada çalışıyor** ("gecikme 100 ms, tetikten 104 ms sonra, kare yaşı 14 ms").
+Noktalar hâlâ NOK (siyah %0.0 → ROI'ler deliğin üstünde değil; kalibrasyon bekliyor).
+**Açık iş:** cam0 kablosu/konnektörü fiziksel kontrol (frontend timeout tekrarlarsa kablo
+değiştir); GitHub remote; kalibrasyon.
+
 ## 2026-09-23 ~09:20 — "Uygulama dondu, kapatamıyorum" — gerçek deadlock bulundu + düzeltildi
 
 Kullanıcı: uygulama donmuş, kapatamıyor, sebebini soruyor. (Bağlam: Pi 09:10:43'te yeniden

@@ -35,6 +35,19 @@ Kamera sensörden ileride duruyorsa ürünün kadraja gelmesi için bu süre ger
 - Ayarlar penceresinde de aynı kutu vardır ama **pencere açıkken PLC tetiği durur**; deneme
   yaparken ayarı sol panelden yap.
 
+## 3b. Kamera Önizleme simgesi (programdan bağımsız canlı görüntü)
+Masaüstündeki **"Kamera Önizleme"** simgesine çift tıkla: takılı tüm kameralar bulunur ve her
+biri için yan yana bir canlı pencere açılır (pencere başlığında poz/gain/fps). Odak, ışık ve
+kablo kontrolü için denetim programını açmaya gerek kalmaz.
+- Denetim programı açıksa kamerayı o tuttuğu için önce **"kapatılsın mı?"** diye sorar
+  (Evet dersen PLC denetimi durur; bitince programı menüdeki simgeden yeniden aç).
+- config.yaml'da poz/gain kilidi AÇIKSA aynı poz/gain ile gösterir (programdaki görüntüyle aynı).
+- Kapatmak için açılan terminal penceresinde **Ctrl+C** ya da pencereyi kapat.
+- Görüntü bir süre sonra donar ve terminalde `Camera frontend has timed out ... check that your
+  camera sensor connector is attached securely` yazarsa sorun yazılım değil, **o kameranın
+  kablosu/konnektörüdür** (2026-09-23'te Kamera 1'de görüldü).
+- Komut satırından: `bash tools/kamera_onizleme.sh` (test için `bash tools/kamera_onizleme.sh 5000` = 5 sn).
+
 ## 4. Ayarlar (⚙)
 PLC (tip, IP, port, unit id, poll) · **Kamera 1 / Kamera 2** (grup başlığındaki kutu = kamerayı
 kullan) · çözünürlük (imx477 doğal modları: 4056x3040 ağır, 2028x1520, 2028x1080, 1332x990) ·
