@@ -77,6 +77,19 @@ ediyor. Bu aralıkta tetik gelmedi (log kontrolü) → PLC'ye çelişkili yazım
 Kullanıcının 13:18 örneği sayaç kodundan (13:21-13:25) ESKİ → sayaç için restart gerekiyor;
 kullanıcıya bırakıldı.
 
+## 2026-09-23 ~14:30 — "Açık programın her şeyini baştan sona okudun mu?" → değişen dosyalar yeniden okundu
+
+Kullanıcı sordu. Dürüst cevap: sabah 6 modül + tools + config + dokümanlar tamamen okunmuştu;
+gün içinde main.py (+706 satır, şimdi 2635) ve worker.py (329) değişti → ikisi baştan sona
+YENİDEN okundu (features/plc/alignment/roi_editor sabahtan beri değişmedi, sabahki okuma
+geçerli). Yeniden okumada göze çarpanlar (kod değiştirilmedi): (1) `_capture_full_frame`
+try bloğunda `_record_part` OK/NOK kaydından SONRA `_publish_plc_result` patlarsa `except`
+aynı parçayı bir de HATA olarak sayar (çift kayıt; adapter içi try'lar yüzünden pratikte
+olası değil, not edildi). (2) `_init_ui`'da iki "# 3." yorum numarası (kozmetik).
+(3) Asıl açık: worker `capture_array()` sonsuz bloklanınca (kablo stall) `stop()` kıramaz,
+restart'a kadar her tetik NOK — "kamera bekçisi" önerisi geçerli. (4) `run()`'da
+`_open_camera` False dönerse thread biter, kamera ayar değişene kadar ölü kalır (eski davranış).
+
 ## 2026-09-23 ~14:20 — /kalite durum kontrolü: cam0 takılması TEKRARLIYOR (7 zorla kapanış, hepsi gerçek)
 
 Kullanıcı `/kalite` çağırdı (soru yok). Canlı kontrol:
