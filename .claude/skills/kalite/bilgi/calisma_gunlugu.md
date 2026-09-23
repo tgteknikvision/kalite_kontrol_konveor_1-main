@@ -77,6 +77,24 @@ ediyor. Bu aralıkta tetik gelmedi (log kontrolü) → PLC'ye çelişkili yazım
 Kullanıcının 13:18 örneği sayaç kodundan (13:21-13:25) ESKİ → sayaç için restart gerekiyor;
 kullanıcıya bırakıldı.
 
+## 2026-09-23 ~14:45 — Skill'e "tüm programı oku" kuralı + TAM OKUMA: kalibrasyonun yapıldığı ortaya çıktı
+
+Kullanıcı: "skill'inde seni çağırınca yüklü olan tüm programı okuma emri yok mu?" → yoktu; yalnız
+hafıza dosyaları okunuyordu. **SKILL.md'ye A) bölümü eklendi:** her /kalite'de main.py,
+inspector/*.py, config.yaml, saha_ayarlari.conf, calistir.sh, tools/*, tests/* baştan sona
+okunur; okunan commit günlüğe "son tam okuma: <hash>" yazılır; oturumda değiştirilen dosya
+sonraki çağrıda yine okunur. Ardından B) hafıza, C) canlı durum (ps/log/git).
+
+**Tam okuma yapıldı — son tam okuma: 45e8ba8 (çalışma ağacı temiz).** Bulgu: hafıza dosyaları
+GERİDE kalmıştı. `config.yaml` (HEAD) kullanıcının 12:58-13:14 arasında GUI'den yaptığı
+kalibrasyonu içeriyor: 3 nokta yeniden çizildi (`reference_box [708,542]`), Kontrol Merkezi'nden
+eşikler (1: açıklık 13, derinlik 9; 3: oluk 25), 13:00:05 yön referansı v3 (+58), poz kilidi
+AÇIK (1000 µs/gain 16), gecikme 300 ms. Log: 13:19'da analizler OK (delik 1 %14 yuvarlak 0.89,
+delik 2 %34, oluk %38 blob %37, yön +58); saat 13'te 98 OK / 23 NOK. Bu değişiklikler benim
+`git add -A` commit'lerimle (09:30, 12:54, 13:24) fark edilmeden repoya girmişti. saha_durumu
+düzeltildi ("kalibrasyon yapılmadı / poz kilidi kapalı" YANLIŞTI). Ders: config.yaml GUI
+tarafından sürekli yazılıyor; her /kalite'de config'in tamamı okunmalı (kural artık bunu zorluyor).
+
 ## 2026-09-23 ~14:30 — "Açık programın her şeyini baştan sona okudun mu?" → değişen dosyalar yeniden okundu
 
 Kullanıcı sordu. Dürüst cevap: sabah 6 modül + tools + config + dokümanlar tamamen okunmuştu;

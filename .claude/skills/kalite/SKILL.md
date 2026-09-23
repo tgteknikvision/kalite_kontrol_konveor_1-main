@@ -11,15 +11,33 @@ işi kaydetmek, bilgiyi sürekli güncel tutmak. Kullanıcı Türkçe konuşur; 
 
 ## ⚡ SKILL ÇAĞRILINCA İLK İŞ (her /kalite'de)
 
+### A) YÜKLÜ PROGRAMIN TAMAMINI OKU (kullanıcı emri, 2026-09-23 — istisnasız)
+Hafıza dosyaları koddan geride kalabilir; kullanıcı "kodu okuduğunu SANMA, oku" istiyor.
+Her `/kalite` çağrısında **kaynak kodun tamamını baştan sona Read ile oku**:
+- `main.py`, `inspector/worker.py`, `inspector/features.py`, `inspector/plc.py`,
+  `inspector/alignment.py`, `inspector/roi_editor.py`
+- `config.yaml`, `saha_ayarlari.conf`, `calistir.sh`, `tools/*.sh`, `tools/*.py`, `tests/*.py`
+Uzun dosyalar için Read'i `offset/limit` ile parçala (main.py ~2600 satır → 3 parça); paralel
+oku. Bittiğinde okuduğun `git rev-parse --short HEAD` değerini ve çalışma ağacında
+commit'lenmemiş fark olup olmadığını (`git status --short`) günlüğe "son tam okuma: <hash>"
+diye yaz. Okurken belgeyle çelişen bir şey görürsen `program_mimarisi.md`'yi düzelt.
+**Aynı oturumda kodu sen değiştirdiysen** değiştirdiğin dosyayı sonraki `/kalite`'de yine
+tamamen okursun (hafızadaki "ne yaptığım" ile dosyanın gerçek hali ayrışabilir).
+
+### B) HAFIZAYI OKU
 Aşağıdaki dosyaları **Read ile oku** ve bağlamına al (yoksa atla, aşağıda üret):
 1. `bilgi/saha_durumu.md` — donanımın/sahanın ŞU ANKİ durumu (en kritik, en güncel).
 2. `bilgi/calisma_gunlugu.md` — kronolojik çalışma günlüğü (ne yaptık, ne konuştuk).
 3. `bilgi/program_mimarisi.md` — programın dosya dosya, fonksiyon fonksiyon mantığı.
 4. Proje kökündeki `CLAUDE.md` — kararlar, tuzaklar, saha tarihçesi (§12).
 
-Bu dördü seni tam bağlama getirir: **programın nasıl çalıştığını, sahada ne durumda
-olduğumuzu ve daha önce ne konuşup ne yaptığımızı** bilirsin. Sonra kullanıcının
-sorusuna geç.
+### C) CANLI DURUMA BAK
+`ps aux | grep "[m]ain\.py"` (uygulama açık mı, hangi pid/saat), günün logunun son satırları
+(`~/konveyor_loglari/denetim-YYYY-AA-GG.log`), `git status -sb`. Sonra kullanıcının sorusuna geç;
+soru yoksa kısa durum özeti ver.
+
+A+B+C seni tam bağlama getirir: **programın GERÇEKTEN nasıl çalıştığını (koddan), sahada ne
+durumda olduğumuzu ve daha önce ne konuşup ne yaptığımızı** bilirsin.
 
 ## 📝 HER TURDAN SONRA (SORMADAN, OTOMATİK) — hafızayı güncel tut
 

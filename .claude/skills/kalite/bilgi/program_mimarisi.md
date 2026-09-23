@@ -631,6 +631,10 @@ geçici, `_start_worker` no-op, `QMessageBox` susturma, sahte worker/picamera2 m
 ---
 
 ## 4. `config.yaml` Anahtar Referansı (mevcut değerlerle)
+> ⚠ Bu bölümdeki "mevcut değerler" 2026-09-14 anlık görüntüsüdür. **Güncel değerler için
+> config.yaml'ın kendisini oku** (GUI her etkileşimde yeniden yazar). 2026-09-23 14:45 itibarıyla
+> öne çıkanlar: poz kilidi AÇIK 1000 µs; gecikme 300 ms; K1 3 nokta `reference_box [708,542]`,
+> `point_overrides` 1:{13, 9} 3:{25}; yön v3 +58; `inspection.paket_adedi` yok (varsayılan 100).
 
 Tek kalıcı uygulama konfigürasyonu. `main.py::load_config` açılışta okur; GUI'deki her
 anlamlı etkileşimde `yaml.dump` ile **dosyanın tamamı yeniden yazılır** (yorumlar

@@ -1,7 +1,7 @@
 # Saha Durumu — Konveyör Kalite Kontrol
 
 > Bu dosya HEP güncel gerçeği tutar. Durum değişince ilgili satırı **üstüne yaz**.
-> Son güncelleme: 2026-09-23 ~14:20
+> Son güncelleme: 2026-09-23 ~14:45 (tam kod+config okumasıyla düzeltildi)
 
 ## Donanım / Makine
 - **Raspberry Pi 5**, kullanıcı `tg_pi5_kalite_kontrol_konveor`, makine `tgpi5kalitekontrolkonveor`.
@@ -43,14 +43,18 @@
    "IPARPI Embedded data buffer parsing failed" basıyordu → `main.py` başında
    `LIBCAMERA_LOG_LEVELS=IPARPI:FATAL` ile susturuldu (kareler/poz metadata akıyor; kök sebep
    imx477 + libcamera sürümü, izlenmeli).
-2. **imx477 kalibrasyonu hâlâ YAPILMADI.** K1 çalışırken bile (07:09:41-07:10:28) ürün
-   çerçevesi x=440,y=0,w=397,h=1088 (tam boy dar şerit → yanlış), nokta 1 koyu %0.1, nokta 3
-   bant dışı. K2 (800×600) çerçevesi tüm kare (0,0,800,600) + imx296 dönemi yön referansı (+48)
-   ile "AYNA/TERS" → anlamsız. Yapılacak: çerçeve → noktalar → eşikler → yön referansı, HER
-   kamera için ayrı.
-3. **Poz kilidi KAPALI (bugün 07:10 kaydında kapatıldı):** `camera.manual_exposure_enabled:
-   false`, `exposure_us: 1000`; `camera2` de kilitsiz (500). Oto-poz → hareket bulanıklığı +
-   eşik kayması. 15 Eylül'de 400 µs kilitle iyi görüntü alınmıştı; kilit geri açılmalı.
+2. ✅ **KAMERA 1 (imx477) KALİBRASYONU KULLANICI TARAFINDAN YAPILDI (12:58-13:14, GUI'den;
+   14:45 tam config okumasında fark edildi — hafıza geride kalmıştı):** 3 nokta yeniden çizildi
+   (1,2=delik, 3=çentik; `reference_box [708,542]`), eşikler Kontrol Merkezi'nden ayarlandı
+   (`point_overrides` 1: açıklık 13 / derinlik 9; 3: oluk 25), **yön referansı v3 alındı (+58)**,
+   **poz kilidi AÇIK (1000 µs, gain 16)**, çekim gecikmesi **300 ms**. Sonuç: 13:19'daki son
+   analizler OK (delik 1 açık %14 yuvarlak 0.89; delik 2 %34; oluk %38 blob %37; yön +58/+61),
+   ürün çerçevesi ~x=656,y=293,w=673,h=516. Saat 13'te 98 OK / 23 NOK, saat 12'de 12 OK / 15 NOK
+   (ayar sırasında). Kullanıcı "sistem on numara çalışıyor" dedi (13:0x).
+   ⚠ `roi.handedness_reference` (v2 base64) ve `handedness_margin: 0.05` ölü anahtar olarak
+   duruyor (zararsız). K2 (pasif) hâlâ imx296 dönemi ayarlarında.
+3. ✅ Poz kilidi AÇIK (`camera.manual_exposure_enabled: true`, 1000 µs, gain 16). `camera2`
+   kilitsiz ama kapalı.
 4. **Çözünürlük 1456×1088 (K1) / 800×600 (K2)** imx477'de native değil; native modlar
    1332×990, 2028×1080, 2028×1520, 4056×3040. Ayarlar listesinde bunlar yok (kod imx296'ya göre;
    config'e elle yazılırsa combo'ya eklenir).
@@ -76,18 +80,19 @@
 - **Paket adedi (13:45):** `inspection.paket_adedi` = 100 (varsayılan); paket sayacı OK parçaları
   sayar, hedefte modal olmayan uyarı (Sıfırla/Devam et). Spinbox okları artık görünür.
 
-## Uygulama ayarları (config.yaml — bugün 07:10'da GUI yazdı; 23 Eylül yerel commit'te)
-- `cameras`: camera1_enabled=**true**, camera2_enabled=**false** (kullanıcı bugün 3 kez değiştirdi).
-- `resolution` 1456×1088, `resolution2` 800×600. `camera`: zoom 1.0, fps 20, exposure 1000 µs,
-  gain 16, **kilit KAPALI**. `camera2`: exposure 500, gain 16, kilit kapalı, zoom 1.0.
-- K1 noktaları: 1,2=hole, 3=notch (`dynamic_rois` 1:[82,217,154,142] 2:[307,203,191,168]
-  3:[51,3,452,80]), `reference_box [550,410]`, `point_overrides {'3': notch_dark_min 40}`,
-  global `hole_dark_ratio_min 10`, `notch_dark_min 50`. Yön: v2 kalıntısı (kod v3 → sessizce atlanır).
+## Uygulama ayarları (config.yaml @ commit 45e8ba8, 2026-09-23 14:45 tam okuma)
+- `cameras`: camera1_enabled=**true**, camera2_enabled=**false**.
+- `resolution` 1456×1088, `resolution2` 800×600. `camera`: zoom 1.0, fps 20, **exposure 1000 µs,
+  gain 16, kilit AÇIK**. `camera2`: exposure 500, gain 16, kilit kapalı, zoom 1.0.
+- K1 noktaları: `dynamic_rois` 1:[430,285,209,210] hole, 2:[87,268,217,203] hole,
+  3:[88,5,548,115] notch; `reference_box [708,542]`; `point_overrides` 1:{hole_dark_ratio_min 13,
+  hole_core_ratio_min 9}, 3:{notch_dark_min 25}; global `hole_dark_ratio_min 10`, `notch_dark_min 50`.
+  **Yön v3: `handedness_hole_diff +58.02`, margin 12** (v2 base64 kalıntısı ölü anahtar).
 - K2 (pasif): imx296 dönemi 3 nokta + `reference_box [971,726]` + yön v3 (+48.4) → imx477 için GEÇERSİZ.
 - PLC: modbus_tcp, poll_ms 20, timeout 0.2, manual_mode false (üretim).
-- `inspection.trigger_delay_ms`: **1** (kullanıcı artık SOL PANELDEKİ "Çekim Gecikmesi" kutusundan
-  ayarlayacak; her çekimde resmin sol altında `Gecikme X ms | kare Y ms`, logda tetikten geçen süre).
+- `inspection.trigger_delay_ms`: **300** (kullanıcı sol paneldeki kutudan ayarladı; `paket_adedi`
+  anahtarı henüz yok → varsayılan 100).
 
-## ⚠️ Üretim uyarısı
-Kamera geri gelse de kalibrasyon yapılana kadar her PLC tetiğinde HR100'e NOK (1) yazılır. Hattı
-bu hâlde üretimde kullanma; ayar sırasında "Elle Çekim Modu" (PLC devre dışı) kullanılabilir.
+## Üretim durumu
+Kamera 1 kalibre, parçalar OK geçiyor (13:19). Tek açık risk cam0 kablo/konnektör takılması
+(yukarıdaki 00. madde): tekrarlarsa uygulama restart'a kadar her tetiğe NOK yazar.

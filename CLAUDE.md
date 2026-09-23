@@ -311,6 +311,13 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **📌 2026-09-23 14:45 — DÜZELTME: KAMERA 1 KALİBRASYONU YAPILDI (kullanıcı, 12:58-13:14,
+  GUI'den; ajanın tam config okumasında fark edildi).** Aşağıdaki sabah maddelerindeki
+  "kalibrasyon yapılmadı / poz kilidi KAPALI / delay 1 ms" ifadeleri ARTIK GEÇERSİZ. Güncel
+  config (45e8ba8): 3 nokta (`reference_box [708,542]`), `point_overrides` 1:{açıklık 13,
+  derinlik 9} 3:{oluk 25}, yön v3 +58, poz kilidi AÇIK 1000 µs/gain 16, gecikme 300 ms; 13:19
+  analizleri OK. **/kalite skill'ine "her çağrıda tüm programı + config'i oku" kuralı eklendi**
+  (SKILL.md A bölümü): GUI config.yaml'ı sürekli yazdığı için hafıza dosyaları geride kalabiliyor.
 - **✅ 2026-09-23 ~13:45 — PAKET ADEDİ + DOLU PAKET UYARISI + GÖRÜNÜR SPINBOX OKLARI (kullanıcı:
   "OK/NOK'un altına paket adedi kutusu, varsayılan 100, oklu; 100'e gelince ekranda '100 adete
   ulaşıldı' + Sıfırla/Devam et; devam derse 200'de tekrar; diğer kutuların okları görünmüyor"):**
