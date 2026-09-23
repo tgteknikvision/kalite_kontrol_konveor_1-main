@@ -77,6 +77,31 @@ ediyor. Bu aralıkta tetik gelmedi (log kontrolü) → PLC'ye çelişkili yazım
 Kullanıcının 13:18 örneği sayaç kodundan (13:21-13:25) ESKİ → sayaç için restart gerekiyor;
 kullanıcıya bırakıldı.
 
+## 2026-09-23 ~14:20 — /kalite durum kontrolü: cam0 takılması TEKRARLIYOR (7 zorla kapanış, hepsi gerçek)
+
+Kullanıcı `/kalite` çağırdı (soru yok). Canlı kontrol:
+- **Uygulama şu an KAPALI.** Kullanıcı 13:50'de yeni kodla (sayaç dahil) açmış, 13:53'te
+  **PDF Rapor** üretmiş (`~/Desktop/kalite_raporu_2026-09-23_1353.pdf` — özellik sahada çalıştı),
+  14:16:19'da tekrar açmış, 14:17'de kapalıydı (neden kapandığı bilinmiyor; sormalı).
+- **Son PLC tetiği 13:19:42** — 2 saattir parça geçmiyor. `sayac.json` henüz oluşmadı (ilk
+  parçada oluşur; sayaç kodu 13:50'den beri çalışıyor ama parça geçmedi).
+- **"Kamera thread'i 3 sn içinde kapanmadı" bugün 7 kez:** 09:21:05, 09:21:43, 09:22:08,
+  09:24:31, 09:25:26 (her örnek 20-60 sn sonra takılıp kapatılmış) + **13:09:17 ve 13:14:04**
+  (13:06:38'de tetikte "Kamera görüntüsü yok" → kamera kare vermeyi kesmişti). Sağlıklı
+  kameranın durması **0,45 s** ölçüldü (cam1'de gerçek Picamera2 ile: açılış 1,87 s, stop+wait
+  0,45 s) → 3 sn zaman aşımı doğru, 7 olayın hepsi GERÇEK takılma. **Sonuç: cam0 (Kamera 1)
+  kare akışı gün içinde en az iki ayrı zaman diliminde kesildi = fiziksel bağlantı sorunu
+  tekrarlıyor** (libcamera "check that your camera sensor connector is attached securely").
+- Kişisel araçlar (repo dışı): `flameshot` kuruldu (Debian 12.1.0); masaüstü "Flameshot (Ekran
+  Kes)" simgesi `env XDG_CURRENT_DESKTOP=sway flameshot gui` ile (labwc'de portal için şart;
+  `~/.config/flameshot/flameshot.ini` savePath `~/Pictures/kesitler`); `~/.local/bin/ekran-kes.sh`
+  (grim+slurp) yedek olarak duruyor. Kullanıcı kesiti kaydedip "son kesite bak" diyecek.
+
+**Öneri (kullanıcıya sunuldu, uygulanmadı):** kamera bekçisi — worker picamera2'de olduğu halde
+`last_frame_time` 3 s'den eskiyse GUI thread'inden `_cap.stop()` ile bloke `capture_array()`'i
+kırıp kamerayı yeniden açmak (cable stall'ında otomatik toparlanma; şimdi her stall = restart'a
+kadar her tetik NOK). Kök çözüm yine kablo/konnektör.
+
 ## 2026-09-23 ~13:55 — Testler repoya taşındı (`tests/`), sabahki takım /tmp ile kaybolmuştu
 
 Regresyon koşarken `test_23eylul.py` bulunamadı: Pi 09:10'da yeniden başlayınca `/tmp` (oturum

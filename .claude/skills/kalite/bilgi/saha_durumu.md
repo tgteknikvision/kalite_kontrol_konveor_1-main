@@ -1,7 +1,7 @@
 # Saha Durumu — Konveyör Kalite Kontrol
 
 > Bu dosya HEP güncel gerçeği tutar. Durum değişince ilgili satırı **üstüne yaz**.
-> Son güncelleme: 2026-09-23 ~13:30
+> Son güncelleme: 2026-09-23 ~14:20
 
 ## Donanım / Makine
 - **Raspberry Pi 5**, kullanıcı `tg_pi5_kalite_kontrol_konveor`, makine `tgpi5kalitekontrolkonveor`.
@@ -14,7 +14,12 @@
   Pi eth0 statik `192.168.10.50/24` (gateway YOK, internet wlan0'dan).
 
 ## ⚠️ AKTİF SORUNLAR (2026-09-23)
-00. ⚠️ **KAMERA 1 (cam0) FİZİKSEL BAĞLANTI ŞÜPHELİ (09:20 stdout):** 46 sn kare verdikten
+000. **UYGULAMA 14:17'de KAPALI** (kullanıcı 13:50 ve 14:16'da yeni kodla açmış; 13:53'te PDF
+   rapor üretmiş). Son PLC tetiği 13:19:42. `sayac.json` ilk parçada oluşacak.
+00. ⚠️ **KAMERA 1 (cam0) FİZİKSEL BAĞLANTI SORUNU TEKRARLIYOR — bugün 7 zorla kapanış, hepsi
+   gerçek takılma** (09:21-09:25 ×5, 13:09 ve 13:14 ×2; 13:06:38 tetikte "Kamera görüntüsü yok").
+   Sağlıklı kapanış 0,45 s ölçüldü → 3 sn zaman aşımı doğru. **Kablo/konnektör değiştirilmeli.**
+   Ayrıntı (09:20 stdout): 46 sn kare verdikten
    sonra libcamera `Camera frontend has timed out! Please check that your camera sensor
    connector is attached securely` → sensörden kare akışı donanım seviyesinde kesildi; donmanın
    asıl sebebi bu. Kablo/konnektör kontrol edilmeli (14 Eylül'deki imx296+uzatıcı arızasıyla
