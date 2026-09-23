@@ -1,9 +1,17 @@
 ---
 name: kalite
-description: Konveyör bandı kalite kontrol projesinin hafızası ve çalışma günlüğü. Bu projede (kamera/PLC/ROI/delik denetimi, Raspberry Pi saha sistemi) HERHANGİ bir soru, teşhis ya da değişiklik yapılırken kullan. Program mimarisini ve tüm geçmiş çalışmaları yükler; her turdan sonra günlüğü ve saha durumunu günceller. Türkçe.
+description: Konveyör bandı kalite kontrol projesinin hafızası ve çalışma günlüğü. HER ÇAĞRIDA ÖNCE YÜKLÜ PROGRAMIN TAMAMI (main.py, inspector/*, config.yaml, tools, tests) BAŞTAN SONA OKUNUR — kullanıcı emri, atlanamaz. Bu projede (kamera/PLC/ROI/delik denetimi, Raspberry Pi saha sistemi) HERHANGİ bir soru, teşhis ya da değişiklik yapılırken kullan. Program mimarisini ve tüm geçmiş çalışmaları yükler; her turdan sonra günlüğü ve saha durumunu günceller. Türkçe.
 ---
 
 # /kalite — Konveyör Kalite Kontrol Hafızası
+
+> ## 🛑 ZORUNLU İLK ADIM — HER ÇAĞRIDA PROGRAMIN TAMAMINI OKU
+> Kullanıcı emri (2026-09-23, iki kez tekrarlandı): "skill'i her çağırdığımda bu programı
+> okusun." Hafızadan/özetten hatırladığını **okumuş sayma**. Aşağıdaki **A)** listesindeki
+> her dosyayı bu çağrıda **Read ile baştan sona** oku, sonra B ve C'ye geç.
+> **Kanıt satırı:** kullanıcıya vereceğin cevabın **ilk satırı** şu biçimde olsun:
+> `📖 Tam okuma yapıldı: <git hash> · <N> dosya · <toplam satır>` — bu satır yoksa
+> okuma yapılmamış demektir; kullanıcı bununla denetler.
 
 Bu skill, konveyör bandı görsel kalite kontrol projesinin **kalıcı hafızasıdır**.
 Amaç: her oturumda program mantığını ve tüm geçmiş çalışmayı hatırlamak, yapılan her
@@ -11,7 +19,7 @@ işi kaydetmek, bilgiyi sürekli güncel tutmak. Kullanıcı Türkçe konuşur; 
 
 ## ⚡ SKILL ÇAĞRILINCA İLK İŞ (her /kalite'de)
 
-### A) YÜKLÜ PROGRAMIN TAMAMINI OKU (kullanıcı emri, 2026-09-23 — istisnasız)
+### A) YÜKLÜ PROGRAMIN TAMAMINI OKU (kullanıcı emri, 2026-09-23 — istisnasız, önce bu)
 Hafıza dosyaları koddan geride kalabilir; kullanıcı "kodu okuduğunu SANMA, oku" istiyor.
 Her `/kalite` çağrısında **kaynak kodun tamamını baştan sona Read ile oku**:
 - `main.py`, `inspector/worker.py`, `inspector/features.py`, `inspector/plc.py`,

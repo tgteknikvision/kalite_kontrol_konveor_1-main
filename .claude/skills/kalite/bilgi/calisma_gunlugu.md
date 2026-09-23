@@ -77,6 +77,12 @@ ediyor. Bu aralıkta tetik gelmedi (log kontrolü) → PLC'ye çelişkili yazım
 Kullanıcının 13:18 örneği sayaç kodundan (13:21-13:25) ESKİ → sayaç için restart gerekiyor;
 kullanıcıya bırakıldı.
 
+## 2026-09-23 ~14:55 — Kullanıcı kuralı tekrarladı: "skill'e koy, her çağırdığımda programı okusun"
+Kural zaten 2da7541'de vardı (A bölümü). Görünürlük için güçlendirildi: SKILL.md'nin en
+tepesine 🛑 ZORUNLU İLK ADIM kutusu, frontmatter `description`'a aynı emir, ve **kanıt satırı**
+kuralı: her /kalite cevabının ilk satırı `📖 Tam okuma yapıldı: <hash> · N dosya · satır` olacak
+(kullanıcı bununla denetleyebilir). Kod değişikliği yok.
+
 ## 2026-09-23 ~14:45 — Skill'e "tüm programı oku" kuralı + TAM OKUMA: kalibrasyonun yapıldığı ortaya çıktı
 
 Kullanıcı: "skill'inde seni çağırınca yüklü olan tüm programı okuma emri yok mu?" → yoktu; yalnız
