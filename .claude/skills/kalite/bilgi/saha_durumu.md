@@ -90,7 +90,7 @@
   **Yön v3: `handedness_hole_diff +58.02`, margin 12** (v2 base64 kalıntısı ölü anahtar).
 - K2 (pasif): imx296 dönemi 3 nokta + `reference_box [971,726]` + yön v3 (+48.4) → imx477 için GEÇERSİZ.
 - PLC: modbus_tcp, poll_ms 20, timeout 0.2, manual_mode false (üretim).
-- `inspection.trigger_delay_ms`: **300** (kullanıcı sol paneldeki kutudan ayarladı; `paket_adedi`
+- `inspection.trigger_delay_ms`: **10** (2026-09-24 09:52'de kullanıcı 300→10 yaptı; 300 ile 09:47-09:50 arası 17/21 OK; `paket_adedi`
   anahtarı henüz yok → varsayılan 100).
 
 ## Üretim durumu

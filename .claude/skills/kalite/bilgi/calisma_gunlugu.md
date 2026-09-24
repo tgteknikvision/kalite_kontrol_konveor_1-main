@@ -3,6 +3,24 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~10:05 — "Bazen boş kareyi yakalıyor, hepsi NOK" → teşhis + ürün var/yok kapısı önerisi (karar bekliyor)
+
+Kullanıcı ekran görüntüsüyle: 3 nokta + YÖN NOK, resimde ürün yok (çerçeve yeşil rayın yanındaki
+metal şeride oturmuş). Log: Resim #0010 09:48:17, bir önceki tetikten **2 s sonra**, gecikme 300 ms,
+kare yaşı 28 ms → zamanlama normal, kare BOŞ. Çerçeve x=393,y=0,w=286,h=1088 (tam boy dar şerit).
+**Mekanizma (alignment.py):** `find_product_box` "ürün yok" DEMEZ — metal maskesi boş kalınca Otsu
+yedeğine düşer, o da en parlak bloba (ray kenarı/metal şerit) kutu çizer → noktalar boşluğu ölçer →
+hepsi NOK + yön NOK → PLC'ye 1. `reference_box` (708×542) ile hiç karşılaştırma yok.
+**Tetik neden boş geldi?** Logdan kesin değil; örüntü: bugünkü NOK'ların çoğu bir önceki tetikten
+1-2 s sonra (#10 2 s, #16 1 s, #19 2 s, #21 1 s), OK'lar 3-10 s aralıkla → sensör çift tetik /
+elle art arda besleme şüphesi. OK çerçeveleri kararlı: w 652-682, h 506-558 (referansa ±%8).
+**İkinci bulgu:** delik 1 eşiği 13.0; OK parçalar 12.8-14.5 okuyor; #19 tam 13.0'da NOK (pay sıfır).
+Kullanıcı 09:52'de gecikmeyi 300→10 ms yaptı (ilk 3 çekim boş/karanlık, 09:56'dan sonra OK).
+**Öneri (kullanıcıya sunuldu, karar bekliyor):** kutu en/boy referansa ±%25 dışındaysa "ÜRÜN
+ALGILANAMADI / yanlış çekim" → NOK sayılmaz, ayrı sayaç, ekranda modal olmayan operatör uyarısı;
+PLC tarafı: (a) yine 1 yaz (PLC değişmez, önerilen), (b) 0 yaz = tehlikeli (kontrolsüz parça geçer),
+(c) HR100=2 "kontrol edilemedi" — PLC programı değişmeli. Kod DEĞİŞMEDİ. Uygulama 10:01'den beri açık.
+
 ## 2026-09-23 ~15:20 — Oturum kapanışı: her şey kaydedildi, kullanıcı Pi'yi kapatıyor
 Kullanıcı "her şeyi kaydet, kapatacağım bilgisayarı" dedi. Çalışma ağacı temiz, `main` = `origin/main`
 (f3d79a8 + bu not). Gün sonu durumu: K1 kalibre, parçalar OK geçiyor; son kod değişikliği seçenek

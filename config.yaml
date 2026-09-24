@@ -76,10 +76,10 @@ dynamic_rois_2:
   - 747
   - 133
 inspection:
-  trigger_delay_ms: 300
+  trigger_delay_ms: 10
 plc:
   host: 192.168.10.10
-  manual_mode: true
+  manual_mode: false
   poll_ms: 20
   port: 502
   reconnect_s: 3.0
