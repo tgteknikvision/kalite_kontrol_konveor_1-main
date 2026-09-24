@@ -85,7 +85,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (205 test, 9 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (210 test, 9 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -350,8 +350,17 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `alignment.*` + `[Ayarlar] Ürün bulma eşikleri` logu (restart yok); `_capture_product_box_for_roi` logu
   eşiği ve tam-boy ipucunu yazar. `config.yaml` `alignment.metal_v_min: 160`, `metal_s_max: 85` (uygulama
   AÇIKKEN yazıldı → eski örnek config'i kaydederse silinebilir; o zaman Ayarlar'dan 160 girilir).
-  12 test (`tests/test_urun_bulma.py`); takım 205/205. **Saha sırası:** restart → Ürün Çerçevesi Bul
-  (yalnız ürün olmalı) → Kontrol Noktaları'nı yeniden çiz (referans güncellenir) → gecikme.
+  **Otomatik öneri:** `alignment.metal_threshold_suggestion(frame, s_max)` — renksiz + yeşil-dışı piksellerin V
+  histogramına Otsu (kutudan BAĞIMSIZ, kutu yanlışken de doğru); öneri = zemin p95 ile ürün p5'in ORTASI (Otsu
+  sınırı geniş zemin grubunun tepesine yapışıyordu, pay yoktu). `[Ürün Bulma]` logu `Parlaklık: zemin/bant ~x,
+  ürün ~y → önerilen metal eşiği ≈ z (şu an k)` yazar (bulunamadığında da). **Pozlama değişince eşik değişir**
+  (kullanıcı 13:1x'te poz 1000→200 µs yaptı; 1 ms'de 160 idi, 200 µs'de öneriye bakılmalı). Çalışan eski
+  örnek config'i 13:14:56'da üzerine yazdı → `metal_v_min` config'te YOK; restart sonrası Ayarlar'dan girilir.
+  Kullanıcı 13:14'te noktaları BANTLI (tam boy) çerçeveyle çizdi → eşik düzelince YENİDEN çizilmeli.
+  **TUZAK (test):** `_capture_product_box_for_roi` bulunamayınca `QMessageBox.warning` açar → ekransız testte
+  sustur (ilk koşuda test asılı kaldı); `pkill -f <test adı>` kendi kabuğunu da öldürür (komut satırında ad geçer).
+  17 test (`tests/test_urun_bulma.py`); takım 210/210. **Saha sırası:** restart → Ürün Çerçevesi Bul
+  (log önerisini Ayarlar'a gir; yalnız ürün olmalı) → Kontrol Noktaları'nı yeniden çiz → gecikme.
 - **✅ 2026-09-24 ~11:50 — PAKET DOLUNCA KONVEYÖR DUR (kullanıcı: "100 adete ulaşınca PLC'yi durdur
   desin konveyör dursun"):** Yeni PLC bayrağı **HR102** (`plc.registers.stop`, vars. 102; `STOP_REGISTER`,
   `ALLOWED_REGISTERS`'a eklendi, yazma beyaz listesi `nok_addr`+`stop_addr`). `ModbusTCPPLCAdapter.publish_stop(bool)`

@@ -16,7 +16,14 @@ dünkü karanlık bant (60→100) → 110 sorunsuz. Bugün kamera/ışık deği�
 config `alignment.metal_v_min: 160`, `metal_s_max: 85` (uygulama açıkken yazıldı — eski örnek config'i
 kaydederse silinebilir; o zaman Ayarlar'dan 160). Kod varsayılanı 110 kaldı (kamera 2 / kısa pozda metal
 150 okuyabilir). `tests/test_urun_bulma.py` 12/12; takım 205/205.
-**Kullanıcıya sıra:** restart → Ürün Çerçevesi Bul (yalnız ürün) → Kontrol Noktaları yeniden çiz → gecikme.
+**Ek (13:35):** çalışan eski örnek config'i 13:14:56'da üzerine yazdı (Kontrol Noktaları kaydı) → `metal_v_min`
+config'ten silindi; kullanıcı aynı anda pozu 1000→200 µs yaptı ve noktaları BANTLI (tam boy) çerçeveyle çizdi.
+Eşik pozlamaya bağlı → `alignment.metal_threshold_suggestion` eklendi (Otsu ile iki grup, öneri = zemin p95 /
+ürün p5 ortası; kutudan bağımsız); `[Ürün Bulma]` logu öneriyi yazar (bulunamayınca da). 17 test, takım 210/210.
+Tuzaklar: bulunamayınca `QMessageBox.warning` testte susturulmalı (test asılı kaldı, 300 s); `pkill -f <test>`
+kendi kabuğunu öldürdü (exit 144). Ara commit dbc38d3 belgesiz gitti, bu commit tamamlıyor.
+**Kullanıcıya sıra:** restart → Ürün Çerçevesi Bul → logdaki öneriyi Ayarlar'a gir → tekrar bul (yalnız ürün) →
+Kontrol Noktaları yeniden çiz → gecikme.
 
 ## 2026-09-24 ~11:50 — Paket dolunca konveyör DUR (PLC HR102) eklendi; PLC tarafı bekliyor
 

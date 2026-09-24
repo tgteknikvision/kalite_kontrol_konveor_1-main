@@ -54,6 +54,7 @@ main.CONFIG_PATH = tmp_cfg
 main.load_config = lambda path=None: yaml.safe_load(open(tmp_cfg, encoding="utf-8"))
 main.MainWindow.LOG_DIR = os.path.join(tmpdir, "loglar")
 main.MainWindow._start_worker = lambda self: setattr(self, "_plc_timer", None)
+main.QMessageBox.warning = staticmethod(lambda *a, **k: None)      # "Ürün Bulunamadı" popup'ı bloklamasın
 w = main.MainWindow(); w.show(); pump()
 loglar = []; w._append_log = lambda m: loglar.append(m)
 dlg = main.SettingsDialog(w.config, w)
@@ -82,8 +83,8 @@ check("110 ile aynı kare tam boy çerçeve verir (sorun yeniden üretildi) + ö
 print("\n[otomatik eşik önerisi]")
 from inspector.alignment import metal_threshold_suggestion
 o1 = metal_threshold_suggestion(parlak); o2 = metal_threshold_suggestion(karanlik)
-check("aydınlık bant sahnesinde öneri bant (≤125) ile ürün (235) ARASINDA", o1 is not None and 125 < o1[0] < 235 and o1[1] <= 125 and o1[2] >= 200, str(o1))
-check("karanlık bant sahnesinde de öneri arada", o2 is not None and 100 < o2[0] < 235, str(o2))
+check("aydınlık bant sahnesinde öneri bant (≤125) ile ürün (235) ARASINDA, iki tarafa pay", o1 is not None and 140 <= o1[0] <= 220 and o1[1] <= 125 and o1[2] >= 200, str(o1))
+check("karanlık bant sahnesinde de öneri arada", o2 is not None and 120 <= o2[0] <= 220, str(o2))
 check("düz gri karede (tek grup) öneri yok", metal_threshold_suggestion(np.full((300, 400, 3), 200, np.uint8)) is None)
 w.config["alignment"]["metal_v_min"] = 110; loglar.clear(); w._capture_product_box_for_roi(1)
 check("'Ürün Çerçevesi Bul' logunda 'önerilen metal eşiği ≈ N' var (kutu yanlışken de)", any("önerilen metal eşiği ≈" in l and "zemin/bant ~" in l for l in loglar), str([l for l in loglar if "Ürün Bulma" in l])[:300])

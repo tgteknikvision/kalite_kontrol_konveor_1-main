@@ -211,4 +211,7 @@ def metal_threshold_suggestion(frame, s_max=85):
     koyu, parlak = v[v < thr], v[v >= thr]
     if koyu.size < 100 or parlak.size < 100:
         return None
-    return thr, int(np.median(koyu)), int(np.median(parlak))
+    # Otsu siniri genis zemin grubunun tepesine yapisabilir (pay yok): oneri = zeminin ust ucu (p95)
+    # ile urunun alt ucu (p5) ORTASI -> iki tarafa da pay birakir.
+    oneri = int(round((float(np.percentile(koyu, 95)) + float(np.percentile(parlak, 5))) / 2.0))
+    return oneri, int(np.median(koyu)), int(np.median(parlak))
