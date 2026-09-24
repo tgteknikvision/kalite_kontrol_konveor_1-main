@@ -12,8 +12,8 @@
   **Poz** satırında 🔒 görünmeli; `⚠ OTO` yazıyorsa Ayarlar'dan Exposure/Gain kilidini aç.
 
 ## 2. Ekran düzeni
-- **Sol panel:** Sistem Durumu (Durum, FPS, Netlik, Poz, PLC) · Çalışma Modu (Elle Çekim Modu
-  kutusu, **Çekim Gecikmesi** kutusu) · en altta **⚙ Ayarlar**.
+- **Sol panel:** Sistem Durumu (Durum, FPS, Netlik, Poz, PLC) · Çekim (**Çekim Gecikmesi** kutusu) ·
+  Sayaç · en altta **⚙ Ayarlar**. (Elle Çekim Modu kutusu 2026-09-24'te kaldırıldı.)
 - **Kamera satırı (her açık kamera için bir tane):** solda **Kontrol Merkezi** tablosu + canlı
   görüntü; sağda **Son Alınan Tam Resim** (tıklayınca tam boy) + **Kontrol Noktaları** +
   **Ürün Çerçevesi Bul** butonları.
@@ -111,15 +111,15 @@ hareketli bantta poz ≤1 ms, imx477'de 400 µs iyi sonuç verdi) · çekim geci
 7. İki kamera açıksa 3-6 adımları her kamera için ayrı yapılır; PLC'ye tek (VE'lenmiş) sonuç yazılır.
 
 ## 6. Üretim
-- Elle Çekim Modu KAPALI, PLC bağlı, her açık kamerada en az bir delik/çentik noktası.
+- PLC bağlı, her açık kamerada en az bir delik/çentik noktası.
 - Tetik: HR101 0→1. Sonuç: HR100 = 0 OK, 1 NOK/hata; yaklaşık 1 s sonra 0'a çekilir.
 - Nokta yoksa, kamera karesi yoksa ya da ürün çerçevesi bulunamazsa PLC'ye hata (1) yazılır ve
   durum ERROR olur; sebep logda yazar.
 
-## 7. Elle test (PLC yokken)
-**Elle Çekim Modu (PLC devre dışı)** kutusunu işaretle → BOŞLUK/ENTER ya da canlı görüntüye tık
-ile çek. Sahaya dönerken kutuyu KAPAT. Bir giriş kutusu (gecikme, eşik) odaktayken Enter çekim
-yapmaz, yalnız değeri onaylar.
+## 7. Elle test
+Elle çekim modu **2026-09-24'te kaldırıldı**: çekimi yalnız PLC tetiği yapar; Boşluk/Enter ya da
+canlı görüntüye tıklamak çekim YAPMAZ. Ürün geçirmeden eşik denemek için: Kontrol Noktaları →
+Kaydet (son gerçek kare yeniden değerlendirilir) ya da Kontrol Merkezi eşik kutuları.
 
 ## 8. Logları okuma
 - `[Tetik] … | gecikme 100 ms, tetikten 112 ms sonra, kare yaşı 23 ms` → zamanlama.

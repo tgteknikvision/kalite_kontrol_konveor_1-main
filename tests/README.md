@@ -12,7 +12,7 @@ python3 tests/test_paket.py             # tek dosya
 
 | dosya | kapsam |
 |---|---|
-| `test_gecikme_kamera.py` | worker: picamera2 gölgeleme düzeltmesi, OpenCV yedeğinden geri dönüş, yarım nesne close(); main: çekim gecikmesi kutusu↔config↔Ayarlar, zamanlama damgası, kamera aç/kapa sırası, Enter koruması, imx477 çözünürlükleri |
+| `test_gecikme_kamera.py` | worker: picamera2 gölgeleme düzeltmesi, OpenCV yedeğinden geri dönüş, yarım nesne close(); main: çekim gecikmesi kutusu↔config↔Ayarlar, zamanlama damgası, kamera aç/kapa sırası, Boşluk/Enter/tık çekim tetiklemez + elle çekim metotları yok (mod 2026-09-24'te kaldırıldı), imx477 çözünürlükleri |
 | `test_closeevent.py` | kapanışta sınırlı bekleme + donmuş worker'da zorla çıkış |
 | `test_sayac.py` | sayaç, sebep kategorileri, CSV, kalıcılık, iki kamera etiketi, PDF üretimi, sıfırlama, uçtan uca çekim→sayaç |
 | `test_paket.py` | paket adedi kutusu, 100'de uyarı (modal değil), Devam et/Sıfırla/X, adet değişimi, kalıcılık |

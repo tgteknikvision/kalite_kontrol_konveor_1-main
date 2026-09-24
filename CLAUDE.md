@@ -85,7 +85,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (156 test, 7 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (157 test, 7 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -96,9 +96,10 @@ tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_te
 yollar; PLC'den haberi yok. PLC tüm işlemleri GUI thread'inde `QTimer` ile (`poll_ms`,
 20 ms) yürür. Köprü: tetikte GUI worker'ın `last_raw_frame`'ini okur.
 
-**Arayüz düzeni (main.py):** Sol kolon ("Sistem Durumu" + "Çalışma Modu": Elle Çekim Modu
-kutusu + **"Çekim Gecikmesi (ms)" kutusu (2026-09-23, canlı ayar; bkz. §8
-`inspection.trigger_delay_ms`)** + ipucu; **"Sayaç" grubu (2026-09-23): geçen parça / OK / NOK
+**Arayüz düzeni (main.py):** Sol kolon ("Sistem Durumu" + **"Çekim" grubu: yalnız "Çekim Gecikmesi
+(ms)" kutusu (2026-09-23, canlı ayar; bkz. §8 `inspection.trigger_delay_ms`)** — eski "Çalışma Modu"
+grubundaki **Elle Çekim Modu kutusu + "Elle çekim: ..." açıklaması 2026-09-24'te KALDIRILDI (§7)**;
+**"Sayaç" grubu (2026-09-23): geçen parça / OK / NOK
 (yüzde) / sistem hatası + nokta-sebep dağılımı, **"Paket adedi" kutusu + "Paket: n / hedef"
 satırı** (OK parça sayar; hedefte modal OLMAYAN uyarı: Sıfırla / Devam et), "PDF Rapor" ve
 "Sıfırla" butonları — bkz. §12); **en dibinde "⚙ Ayarlar" butonu**; kaydırılabilir, sabit 320px) + sağda
@@ -210,16 +211,15 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 - Sadece 100/101 register'larına dokunulur (`ALLOWED_REGISTERS`).
 - Sonuç yazıldıktan ~1 sn sonra HR100=0'a resetlenir (`QTimer`). **ACK okuması YOK.**
 - `plc.type: null` → simülasyon (tetik otomatik gelmez; sadece "PLC Dışı Test Çekimi").
-- **`plc.manual_mode: true` → ELLE ÇEKİM MODU (ev/test):** `create_plc_adapter` PLC tipine
-  bakmaksızın `NullPLCAdapter` döner. PLC'ye **hiç bağlanılmaz** (olmayan PLC'ye bloke eden
-  TCP connect denemesi yok → GUI/canlı görüntü donmaz, log temiz). Arayüzde **"Elle Çekim
-  Modu (PLC devre dışı)"** çek kutusu (`_on_manual_mode_changed`, her zaman erişilebilir).
-  `plc.type` KORUNUR → sahada kutuyu kapatınca PLC geri gelir. **DİKKAT:** sahaya/Pi'ye
-  geçerken bu kutu KAPALI (manual_mode=false) olmalı; aksi halde tetik beklenmez.
-- **Elle çekim tetikleri (`_manual_capture`):** Elle Çekim Modu açıkken resim
-  **BOŞLUK/ENTER tuşuyla** (`keyPressEvent`) ya da **canlı görüntüye tıklayarak**
-  (`_on_video_clicked`) çekilir (çekim BUTONU KALDIRILDI). Üretimde (PLC açık)
-  tuş/tık yok sayılır (çekimi PLC tetiği yapar).
+- **ELLE ÇEKİM MODU KALDIRILDI (2026-09-24, kullanıcı: "elle çekim modunu komple programdan
+  kaldıralım, altındaki 'Elle çekim' diye başlayan açıklamayı da"):** `plc.manual_mode`, sol
+  paneldeki "Elle Çekim Modu (PLC devre dışı)" kutusu ve açıklama etiketi, `_on_manual_mode_changed`
+  / `_manual_mode_on` / `_manual_capture` / `_on_video_clicked`, `keyPressEvent` (BOŞLUK/ENTER
+  çekimi) ve canlı görüntüye tıkla-çek SİLİNDİ. **Çekimi yalnız PLC tetiği (HR101) yapar.** PLC'siz
+  çalışma yalnız `plc.type: null` ile (tetik gelmez → çekim olmaz; Kontrol Noktaları → Kaydet
+  önizlemesi ve Kontrol Merkezi eşik kutuları son kareyle çalışır). Testler Null adapter için
+  `plc.type: null` kullanır. Config'te kalmış eski `manual_mode` anahtarı OKUNMAZ (ölü).
+  `_capture_full_frame(source)` / CSV `kaynak` sütunu geriye uyum için duruyor (hep `plc`).
 - Bağımsız test: `veri_toplama/bin/python tools/plc_smoke_test.py`.
 
 ## 8. Konfigürasyon — önemli anahtarlar (`config.yaml`)
@@ -265,8 +265,8 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   Kamera 2'de YAZILMAMIŞ kamera ayarı kamera 1'den devralınır; nokta kimliğine bağlı
   `roi2.roi_types/point_overrides/reference_box/handedness_*` DEVRALINMAZ.
 - `dynamic_rois`: ROI'ler `[x,y,w,h]` (alignment açıkken ürün çerçevesine göreli).
-- `plc.*`: host/port/unit_id/poll_ms/timeout_s/reconnect_s, registers {nok:100, trigger:101},
-  **`manual_mode`** (true → PLC tamamen kapalı, elle çekim; bkz. §7).
+- `plc.*`: host/port/unit_id/poll_ms/timeout_s/reconnect_s, registers {nok:100, trigger:101}
+  (~~`manual_mode`~~ 2026-09-24'te KALDIRILDI; bkz. §7).
 - **`inspection.product_presence_check`** (bool, vars. **true**) + **`inspection.product_box_tolerance`**
   (vars. **0.25** = ±%25): ÜRÜN VAR/YOK KAPISI (2026-09-24). Bulunan ürün çerçevesinin en/boyu
   `roi.reference_box`'a göre toleranstan fazla sapıyorsa "ÜRÜN ALGILANAMADI / yanlış çekim": analiz
@@ -324,6 +324,20 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-24 ~11:15 — ELLE ÇEKİM MODU KOMPLE KALDIRILDI (kullanıcı, ekran görüntüsüyle: "elle
+  çekim modu varya onu kaldıralım komple programdan, bide onun altında açıklama var onu da; Elle çekim
+  diye başlayan"):** Sol panel: "Çalışma Modu" grubu → **"Çekim"** (yalnız Çekim Gecikmesi kutusu);
+  `chk_manual_mode` + 5 satırlık açıklama etiketi silindi. Kod: `keyPressEvent`, `_on_manual_mode_changed`,
+  `_manual_mode_on`, `_manual_capture`, `_on_video_clicked`, `video_label.mousePressEvent` bağı,
+  `_capture_full_frame`'deki manual dalları (uyarı popup'ı, "Elle cekim" notu), `_handle_error`'daki
+  manual dalı, `plc.create_plc_adapter`'daki `manual_mode` dalı; `config.yaml`'dan `plc.manual_mode`
+  satırı. Çekim ARTIK YALNIZ PLC tetiğiyle; Boşluk/Enter/tık hiçbir şey yapmaz (regresyon testi).
+  Testler Null PLC için `plc.type: null` kullanır (7 dosya güncellendi); `test_stil` kutu görünürlüğünü
+  Ayarlar'daki "Exposure/Gain Kilidi" kutusuyla ölçer; `test_gecikme_kamera` 30 test (elle çekim notu
+  testi silindi, "Boşluk/Enter/tık çekim tetiklemez" + "metotlar yok" + "manual_mode adapter'ı
+  etkilemez" eklendi). Takım 157/157. Çalışan uygulama (kullanıcı, 10:55) ESKİ kodda; restart'ta
+  kutu kaybolur. **NOT:** eski çalışan örnek config'i kaydederse `manual_mode: false` satırı geri
+  gelebilir — okunmaz, zararsız.
 - **✅ 2026-09-24 ~10:50 — SAĞDAKİ RESİM PANELİ TAŞMIYOR (kullanıcı, ekran görüntüsüyle: "sağdaki
   kontrol resmi sağa kayıyor, sayfaya sığdırmıyor"):** Sebep `lbl_snapshot`'ta yalnız `minimumHeight(240)`
   olması: Qt, en küçük genişliği verilmeyen pixmap'li QLabel'in min genişliğini PIXMAP genişliği sayar;

@@ -15,7 +15,7 @@ def check(ad, kosul, ek=""):
 app = QApplication.instance() or QApplication([])
 base_cfg = yaml.safe_load(open("config.yaml", encoding="utf-8"))
 tmpdir = tempfile.mkdtemp(); tmp_cfg = os.path.join(tmpdir, "config.yaml")
-base_cfg["plc"]["manual_mode"] = True
+base_cfg["plc"]["type"] = "null"
 base_cfg["cameras"] = {"camera1_enabled": True, "camera2_enabled": False}
 yaml.safe_dump(base_cfg, open(tmp_cfg, "w", encoding="utf-8"))
 main.CONFIG_PATH = tmp_cfg

@@ -25,7 +25,7 @@ def pump(n=10):
 app = QApplication.instance() or QApplication([])
 tmpdir = tempfile.mkdtemp(); tmp_cfg = os.path.join(tmpdir, "config.yaml")
 cfg = yaml.safe_load(open("config.yaml", encoding="utf-8"))
-cfg["plc"]["manual_mode"] = True; cfg["cameras"] = {"camera1_enabled": True, "camera2_enabled": False}
+cfg["plc"]["type"] = "null"; cfg["cameras"] = {"camera1_enabled": True, "camera2_enabled": False}
 yaml.safe_dump(cfg, open(tmp_cfg, "w", encoding="utf-8"))
 main.CONFIG_PATH = tmp_cfg
 main.load_config = lambda path=None: yaml.safe_load(open(tmp_cfg, encoding="utf-8"))

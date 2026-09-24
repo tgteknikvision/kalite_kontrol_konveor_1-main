@@ -3,6 +3,23 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~11:15 — Elle Çekim Modu komple kaldırıldı (kullanıcı isteği)
+
+Kullanıcı (ekran görüntüsüyle): "elle çekim modu varya onu kaldıralım komple programdan, bide onun
+altında açıklama var onu da kaldıralım, Elle çekim diye başlayan". **Yapılan:** sol panel "Çalışma
+Modu" → "Çekim" (yalnız Çekim Gecikmesi); kutu + 5 satırlık açıklama silindi. Kod: `keyPressEvent`
+(Boşluk/Enter çekimi), `_on_manual_mode_changed`, `_manual_mode_on`, `_manual_capture`,
+`_on_video_clicked`, canlı görüntü tık bağı, `_capture_full_frame` manual dalları ("Elle cekim" notu,
+kamera-yok popup'ı), `_handle_error` manual dalı, `plc.create_plc_adapter` `manual_mode` dalı,
+config.yaml `plc.manual_mode` satırı. Çekim yalnız PLC tetiğiyle. Testler: Null PLC için
+`plc.type: null` (7 dosya), `test_stil` kutu ölçümünü Ayarlar'daki Exposure/Gain Kilidi kutusuyla
+yapıyor, `test_gecikme_kamera` 30 (yeni: Boşluk/Enter/tık çekim tetiklemez, metotlar yok, manual_mode
+adapter'ı etkilemez). Takım 157/157. Ekransız render: sol panelde Sistem Durumu / Çekim / Sayaç.
+**Not:** kullanıcının 10:55'te açtığı örnek eski kodda; restart'ta kutu kaybolur; eski örnek config'i
+kaydederse `manual_mode: false` geri gelebilir (okunmaz). Gözlem (aynı ekran görüntüsü): gecikme
+100 ms'de ürün karenin altında, çerçeve 854×1067 → kapı "yanlış çekim" dedi (ürün vardı ama kadraj/
+çerçeve bozuk) — davranış tasarıma uygun; gecikme ayarı ürünü ortalayacak şekilde yapılmalı.
+
 ## 2026-09-24 ~10:50 — "Sağdaki kontrol resmi sağa kayıyor, sayfaya sığmıyor" → cırcır tuzağı düzeltildi
 
 Kullanıcı ekran görüntüsü (dünkü 09:28 sürümü: Sayaç grubu yok, kutular görünmez): sağdaki

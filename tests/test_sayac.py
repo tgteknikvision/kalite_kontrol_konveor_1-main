@@ -14,7 +14,7 @@ def check(ad, kosul, ek=""):
 app = QApplication.instance() or QApplication([])
 tmpdir = tempfile.mkdtemp(); tmp_cfg = os.path.join(tmpdir, "config.yaml")
 cfg = yaml.safe_load(open("config.yaml", encoding="utf-8"))
-cfg["plc"]["manual_mode"] = True; cfg["alignment"]["mode"] = "off"
+cfg["plc"]["type"] = "null"; cfg["alignment"]["mode"] = "off"
 cfg["cameras"] = {"camera1_enabled": True, "camera2_enabled": False}
 cfg["dynamic_rois"] = {}; cfg["roi"]["roi_types"] = {"1": "hole", "3": "notch"}; cfg["roi"]["point_overrides"] = {}
 cfg["inspection"]["trigger_delay_ms"] = 100

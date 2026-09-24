@@ -281,10 +281,8 @@ class ModbusTCPPLCAdapter:
 
 def create_plc_adapter(config=None):
     plc_cfg = (config or {}).get("plc", {})
-    # Elle cekim modu: PLC tamamen devre disi (ev/test). Baglanti denemesi/log olmaz,
-    # tetik beklenmez. plc.type KORUNUR (sahada manual_mode kapatilinca geri gelir).
-    if plc_cfg.get("manual_mode", False):
-        return NullPLCAdapter(plc_cfg)
+    # (Eski plc.manual_mode anahtari 2026-09-24'te kaldirildi: elle cekim modu yok. PLC'siz
+    #  calisma yalniz plc.type: null ile — tetik gelmez, cekim olmaz.)
     plc_type = plc_cfg.get("type", "null")
     if plc_type is None:
         plc_type = "null"

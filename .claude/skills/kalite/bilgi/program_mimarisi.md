@@ -169,13 +169,13 @@ Kontrol Noktaları açıkken PLC tetiği işlenmez), `_capture_pending`, `_last_
 
 **`_init_ui` (670):** sol sabit panel (320 px scroll içinde) + sağda `content_widget`.
 Sol panel: "Sistem Durumu" (`lbl_state`, `lbl_fps`, `lbl_focus` Netlik, `lbl_exposure` Poz,
-`lbl_plc`) + "Çalışma Modu" (`chk_manual_mode`) + **en dipte `btn_settings` "⚙ Ayarlar"**
+`lbl_plc`) + "Çekim" (`spin_trigger_delay`; `chk_manual_mode` + açıklama 2026-09-24'te KALDIRILDI) + **en dipte `btn_settings` "⚙ Ayarlar"**
 (satır 755-758: bilinçli sol panelde — eskiden kamera satırındaydı, kamera kapatılınca
 erişilemiyordu; regresyon testi var). Sağ: `_build_camera_row(1)` + `(2)` alt alta +
 tam genişlik "Sistem Logları" (`txt_logs`).
 
-**`_build_camera_row(cam_no)` (803):** solda `ROIResultPanel` + `video_label` (tık →
-elle çekim); sağda `lbl_snapshot` (tık → `_open_snapshot_zoom`) + o kameraya ait 2 buton:
+**`_build_camera_row(cam_no)` (803):** solda `ROIResultPanel` + `video_label` (tık çekim
+YAPMAZ — elle çekim 2026-09-24'te kaldırıldı); sağda `lbl_snapshot` (tık → `_open_snapshot_zoom`) + o kameraya ait 2 buton:
 "Kontrol Noktaları" ve "Ürün Çerçevesi Bul" (iki kamera modunda "(Kamera 2)" ekli).
 Satır 864: "⚙ Ayarlar" bilinçli burada DEĞİL. Widget adları: kamera 1 eski, kamera 2 `_2`
 ekli (887-898).
@@ -191,15 +191,10 @@ ekli (887-898).
 | `_active_cameras()` | 963 | Açık kamera listesi; hepsi kapalıysa `[1]` (emniyet). |
 | `_cam_prefix(cam_no)` | 1287 | Log öneki ("Kamera N: "). |
 
-**Elle çekim / modlar:**
-
-| Metot | Satır | Ne yapar |
-|---|---|---|
-| `keyPressEvent` | 967 | BOŞLUK/ENTER → `_manual_capture()`. |
-| `_restart_plc_adapter` | 976 | Adapter'ı kapat + yeniden kur, READY. |
-| `_on_manual_mode_changed` | 983 | `plc.manual_mode` yazar (`setdefault`), adapter yeniler. **`plc.type` korunur.** |
-| `_manual_capture` | 1001 | Üretimde (manual kapalı) tuş/tık YOK SAYILIR; manual'da `_capture_full_frame`. |
-| `_on_video_clicked` | 1010 | Canlı görüntüye tık → elle çekim. |
+**Elle çekim / modlar — KALDIRILDI (2026-09-24, kullanıcı isteği):** `keyPressEvent`,
+`_on_manual_mode_changed`, `_manual_mode_on`, `_manual_capture`, `_on_video_clicked`, `chk_manual_mode`
+ve `plc.manual_mode` silindi; çekimi yalnız PLC tetiği yapar. Kalan: `_restart_plc_adapter`
+(adapter'ı kapat + yeniden kur, READY; `_apply_settings` PLC ayarı değişince çağırır).
 
 **Ayarların uygulanması:** `_open_settings` (1014, `_dialog_paused` try/finally) →
 `_apply_settings(v)` (1026) — **yalnız DEĞİŞEN tarafı uygular:** PLC beşlisi karşılaştırılır;
@@ -343,7 +338,7 @@ Ortak arayüz: `poll`, `set_state`, `publish_result`, `publish_error`, `reset_no
   - `__init__` (72-94): `host` (vars. 192.168.10.10), `port` (502), `unit_id`
     (`slave_id` takma adı; vars. 1 — sahada 0 doğrulandı), `timeout_s` (1.0),
     `reconnect_s` (3.0). **Yapıcı hemen `_connect()` çağırır** — PLC yoksa GUI thread'inde
-    `timeout_s` kadar bloke eder; `plc.manual_mode`'un varlık sebebi budur.
+    `timeout_s` kadar bloke eder (PLC'siz test yalnız `plc.type: null` ile; eski `manual_mode` 2026-09-24'te kaldırıldı).
   - `poll()` (96-114): `_ensure_connected` → HR101 oku → ham değer değişiminde debug log →
     **yükselen kenar** → `"capture"`.
   - `publish_result(ok)` (119-131): HR100 = 0/1; yazma başarısızsa `_mark_disconnected` +
@@ -362,8 +357,7 @@ Ortak arayüz: `poll`, `set_state`, `publish_result`, `publish_error`, `reset_no
   - `_read_holding_registers` (226-248) / `_write_holding_register` (257-279): beyaz liste
     + pymodbus API kaskadı (`device_id=` 3.7+ → `slave=` 3.x → konumsal+`unit=` 2.x).
     `_write_holding_registers` (250-255) **hiçbir yerden çağrılmayan** ölü yardımcı.
-- **`create_plc_adapter(config)` (282-296):** `manual_mode: true` → her koşulda
-  `NullPLCAdapter` (286-287; `plc.type` KORUNUR). `type` normalize: `null/none/disabled` →
+- **`create_plc_adapter(config)`:** (`manual_mode` dalı 2026-09-24'te KALDIRILDI.) `type` normalize: `null/none/disabled` →
   Null; `modbus_tcp/modbus/tcp` → ModbusTCP; tanınmayan → `ValueError`.
 
 Bu modülde thread YOK — tüm çağrılar GUI thread'indeki QTimer'dan; Modbus çağrıları
@@ -695,7 +689,7 @@ okur (500 µs'de metal 102 ≈ 70 eşiğine yakın — pay dar, `koyu%` logları
 | Anahtar | Değer | Not |
 |---|---|---|
 | `host` | `192.168.10.10` | `saha_ayarlari.conf::PLC_IP` ile tutarlılığı betik denetler. |
-| `manual_mode` | `false` | Üretim modu. `true` → NullPLC, elle çekim. Sahada mutlaka `false`. |
+| ~~`manual_mode`~~ | — | 2026-09-24'te KALDIRILDI; config'te kalırsa ölü anahtar (okunmaz). |
 | `poll_ms` | `20` | **Bilinçli 20** — sahada 100'e kaymıştı; 1 ms gecikme ≈ 4 px kayma; 20'ye çekilince temiz tespit %69→%100. 100'e GERİ ÇIKARILMAMALI. |
 | `port` | `502` | 496 YANLIŞTI; 2026-07-29'da 502 doğrulandı. |
 | `reconnect_s` | `3.0` | |
@@ -881,7 +875,7 @@ karşılığı — elle senkron tutulur.
     ayarı ürün geçirmeden yapılır.
 
 ### PLC / saha
-33. Sahaya geçerken "Elle Çekim Modu" KAPALI olmalı (açıksa tetik beklenmez).
+33. ~~Sahaya geçerken "Elle Çekim Modu" KAPALI olmalı~~ — mod 2026-09-24'te kaldırıldı; çekim yalnız PLC tetiğiyle.
 34. **İKİ Pi AYNI ANDA ASLA ÇALIŞMASIN** — ikisi de HR100'e yazar → PLC çelişkili OK/NOK
     (son yazan kazanır, emniyet açığı). Yeni Pi açılmadan eskisi kapatılır.
 35. **eth0'a GATEWAY verme** — internet wlan0'dan; gateway yazılırsa internet PLC ağına

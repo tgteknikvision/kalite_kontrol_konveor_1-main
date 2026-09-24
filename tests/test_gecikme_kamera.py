@@ -106,7 +106,7 @@ import main
 app = QApplication.instance() or QApplication([])
 base_cfg = yaml.safe_load(open("config.yaml", encoding="utf-8"))
 tmpdir = tempfile.mkdtemp(); tmp_cfg = os.path.join(tmpdir, "config.yaml")
-base_cfg["plc"]["manual_mode"] = True           # Null PLC
+base_cfg["plc"]["type"] = "null"           # Null PLC
 base_cfg["inspection"]["trigger_delay_ms"] = 1
 base_cfg["alignment"]["mode"] = "off"           # ürün çerçevesi aranmasın (sentetik kare)
 base_cfg["cameras"] = {"camera1_enabled": True, "camera2_enabled": False}
@@ -180,29 +180,24 @@ check("PLC çekimi notu 'Gecikme 150 ms | kare ~23 ms'", note.startswith("Gecikm
 check("log'da (kurulum karesi) 'tetikten ~161 ms sonra' ölçümü", any("[Kurulum]" in l and "tetikten 16" in l and "kare yaşı 2" in l for l in loglar))
 check("saklanan kare TEMİZ (damgasız)", w._last_snapshot is not None and int(w._last_snapshot[290, 10].min()) == 200)
 check("ekrana giden karede damga var (sol alt)", shown and int(shown[-1][290, 10].min()) < 200)
-w._inspection_state = main.InspectionState.READY
-w._capture_full_frame(source="manual")
-check("elle çekim notu 'Elle cekim'", w._last_capture_note == "Elle cekim")
 img = np.zeros((120, 160, 3), np.uint8); w._last_capture_note = "Gecikme 10 ms | kare 5 ms"
 out = w._stamp_capture_note(img)
 check("_stamp_capture_note küçük resme de yazıyor", out is img and img[:, :, :].max() > 0)
 
-w.setFocus(); app.processEvents()
+# ELLE CEKIM KALDIRILDI (2026-09-24, kullanici istegi): Bosluk/Enter ya da canli goruntuye
+# tik ASLA cekim yapmamali; kutu ve metotlar programda olmamali.
+from PyQt5.QtGui import QMouseEvent
+from PyQt5.QtCore import QPointF
 cap_calls = []
-w._manual_capture = lambda *a: cap_calls.append(1)
-w.activateWindow(); w.spin_trigger_delay.setFocus(Qt.OtherFocusReason); app.processEvents()
-if QApplication.focusWidget() is w.spin_trigger_delay:
-    w.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Return, Qt.NoModifier))
-    check("spinbox odaktayken Enter çekim TETİKLEMEZ", cap_calls == [])
-    w.spin_trigger_delay.clearFocus(); w.txt_logs.clearFocus(); w.centralWidget().setFocus(); app.processEvents()
-    fw = QApplication.focusWidget()
-    if not isinstance(fw, (main.QAbstractSpinBox, main.QLineEdit, main.QTextEdit, main.QComboBox)):
-        w.keyPressEvent(QKeyEvent(QEvent.KeyPress, Qt.Key_Return, Qt.NoModifier))
-        check("odak giriş kutusunda değilken Enter çekimi çağırır", cap_calls == [1])
-    else:
-        print("  [SKIP] odak giriş kutusunda kaldı:", type(fw).__name__)
-else:
-    print("  [SKIP] offscreen'de spinbox odağı alınamadı:", type(QApplication.focusWidget()).__name__)
+w._capture_full_frame = lambda *a, **k: cap_calls.append(1)
+w.centralWidget().setFocus(); app.processEvents()
+for key in (Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter):
+    QApplication.sendEvent(w, QKeyEvent(QEvent.KeyPress, key, Qt.NoModifier)); app.processEvents()
+check("Boşluk/Enter çekim TETİKLEMEZ (elle çekim kaldırıldı)", cap_calls == [])
+QApplication.sendEvent(w.video_label, QMouseEvent(QEvent.MouseButtonPress, QPointF(10, 10), Qt.LeftButton, Qt.LeftButton, Qt.NoModifier)); app.processEvents()
+check("canlı görüntüye tık çekim TETİKLEMEZ", cap_calls == [])
+check("elle çekim kutusu/metotları programda yok", not hasattr(w, "chk_manual_mode") and "keyPressEvent" not in main.MainWindow.__dict__ and not any(hasattr(main.MainWindow, m) for m in ("_manual_capture", "_on_video_clicked", "_manual_mode_on", "_on_manual_mode_changed")))
+check("plc.manual_mode artık adapter seçimini etkilemez (type belirler)", type(main.create_plc_adapter({"plc": {"type": "modbus_tcp", "manual_mode": True, "host": "127.0.0.1", "port": 1, "timeout_s": 0.05, "reconnect_s": 0.05}})).__name__ == "ModbusTCPPLCAdapter")
 
 w.worker = None
 w.close()

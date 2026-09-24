@@ -47,7 +47,7 @@ check("sentetik boş kare → ürün bulucu yine de tam boy kutu çizer (sorunun
 print("\n[uygulama: uçtan uca _capture_full_frame]")
 tmpdir = tempfile.mkdtemp(); tmp_cfg = os.path.join(tmpdir, "config.yaml")
 cfg = yaml.safe_load(open("config.yaml", encoding="utf-8"))
-cfg["plc"]["manual_mode"] = True
+cfg["plc"]["type"] = "null"
 cfg["cameras"] = {"camera1_enabled": True, "camera2_enabled": False}
 cfg["alignment"] = {"mode": "contour", "foreground": "bright", "min_area_ratio": 0.02, "padding_px": 20}
 cfg["dynamic_rois"] = {"1": [10, 10, 50, 50]}; cfg["disabled_rois"] = []

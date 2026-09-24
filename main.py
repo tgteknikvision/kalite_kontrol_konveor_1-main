@@ -868,23 +868,11 @@ class MainWindow(QMainWindow):
         status_layout.addRow("PLC:", self.lbl_plc)
         left_layout.addWidget(status_group)
 
-        # 2. Calisma Modu — sol panelde tek operasyonel anahtar kaldi. Tum PLC/kamera/
-        # cekim ayarlari sag paneldeki "⚙ Ayarlar" penceresine tasindi; kalibrasyon
-        # kilidi kaldirildi (Kontrol Noktalari kaydedilince sistem hazirdir).
-        mode_group = QGroupBox("Çalışma Modu")
+        # 2. Cekim gecikmesi grubu. Eski "Calisma Modu" grubundaki "Elle Cekim Modu (PLC devre
+        # disi)" kutusu ve altindaki aciklama 2026-09-24'te KULLANICI ISTEGIYLE KOMPLE KALDIRILDI:
+        # elle cekim (Bosluk/Enter, canli goruntuye tik) yok, cekimi yalniz PLC tetigi yapar.
+        mode_group = QGroupBox("Çekim")
         mode_layout = QVBoxLayout(mode_group)
-
-        # Elle cekim modu: PLC'yi tamamen kapatir (ev/test). Isaretliyse baglanti
-        # denemesi/log olmaz, GUI bloklanmaz, tetik beklenmez. Sahada (PLC'li)
-        # kapatilir; plc.type korunur.
-        self.chk_manual_mode = QCheckBox("Elle Çekim Modu (PLC devre dışı)")
-        self.chk_manual_mode.setToolTip(
-            "İşaretliyse PLC tamamen kapatılır (ev/test): bağlantı denemesi ve log olmaz,\n"
-            "canlı görüntü bloklanmaz, tetik beklenmez. BOŞLUK/ENTER ya da canlı görüntüye\n"
-            "tıklayarak elle resim çek. Sahada (PLC bağlıyken) bu kutuyu KAPAT.")
-        self.chk_manual_mode.setChecked(bool(self.config.get("plc", {}).get("manual_mode", False)))
-        self.chk_manual_mode.stateChanged.connect(self._on_manual_mode_changed)
-        mode_layout.addWidget(self.chk_manual_mode)
 
         # CEKIM GECIKMESI — ANA EKRANDA (kullanici istegi 2026-09-23). Sensor kameradan
         # ONCE oldugu icin tetik aninda urun henuz kadraja gelmemis ya da gecmis olabilir;
@@ -912,15 +900,6 @@ class MainWindow(QMainWindow):
         delay_row.addWidget(lbl_delay)
         delay_row.addWidget(self.spin_trigger_delay, stretch=1)
         mode_layout.addLayout(delay_row)
-
-        hint = QLabel("Elle çekim: BOŞLUK/ENTER ya da canlı görüntüye tıkla.\n"
-                      "Gecikme ayarı: ürün geçir → son resmin sol altındaki\n"
-                      "'Gecikme X ms' yazısına bak → ürün gelmemişse artır, geçmişse azalt.\n"
-                      "Kamera/PLC ayarları: aşağıdaki '⚙ Ayarlar'.\n"
-                      "Eşikler: Kontrol Merkezi kutuları ya da Kontrol Noktaları → sağ tık.")
-        hint.setWordWrap(True)
-        hint.setStyleSheet("color:#a6adc8; font-size:11px;")
-        mode_layout.addWidget(hint)
 
         left_layout.addWidget(mode_group)
 
@@ -1080,10 +1059,7 @@ class MainWindow(QMainWindow):
         video_label.setStyleSheet("background-color: #0f1115; border: 1px solid #2c313b; border-radius: 8px;")
         video_label.setMinimumSize(480, 360)
         video_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        # Elle Cekim Modunda canli goruntuye tiklayinca resim cek + test et
-        # (iki kamera etkinse tek tikla IKISI birden cekilir; karar VE'lenir).
-        video_label.setToolTip("Elle Çekim Modunda: tıkla → resim çek ve test et")
-        video_label.mousePressEvent = self._on_video_clicked
+        video_label.setToolTip("Canlı kamera görüntüsü (çekimi PLC tetiği yapar).")
         center_layout.addWidget(video_label)
 
         # --- SAĞ: son alınan resim + butonlar ---
@@ -1225,60 +1201,12 @@ class MainWindow(QMainWindow):
         """Açık kameralar. İkisi de kapatılamaz; hepsi kapalıysa kamera 1'e düşülür."""
         return [n for n in (1, 2) if self._camera_enabled(n)] or [1]
 
-    def keyPressEvent(self, event):
-        # Elle test: BOSLUK/ENTER -> resim cek + test et. keyPressEvent yalniz odaktaki
-        # widget tusu KULLANMADIYSA cagrilir; boylece metin kutularina yazmayi bozmaz.
-        if event.key() in (Qt.Key_Space, Qt.Key_Return, Qt.Key_Enter):
-            # Odak bir GIRIS kutusundaysa (gecikme/esik spinbox'i, metin) tus ORAYA aittir:
-            # Enter degeri onaylar, cekim tetiklemez. (QSpinBox Enter'i 'ignore' ettigi icin
-            # olay buraya kadar geliyordu -> gecikme yazip Enter'a basmak Elle Cekim Modunda
-            # beklenmedik cekim yapardi.)
-            fw = QApplication.focusWidget()
-            if isinstance(fw, (QAbstractSpinBox, QLineEdit, QTextEdit, QComboBox)):
-                super().keyPressEvent(event)
-                return
-            self._manual_capture()
-            event.accept()
-            return
-        super().keyPressEvent(event)
-
     def _restart_plc_adapter(self):
         if self.plc:
             self.plc.close()
         self._nok_reset_pending = False
         self.plc = create_plc_adapter(self.config)
         self._set_inspection_state(InspectionState.READY)
-
-    def _on_manual_mode_changed(self, *_):
-        manual = bool(self.chk_manual_mode.isChecked())
-        self.config.setdefault("plc", {})["manual_mode"] = manual
-        self._save_config()
-        self._last_plc_connected = None  # durum yeniden degerlendirilsin
-        self._restart_plc_adapter()
-        if manual:
-            self.lbl_plc.setText("PLC KAPALI")
-            self.lbl_plc.setStyleSheet("color:#9aa0ab;")
-            self._append_log("[ELLE TEST] Elle çekim modu AÇIK: PLC devre dışı. "
-                             "Resim çekmek için BOŞLUK/ENTER tuşu ya da canlı görüntüye tıkla.")
-        else:
-            self._append_log("[ÜRETİM] Elle çekim modu KAPALI: PLC etkin "
-                             "(tetik HR101 ile otomatik çekim).")
-
-    def _manual_mode_on(self) -> bool:
-        return bool(self.config.get("plc", {}).get("manual_mode", False))
-
-    def _manual_capture(self, *_):
-        """Elle çekim (fare/tuş): Elle Çekim Modunda resim çek + analiz et. Üretimde
-        (PLC açık) tuş/tık yanlışlıkla çekim yapmasın diye yok sayılır (çekimi PLC
-        tetiği yapar)."""
-        if not self._manual_mode_on():
-            self._append_log("[ELLE TEST] Önce 'Elle Çekim Modu (PLC devre dışı)' kutusunu işaretle.")
-            return
-        self._capture_full_frame(source="manual")
-
-    def _on_video_clicked(self, event=None):
-        # Canli goruntuye tiklayinca elle cekim (yalniz elle modda).
-        self._manual_capture()
 
     def _open_settings(self):
         """'⚙ Ayarlar' penceresi: PLC + kamera + çekim ayarları. Pencere açıkken PLC
@@ -1966,7 +1894,8 @@ class MainWindow(QMainWindow):
         return True
 
     def _capture_full_frame(self, source: str = "plc"):
-        """source: 'plc' (HR101 tetigi, gecikme uygulanmis) | 'manual' (tus/tik)."""
+        """PLC tetigiyle (HR101, gecikme uygulanmis) gelen cekim. 'source' yalniz CSV 'kaynak'
+        sutunu/geriye uyum icin duruyor; elle cekim 2026-09-24'te kaldirildi, deger hep 'plc'."""
         if self._inspection_state == InspectionState.BUSY:
             return
         # TEK tetik -> etkin TUM kameralardan ayni anda kare al (§13).
@@ -1979,10 +1908,6 @@ class MainWindow(QMainWindow):
             frame = self._get_latest_camera_frame(n)
             if frame is None:
                 self._append_log(f"[HATA] {self._cam_prefix(n)}Kamera görüntüsü yok veya görüntü bayat.")
-                if self._manual_mode_on():
-                    QMessageBox.warning(self, "Uyarı",
-                                        f"{self._cam_prefix(n)}Henüz kamera görüntüsü alınmadı! "
-                                        "Lütfen canlı görüntünün başlamasını bekleyin.")
                 self._record_part(None, False, {}, source, error=f"{self._cam_prefix(n)}Kamera görüntüsü yok")
                 self._publish_plc_error(f"{self._cam_prefix(n)}Kamera görüntüsü yok")
                 self._set_inspection_state(InspectionState.ERROR)
@@ -1996,18 +1921,14 @@ class MainWindow(QMainWindow):
         now = time.time()
         ages = [self._latest_frame_age_ms(n, now) for n in cams]
         age_ms = max(ages) if ages else 0.0
-        if source == "plc":
-            delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
-            since_ms = (now - self._trigger_time) * 1000.0 if self._trigger_time else 0.0
-            self._last_capture_note = f"Gecikme {delay_ms} ms | kare {age_ms:.0f} ms"
-            timing = (f" | gecikme {delay_ms} ms, tetikten {since_ms:.0f} ms sonra, "
-                      f"kare yaşı {age_ms:.0f} ms")
-            gap = getattr(self, "_trigger_gap_s", None)
-            if gap is not None:                       # cift tetik / bos bant teshisi icin
-                timing += f", önceki tetikten {gap:.1f} s sonra"
-        else:
-            self._last_capture_note = "Elle cekim"
-            timing = f" | elle çekim, kare yaşı {age_ms:.0f} ms"
+        delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
+        since_ms = (now - self._trigger_time) * 1000.0 if self._trigger_time else 0.0
+        self._last_capture_note = f"Gecikme {delay_ms} ms | kare {age_ms:.0f} ms"
+        timing = (f" | gecikme {delay_ms} ms, tetikten {since_ms:.0f} ms sonra, "
+                  f"kare yaşı {age_ms:.0f} ms")
+        gap = getattr(self, "_trigger_gap_s", None)
+        if gap is not None:                           # cift tetik / bos bant teshisi icin
+            timing += f", önceki tetikten {gap:.1f} s sonra"
 
         ready_error = self._production_ready_error()
         if ready_error:
@@ -2244,10 +2165,6 @@ class MainWindow(QMainWindow):
     @pyqtSlot(str)
     def _handle_error(self, err_msg):
         self._append_log(f"[HATA] {err_msg}")
-        if self._manual_mode_on():
-            # Ev/test: operatore gorunur uyari yeter (Null PLC zaten yazmaz).
-            QMessageBox.critical(self, "Kamera / Sistem Hatası", err_msg)
-            return
         self._publish_plc_error(err_msg)
         self._set_inspection_state(InspectionState.ERROR)
 
@@ -2476,7 +2393,7 @@ class MainWindow(QMainWindow):
                 del c["son_nok"][:-500]           # PDF listesi icin son 500 NOK yeter
         delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
         self._append_part_csv([zaman, part_id if part_id is not None else "-",
-                               "plc" if source == "plc" else "elle", sonuc, delay_ms,
+                               source, sonuc, delay_ms,
                                "; ".join(f.split(" = ")[0] for f in failed), "; ".join(failed),
                                " | ".join(olcum)])
         self._save_counters()
@@ -2744,7 +2661,7 @@ class MainWindow(QMainWindow):
         return max(0.0, ((now if now is not None else time.time()) - t) * 1000.0)
 
     def _stamp_capture_note(self, img):
-        """Son cekimin zamanlama notunu ('Gecikme X ms | kare Y ms' ya da 'Elle cekim')
+        """Son cekimin zamanlama notunu ('Gecikme X ms | kare Y ms')
         resmin SOL ALTINA yazar; ayni resmi dondurur. Operator 'urun kadrajda mi' diye
         bakarken hangi gecikmeyle cekildigini gorsun (ASCII: cv2 Turkce harf cizemez)."""
         note = self._last_capture_note

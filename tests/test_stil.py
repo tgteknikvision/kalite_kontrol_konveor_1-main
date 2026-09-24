@@ -23,7 +23,7 @@ app = QApplication.instance() or QApplication([])
 app.setStyle("Fusion"); main.apply_dark_palette(app)          # main() ile birebir aynı kurulum
 tmpdir = tempfile.mkdtemp(); tmp_cfg = os.path.join(tmpdir, "config.yaml")
 cfg = yaml.safe_load(open("config.yaml", encoding="utf-8"))
-cfg["plc"]["manual_mode"] = True; cfg["cameras"] = {"camera1_enabled": True, "camera2_enabled": False}
+cfg["plc"]["type"] = "null"; cfg["cameras"] = {"camera1_enabled": True, "camera2_enabled": False}
 yaml.safe_dump(cfg, open(tmp_cfg, "w", encoding="utf-8"))
 main.CONFIG_PATH = tmp_cfg
 main.load_config = lambda path=None: yaml.safe_load(open(tmp_cfg, encoding="utf-8"))
@@ -53,9 +53,10 @@ ss_yedek = main.build_stylesheet()
 main._arrow_icon_paths = orig
 check("resim üretilemezse url(__…__) yer tutucusu kalmaz (stil bozulmaz)", "url(__" not in ss_yedek and "url(__" not in ss)
 
-print("\n[ana pencere: Elle Çekim Modu kutusu]")
+print("\n[Ayarlar: Exposure/Gain Kilidi kutusu]")      # (sol paneldeki Elle Çekim kutusu 2026-09-24'te kaldırıldı)
 w = main.MainWindow(); w.show(); pump()
-chk = w.chk_manual_mode
+dlg = main.SettingsDialog(w.config, w); dlg.show(); pump()
+chk = dlg._cam1_w["manual_exp"]
 chk.setChecked(False); pump()
 pm = chk.grab()
 bos = piksel_say(pm, 0, 0, 20, pm.height(), parlak)
@@ -73,7 +74,6 @@ check("pasif kutu da seçilebilir (soluk ama çizili)", pasif >= 40, f"orta-parl
 chk.setEnabled(True); pump()
 
 print("\n[Ayarlar: kamera grubu başlık kutuları + Exposure/Gain Kilidi]")
-dlg = main.SettingsDialog(w.config, w); dlg.show(); pump()
 g1 = dlg._cam1_w["group"]; g2 = dlg._cam2_w["group"]
 check("Kamera 1 grubu işaretli, Kamera 2 boş (test config'i)", g1.isChecked() and not g2.isChecked())
 p1 = g1.grab(); p2 = g2.grab()
