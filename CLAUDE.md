@@ -340,6 +340,12 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-24 ~13:40 — OLUK EŞİĞİ VARSAYILANI 50 → 25 (kullanıcı: "oluk değerini default olarak 50 değil
+  de 25 yapsın"):** `config.yaml` `roi.notch_dark_min: 25`; kod varsayılanları da 25: `ROIResultPanel.THRESHOLDS`
+  (panel kutusu), `_open_roi_manager` `roi_defaults` (yeni çentik noktasının 'Oluk Eşiği' ön değeri),
+  `roi_editor` varsayılan sözlüğü, `features._evaluate_holes` (config'te anahtar yoksa; eskiden 15). Nokta 3'ün
+  25 override'ı artık genel değere eşit. Config uygulama AÇIKKEN yazıldı (13:26'da başlayan örnek) → örnek
+  config'i kaydederse 50 geri gelebilir; restart sonrası kontrol.
 - **✅ 2026-09-24 ~13:20 — "ÜRÜNÜ DOĞRU BULAMIYOR": BANT PARLAKLIĞI ÜRÜNLE BİRLEŞİYORDU → EŞİK AYARLAR'DA
   (kullanıcı ekran görüntüsüyle: çerçeve 760×1025 tam boy, ürün üstte):** Ekran görüntüsünden ölçüm: bant
   V≈72 (ürün altı) … 104-125 (alt/sol), ürün 184-238 (S 4-7), ray metal kenarı 166-180 (S 23-39), yeşil

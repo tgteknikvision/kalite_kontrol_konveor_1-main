@@ -135,7 +135,7 @@ def _evaluate_holes(snapshot: np.ndarray, config: dict) -> tuple:
     core_value = int(roi_cfg.get("hole_core_value", 40))
     core_ratio_min = float(roi_cfg.get("hole_core_ratio_min", 2.0))
     # 'notch' (oluk/centik) tipi ROI: yuvarlak delik DEGIL; koyu bolge VAR mi?
-    notch_dark_min = float(roi_cfg.get("notch_dark_min", 15.0))
+    notch_dark_min = float(roi_cfg.get("notch_dark_min", 25.0))   # varsayilan 25 (kullanici istegi 2026-09-24)
     notch_dark_max = float(roi_cfg.get("notch_dark_max", 95.0))
     # Centik SEKIL kapisi (yanlis-OK onlemi): salt koyu-oran, DUZ parcadaki dagisik
     # golge/kenari da "oluk VAR" sanip OK verebiliyor (saha: oluksuz parca koyu ~%17,

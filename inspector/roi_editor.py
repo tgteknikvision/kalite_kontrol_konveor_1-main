@@ -306,7 +306,7 @@ class ROIDialog(QDialog):
                                 if isinstance(v, dict)}
         # Global varsayilanlar (Ayarlar penceresinin on-dolumu icin).
         self.roi_defaults = {"hole_dark_ratio_min": 20.0, "hole_core_ratio_min": 2.0,
-                             "notch_dark_min": 50.0}
+                             "notch_dark_min": 25.0}
         self.roi_defaults.update(roi_defaults or {})
         # "Referansi Sifirla" istegi: kabulde main, reference_profile'i temizler.
         self.reset_reference_requested = False

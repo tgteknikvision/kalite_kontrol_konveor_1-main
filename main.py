@@ -104,7 +104,7 @@ class ROIResultPanel(QGroupBox):
     THRESHOLDS = {
         "hole": [("hole_dark_ratio_min", "açıklık", "black_ratio", 20.0),
                  ("hole_core_ratio_min", "derinlik", "core_ratio", 2.0)],
-        "notch": [("notch_dark_min", "oluk", "black_ratio", 50.0)],
+        "notch": [("notch_dark_min", "oluk", "black_ratio", 25.0)],     # varsayilan 25 (kullanici, 2026-09-24)
     }
     MAX_ESIK = 2                       # bir satirda en fazla kac esik kutusu
 
@@ -2267,7 +2267,7 @@ class MainWindow(QMainWindow):
             roi_defaults={
                 "hole_dark_ratio_min": float(defaults_src.get("hole_dark_ratio_min", 20.0)),
                 "hole_core_ratio_min": float(defaults_src.get("hole_core_ratio_min", 2.0)),
-                "notch_dark_min": float(defaults_src.get("notch_dark_min", 50.0)),
+                "notch_dark_min": float(defaults_src.get("notch_dark_min", 25.0)),
             },
         )
         # Editordeyken PLC tetigi cekim baslatmasin (duzenleme ortasinda analiz olmaz).

@@ -3,6 +3,13 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~13:40 — Oluk eşiği varsayılanı 50 → 25 (kullanıcı isteği)
+
+`config.yaml` `roi.notch_dark_min` 50 → 25; kod varsayılanları (panel THRESHOLDS, `_open_roi_manager`
+roi_defaults, roi_editor sözlüğü, features `_evaluate_holes`) 25. Yeni çizilen çentik noktası 25 ile
+başlar; nokta 3'ün 25 override'ı genel değere eşit. Uygulama açıkken (13:26 örneği) yazıldı — örnek
+config'i kaydederse 50 geri gelebilir, restart sonrası bakılmalı. Takım 210/210.
+
 ## 2026-09-24 ~13:20 — "Ürünü doğru bulamıyor": bant parlaklaşıp ürünle birleşti → eşik Ayarlar'a taşındı, 160
 
 Ekran görüntüsü 13:06: Ürün Çerçevesi Bul → 760×1025 (tam boy), ürün karenin üstünde; tetiklerde
