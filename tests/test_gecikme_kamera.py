@@ -127,11 +127,9 @@ orig_log = w._append_log
 def log_yakala(msg): loglar.append(msg); orig_log(msg)
 w._append_log = log_yakala
 
-check("sol panelde gecikme kutusu var, config'i gösteriyor", w.spin_trigger_delay.value() == 1)
-w.spin_trigger_delay.setValue(150); app.processEvents()
-saved = yaml.safe_load(open(tmp_cfg, encoding="utf-8"))
-check("kutu → config + dosya (150 ms)", w.config["inspection"]["trigger_delay_ms"] == 150 and saved["inspection"]["trigger_delay_ms"] == 150)
-check("kutu → log [Gecikme]", any(l.startswith("[Gecikme]") for l in loglar))
+# SOL PANEL GECIKME KUTUSU KALDIRILDI (2026-09-24, kullanici istegi): gecikme yalniz Ayarlar'da.
+check("sol panelde gecikme kutusu YOK, handler yok", not hasattr(w, "spin_trigger_delay") and not hasattr(main.MainWindow, "_on_trigger_delay_changed"))
+check("sol panelde 'Çalışma Modu' / 'Çekim' grubu yok", not any(g.title() in ("Çalışma Modu", "Çekim") for g in w.findChildren(main.QGroupBox)))
 
 dlg = main.SettingsDialog(w.config, w)
 items = [dlg._cam1_w["res"].itemText(i) for i in range(dlg._cam1_w["res"].count())]
@@ -143,10 +141,10 @@ w._start_camera = lambda n: calls.append(f"start{n}")
 w._stop_camera = lambda n: calls.append(f"stop{n}")
 w.config["cameras"] = {"camera1_enabled": True, "camera2_enabled": False}
 v1 = dict(v); v1["camera1_enabled"] = False; v1["camera2_enabled"] = True; v1["trigger_delay_ms"] = 220
-n_log = len([l for l in loglar if l.startswith("[Gecikme]")])
 w._apply_settings(v1)
 check("K1 kapat + K2 aç → ÖNCE stop1 SONRA start2", calls == ["stop1", "start2"], str(calls))
-check("Ayarlar'daki gecikme sol kutuya yansıdı (sinyalsiz)", w.spin_trigger_delay.value() == 220 and len([l for l in loglar if l.startswith("[Gecikme]")]) == n_log)
+saved = yaml.safe_load(open(tmp_cfg, encoding="utf-8"))
+check("Ayarlar'daki gecikme config'e + dosyaya yazıldı (220 ms)", w.config["inspection"]["trigger_delay_ms"] == 220 and saved["inspection"]["trigger_delay_ms"] == 220)
 calls.clear()
 v2 = dict(v); v2["camera1_enabled"] = True; v2["camera2_enabled"] = False
 w._apply_settings(v2)

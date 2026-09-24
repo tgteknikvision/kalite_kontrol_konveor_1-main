@@ -85,7 +85,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (157 test, 7 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (156 test, 7 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -96,10 +96,9 @@ tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_te
 yollar; PLC'den haberi yok. PLC tüm işlemleri GUI thread'inde `QTimer` ile (`poll_ms`,
 20 ms) yürür. Köprü: tetikte GUI worker'ın `last_raw_frame`'ini okur.
 
-**Arayüz düzeni (main.py):** Sol kolon ("Sistem Durumu" + **"Çekim" grubu: yalnız "Çekim Gecikmesi
-(ms)" kutusu (2026-09-23, canlı ayar; bkz. §8 `inspection.trigger_delay_ms`)** — eski "Çalışma Modu"
-grubundaki **Elle Çekim Modu kutusu + "Elle çekim: ..." açıklaması 2026-09-24'te KALDIRILDI (§7)**;
-**"Sayaç" grubu (2026-09-23): geçen parça / OK / NOK
+**Arayüz düzeni (main.py):** Sol kolon ("Sistem Durumu" — eski "Çalışma Modu" grubu (Elle Çekim Modu
+kutusu + "Çekim Gecikmesi" kutusu + açıklama) **2026-09-24'te TAMAMEN KALDIRILDI (§7, §8; gecikme yalnız
+⚙ Ayarlar'da)**; **"Sayaç" grubu (2026-09-23): geçen parça / OK / NOK
 (yüzde) / sistem hatası + nokta-sebep dağılımı, **"Paket adedi" kutusu + "Paket: n / hedef"
 satırı** (OK parça sayar; hedefte modal OLMAYAN uyarı: Sıfırla / Devam et), "PDF Rapor" ve
 "Sıfırla" butonları — bkz. §12); **en dibinde "⚙ Ayarlar" butonu**; kaydırılabilir, sabit 320px) + sağda
@@ -276,9 +275,9 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 - `inspection.paket_adedi` (vars. 100): bir pakete konacak OK parça sayısı (sol panel "Paket
   adedi" kutusu). Sayaç `sayac.json`'da `paket_ok`/`paket_esik`; hedefe ulaşınca uyarı (§12).
 - `inspection.trigger_delay_ms`: tetikten sonra çekime kadar bekleme (ürün ortalansın diye).
-  **SOL PANELDEKİ "Çekim Gecikmesi" kutusundan CANLI ayarlanır (2026-09-23, kullanıcı isteği:
-  "foto çekmeyi erteleme şansı, resme bakıp artırıp azaltacağım").** Ayarlar penceresinde de var ama
-  pencere açıkken PLC tetiği durduğu için ürün geçirerek deneme oradan yapılamıyordu. Her PLC
+  **YALNIZ ⚙ Ayarlar penceresinden ayarlanır (2026-09-24: sol paneldeki canlı "Çekim Gecikmesi"
+  kutusu kullanıcı isteğiyle KALDIRILDI — 2026-09-23'te "resme bakıp artırıp azaltacağım" diye eklenmişti).**
+  Ayar döngüsü: Ayarlar → değer → Kaydet (pencere açıkken PLC tetiği durur) → ürün geçir → resme bak. Her PLC
   çekiminde resmin SOL ALTINA `Gecikme X ms | kare Y ms` damgası basılır (`_stamp_capture_note`;
   editörün kullandığı saklanan kare TEMİZ kalır) ve loga `gecikme X ms, tetikten Z ms sonra, kare
   yaşı Y ms` düşer (nokta çizilmemişken `[Kurulum]` satırında da → gecikme nokta çizmeden ayarlanır).
@@ -324,6 +323,14 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-24 ~11:30 — SOL PANELDEKİ "ÇEKİM GECİKMESİ" KUTUSU DA KALDIRILDI (kullanıcı: "ben sana
+  gecikmeyi kaldıralım demiştim kaldırmamışsın" — önceki istekteki "onun altındaki" = gecikme kutusu +
+  açıklama):** eski "Çalışma Modu" grubu artık sol panelde HİÇ yok (Sistem Durumu / Sayaç / ⚙ Ayarlar).
+  Silinen: sol panel `spin_trigger_delay` + `_on_trigger_delay_changed` + `_apply_settings`'teki kutu
+  senkronu. **Gecikme özelliği DURUYOR:** `inspection.trigger_delay_ms` ⚙ Ayarlar'daki "Çekim Gecikmesi ms"
+  kutusundan ayarlanır (config'te şu an 50), resimdeki `Gecikme X ms | kare Y ms` damgası ve `[Tetik]`
+  zamanlama logu aynen. Test: `test_gecikme_kamera` (sol panelde kutu/grup yok; Ayarlar → config + dosya).
+  Takım 157/157. Çalışan uygulama eski kodda; restart'ta kutu kaybolur.
 - **✅ 2026-09-24 ~11:15 — ELLE ÇEKİM MODU KOMPLE KALDIRILDI (kullanıcı, ekran görüntüsüyle: "elle
   çekim modu varya onu kaldıralım komple programdan, bide onun altında açıklama var onu da; Elle çekim
   diye başlayan"):** Sol panel: "Çalışma Modu" grubu → **"Çekim"** (yalnız Çekim Gecikmesi kutusu);

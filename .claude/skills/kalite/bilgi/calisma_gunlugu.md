@@ -3,6 +3,17 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~11:30 — Sol paneldeki "Çekim Gecikmesi" kutusu da kaldırıldı
+
+Kullanıcı: "kontrol noktalarını yeniden çizince güncelleniyorsa süper; ama gecikmeyi kaldıralım
+demiştim kaldırmamışsın" → önceki istekteki "onun altında" = Elle Çekim kutusunun altındaki gecikme
+kutusu + açıklama. **Yapılan:** sol panel "Çekim" grubu (`spin_trigger_delay`) silindi;
+`_on_trigger_delay_changed` ve `_apply_settings`'teki kutu senkronu silindi. Sol panel: Sistem Durumu /
+Sayaç / ⚙ Ayarlar. Gecikme ÖZELLİĞİ duruyor: ⚙ Ayarlar → "Çekim Gecikmesi ms" (config 50 ms),
+resim damgası ve `[Tetik]` logu aynen. Test `test_gecikme_kamera` güncellendi (kutu/grup yok; Ayarlar →
+config + dosya 220 ms). Takım 156/156; sol panel ekransız render ile doğrulandı. Uygulama eski kodda.
+Otomatik nokta ölçekleme teklifi kullanıcıda ("yeniden çizince güncelleniyorsa süper" → şimdilik gerek yok).
+
 ## 2026-09-24 ~11:20 — "Burada ürünü niye yakalayamıyor?" → ürün büyüdü, referans eski (teşhis, kod değişmedi)
 
 Ekran görüntüsü 11:12:10: ürün karede tam, çerçeve 839×680 ama referans 708×542 → boy %+25.5 →

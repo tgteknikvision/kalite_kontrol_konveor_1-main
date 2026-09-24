@@ -868,40 +868,9 @@ class MainWindow(QMainWindow):
         status_layout.addRow("PLC:", self.lbl_plc)
         left_layout.addWidget(status_group)
 
-        # 2. Cekim gecikmesi grubu. Eski "Calisma Modu" grubundaki "Elle Cekim Modu (PLC devre
-        # disi)" kutusu ve altindaki aciklama 2026-09-24'te KULLANICI ISTEGIYLE KOMPLE KALDIRILDI:
-        # elle cekim (Bosluk/Enter, canli goruntuye tik) yok, cekimi yalniz PLC tetigi yapar.
-        mode_group = QGroupBox("Çekim")
-        mode_layout = QVBoxLayout(mode_group)
-
-        # CEKIM GECIKMESI — ANA EKRANDA (kullanici istegi 2026-09-23). Sensor kameradan
-        # ONCE oldugu icin tetik aninda urun henuz kadraja gelmemis ya da gecmis olabilir;
-        # operator son cekime bakip (resmin sol altinda "Gecikme X ms | kare Y ms") bu
-        # degeri artirip azaltir. Ayarlar penceresinde de var ama pencere ACIKKEN PLC
-        # tetigi DURDUGU icin urun gecirerek deneme yapmak oradan mumkun degildi.
-        delay_row = QHBoxLayout()
-        delay_row.setContentsMargins(0, 0, 0, 0)
-        lbl_delay = QLabel("Çekim Gecikmesi:")
-        self.spin_trigger_delay = NoWheelSpinBox()
-        self.spin_trigger_delay.setRange(0, 5000)
-        self.spin_trigger_delay.setSingleStep(10)
-        self.spin_trigger_delay.setSuffix(" ms")
-        self.spin_trigger_delay.setKeyboardTracking(False)     # Enter/odak cikisinda tek sinyal
-        self.spin_trigger_delay.setValue(
-            int(self.config.get("inspection", {}).get("trigger_delay_ms", 0)))
-        self.spin_trigger_delay.setToolTip(
-            "PLC tetiği (sensör ürünü gördü) ile resim çekimi arasındaki bekleme.\n"
-            "Ürün resimde HENÜZ GELMEMİŞSE değeri artır, GEÇMİŞSE azalt; bir sonraki\n"
-            "tetikten itibaren geçerlidir. Son resmin sol altında 'Gecikme X ms | kare Y ms'\n"
-            "yazar: 'kare' = kullanılan karenin yaşı (FPS'e bağlı belirsizlik; 20 fps'te ≤50 ms,\n"
-            "daha kararlı zamanlama için FPS'i artır). Aydınlatma tetikle yanıp sönüyorsa\n"
-            "gecikme ışık süresini aşmamalı. Fare tekerleği bilerek devre dışı.")
-        self.spin_trigger_delay.valueChanged.connect(self._on_trigger_delay_changed)
-        delay_row.addWidget(lbl_delay)
-        delay_row.addWidget(self.spin_trigger_delay, stretch=1)
-        mode_layout.addLayout(delay_row)
-
-        left_layout.addWidget(mode_group)
+        # 2. (Eski "Calisma Modu" grubu — "Elle Cekim Modu" kutusu, "Cekim Gecikmesi" kutusu ve
+        #    aciklama — 2026-09-24'te kullanici istegiyle sol panelden TAMAMEN kaldirildi. Cekim
+        #    gecikmesi yalniz "⚙ Ayarlar" penceresinde ayarlanir: inspection.trigger_delay_ms.)
 
         # 3. SAYAC (kullanici istegi 2026-09-23): "resim olmaz; sayici koyalim, gecen parcalari
         # saysin, hatalilari saysin, hatalar neler bilgisini versin, PDF cikar butonu olsun".
@@ -1236,12 +1205,6 @@ class MainWindow(QMainWindow):
         plc_cfg["poll_ms"] = v["plc_poll_ms"]
 
         self.config.setdefault("inspection", {})["trigger_delay_ms"] = v["trigger_delay_ms"]
-        # Sol paneldeki gecikme kutusunu da esitle (programatik: sinyal tetiklemesin).
-        spin = getattr(self, "spin_trigger_delay", None)
-        if spin is not None:
-            spin.blockSignals(True)
-            spin.setValue(int(v["trigger_delay_ms"]))
-            spin.blockSignals(False)
 
         camera_cfg = self.config.setdefault("camera", {})
         res_cfg = self.config.setdefault("resolution", {})
@@ -2642,15 +2605,6 @@ class MainWindow(QMainWindow):
             QDesktopServices.openUrl(QUrl.fromLocalFile(path))     # varsayilan PDF goruntuleyicide ac
         except Exception:
             pass
-
-    def _on_trigger_delay_changed(self, value):
-        """Sol paneldeki 'Çekim Gecikmesi' kutusu: config'e yaz, kaydet, logla.
-        Bir sonraki PLC tetiginden itibaren gecerli (bekleyen cekim etkilenmez)."""
-        ms = int(value)
-        self.config.setdefault("inspection", {})["trigger_delay_ms"] = ms
-        self._save_config()
-        self._append_log(f"[Gecikme] Çekim gecikmesi = {ms} ms (bir sonraki tetikten itibaren; "
-                         "son resimdeki 'Gecikme' yazısıyla karşılaştır).")
 
     def _latest_frame_age_ms(self, cam_no: int, now: float = None) -> float:
         """Worker'in son karesinin yasi (ms). Kare yoksa 0."""

@@ -12,8 +12,8 @@
   **Poz** satırında 🔒 görünmeli; `⚠ OTO` yazıyorsa Ayarlar'dan Exposure/Gain kilidini aç.
 
 ## 2. Ekran düzeni
-- **Sol panel:** Sistem Durumu (Durum, FPS, Netlik, Poz, PLC) · Çekim (**Çekim Gecikmesi** kutusu) ·
-  Sayaç · en altta **⚙ Ayarlar**. (Elle Çekim Modu kutusu 2026-09-24'te kaldırıldı.)
+- **Sol panel:** Sistem Durumu (Durum, FPS, Netlik, Poz, PLC) · Sayaç · en altta **⚙ Ayarlar**.
+  (Elle Çekim Modu ve Çekim Gecikmesi kutuları 2026-09-24'te sol panelden kaldırıldı; gecikme Ayarlar'da.)
 - **Kamera satırı (her açık kamera için bir tane):** solda **Kontrol Merkezi** tablosu + canlı
   görüntü; sağda **Son Alınan Tam Resim** (tıklayınca tam boy) + **Kontrol Noktaları** +
   **Ürün Çerçevesi Bul** butonları.
@@ -23,7 +23,7 @@
 ## 3. Çekim gecikmesi (sensör → kamera zamanlaması)
 Sensör ürünü görünce PLC tetik verir; program **Çekim Gecikmesi** kadar bekleyip resmi çeker.
 Kamera sensörden ileride duruyorsa ürünün kadraja gelmesi için bu süre gerekir.
-1. Sol paneldeki **Çekim Gecikmesi** kutusuna bir başlangıç değeri yaz (ör. 100 ms) ve Enter'a bas.
+1. **⚙ Ayarlar → Çekim Gecikmesi ms** kutusuna bir başlangıç değeri yaz (ör. 100 ms) → Kaydet.
 2. Bir ürün geçir. **Son Alınan Tam Resim**'in sol altında `Gecikme 100 ms | kare 23 ms` yazar.
 3. Ürün resimde **henüz gelmemişse değeri artır, geçmişse azalt**; tekrar ürün geçir.
 4. Log satırı gerçek süreyi gösterir: `gecikme 100 ms, tetikten 112 ms sonra, kare yaşı 23 ms`.
@@ -32,8 +32,7 @@ Kamera sensörden ileride duruyorsa ürünün kadraja gelmesi için bu süre ger
 - Kontrol noktası çizilmemişken de tetikle gelen kare saklanır ve damgalanır; yani gecikme
   ayarı nokta çizmeden yapılabilir. Değer bir sonraki tetikten itibaren geçerlidir.
 - Aydınlatma tetikle yanıp sönüyorsa gecikme, ışığın açık kaldığı süreyi aşmamalı.
-- Ayarlar penceresinde de aynı kutu vardır ama **pencere açıkken PLC tetiği durur**; deneme
-  yaparken ayarı sol panelden yap.
+- Ayarlar penceresi açıkken PLC tetiği durur; değeri girip **Kaydet** ile kapat, sonra ürün geçir.
 
 ## 3b. Kamera Önizleme simgesi (programdan bağımsız canlı görüntü)
 Masaüstündeki **"Kamera Önizleme"** simgesine çift tıkla: takılı tüm kameralar bulunur ve her

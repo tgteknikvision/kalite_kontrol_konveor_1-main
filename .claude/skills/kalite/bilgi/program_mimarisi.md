@@ -169,7 +169,7 @@ Kontrol Noktaları açıkken PLC tetiği işlenmez), `_capture_pending`, `_last_
 
 **`_init_ui` (670):** sol sabit panel (320 px scroll içinde) + sağda `content_widget`.
 Sol panel: "Sistem Durumu" (`lbl_state`, `lbl_fps`, `lbl_focus` Netlik, `lbl_exposure` Poz,
-`lbl_plc`) + "Çekim" (`spin_trigger_delay`; `chk_manual_mode` + açıklama 2026-09-24'te KALDIRILDI) + **en dipte `btn_settings` "⚙ Ayarlar"**
+`lbl_plc`) + (eski "Çalışma Modu" grubu — `chk_manual_mode`, sol panel `spin_trigger_delay`, açıklama — 2026-09-24'te TAMAMEN KALDIRILDI; gecikme yalnız `SettingsDialog.spin_trigger_delay` → `_apply_settings` → `inspection.trigger_delay_ms`) + **en dipte `btn_settings` "⚙ Ayarlar"**
 (satır 755-758: bilinçli sol panelde — eskiden kamera satırındaydı, kamera kapatılınca
 erişilemiyordu; regresyon testi var). Sağ: `_build_camera_row(1)` + `(2)` alt alta +
 tam genişlik "Sistem Logları" (`txt_logs`).
