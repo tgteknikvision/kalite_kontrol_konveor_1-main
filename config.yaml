@@ -128,8 +128,8 @@ roi:
   notch_dark_min: 25.0
   point_overrides:
     '1':
-      hole_core_ratio_min: 7.0
-      hole_dark_ratio_min: 8.0
+      hole_core_ratio_min: 5.0
+      hole_dark_ratio_min: 6.0
     '3':
       notch_dark_min: 25.0
   reference_box:
