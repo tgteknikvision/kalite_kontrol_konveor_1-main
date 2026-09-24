@@ -101,6 +101,12 @@ o anki resim (kontrol noktaları işaretli), altında programın gerekçesi ve i
 - PLC'ye ek bir şey yazılmaz; konveyörü her zamanki gibi siz çalıştırırsınız.
 - Sol panelde "Operatör: N doğru / M hatalı" satırı, PDF raporunda özet.
 - Eşik ayarı sırasında çok NOK çıkıyorsa Ayarlar → "NOK'ta operatör kontrol penceresi" kutusunu kapatın.
+- **Kayıt:** her kontrolde operatörün gördüğü resim ve kararı program klasöründeki `operator_kontrol/` altına
+  yazılır: `operator_kontrol/2026-09-24/2026-09-24_15-42-07_resim0012_DOGRU.jpg` (gün klasörü; ad = tarih_saat_
+  resim no_karar; karar DOGRU / HATALI / CEVAPSIZ) + özet tablo `operator_kontrol/operator_kayit.csv`
+  (tarih;saat;resim;karar;kamera;gerekce;dosya — Excel/LibreOffice ile açılır). Resim ≈ 200-300 KB.
+  Ayarlar → "Operatör kontrollerini kaydet" kapatılabilir; "Operatör kayıtlarını sakla (gün)" (varsayılan 30,
+  0 = hiç silme) günden eski gün klasörleri kendiliğinden silinir.
 
 ## 4. Ayarlar (⚙)
 PLC (tip, IP, port, unit id, poll) · **Kamera 1 / Kamera 2** (grup başlığındaki kutu = kamerayı

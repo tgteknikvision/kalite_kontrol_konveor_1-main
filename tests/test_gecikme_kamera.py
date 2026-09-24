@@ -118,6 +118,7 @@ def fake_start_worker(self):
     self._plc_timer = QTimer(self); self._plc_timer.timeout.connect(self._poll_plc)
 main.MainWindow._start_worker = fake_start_worker
 main.MainWindow.LOG_DIR = os.path.join(tmpdir, "loglar")   # gerçek saha loguna YAZMA
+main.MainWindow.OPERATOR_DIR = os.path.join(tmpdir, "operator_kontrol")   # gerçek proje klasörüne YAZMA
 main.QMessageBox.warning = staticmethod(lambda *a, **k: None)
 main.QMessageBox.critical = staticmethod(lambda *a, **k: None)
 

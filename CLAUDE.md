@@ -85,8 +85,10 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (260 test, 11 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (269 test, 11 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
+operator_kontrol/       (git DIŞI, .gitignore) operatör kontrol kayıtları: GÜN/tarih-saat_resimNNNN_KARAR.jpg
+                        + operator_kayit.csv (2026-09-24, §8 `inspection.operator_kayit`).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
                         kamera_onizleme.sh (masaüstü "Kamera Önizleme" simgesi: programdan
@@ -297,6 +299,10 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   %-60/%+100 (§12). Config'te anahtar yoksa varsayılanlar geçerli (setdefault yazılmaz).
 - **`inspection.operator_review`** (bool, vars. **true**, Ayarlar'da kutu): NOK'ta OPERATÖR KONTROL PENCERESİ
   (2026-09-24) — resim ekranın %80'i + gerekçe + DOĞRU (OK say) / HATALI (NOK kalsın); PLC'ye ek yazım yok (§12).
+- **`inspection.operator_kayit`** (bool, vars. **true**) + **`inspection.operator_kayit_gun`** (int, vars. **30**,
+  0 = hiç silme): operatör kararı + kontrol edilen İŞARETLİ resim `<proje>/operator_kontrol/YYYY-AA-GG/
+  YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg` (JPEG q85) ve `operator_kontrol/operator_kayit.csv`'ye yazılır
+  (KARAR = DOGRU/HATALI/CEVAPSIZ); eski gün klasörleri silinir. Ayarlar'da iki kutu (2026-09-24, §12).
 - `inspection.paket_adedi` (vars. 100): bir pakete konacak OK parça sayısı (sol panel "Paket
   adedi" kutusu). Sayaç `sayac.json`'da `paket_ok`/`paket_esik`; hedefe ulaşınca uyarı (§12).
 - `inspection.trigger_delay_ms`: tetikten sonra çekime kadar bekleme (ürün ortalansın diye).
@@ -314,7 +320,7 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
 - **`*.sh` dosyaları LF olmalı** (`.gitattributes` zorluyor). Windows CRLF olursa Pi'de
   `bash\r: not found` hatası verir. (2026-09-23: bu klonda eksikti, yeniden eklendi.)
 - **`app.png` gitignore istisnası** (`!app.png`): ikon repoda kalır; `*.png` diğerleri hariç.
-  **2026-09-23: `.gitignore` yeniden eklendi.** Kural: `.claude/*` ignore, **`.claude/skills/` TAKİP
+  **2026-09-23: `.gitignore` yeniden eklendi.** `operator_kontrol/` (operatör kayıt verisi) de ignore (2026-09-24). Kural: `.claude/*` ignore, **`.claude/skills/` TAKİP
   EDİLİR** (`/kalite` skill'i = proje hafızası; Windows ↔ Pi arasında taşınsın, SD arızasında
   kaybolmasın); kişisel settings/hook'lar yine dışarıda. venv, `__pycache__`, `*.log` de ignore.
 - **config.yaml her UI etkileşiminde yeniden yazılır** (`yaml.dump`): yorumlar kaybolur,
@@ -347,7 +353,23 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
 - (Kaldırıldı: `PADIM_COLAB_PROMPT.md`, `COLAB_PADIM_EGITIM_NOTLARI.md`,
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
-## 12. Mevcut durum (2026-09-23 itibarıyla)
+## 12. Mevcut durum (2026-09-24 itibarıyla)
+- **✅ 2026-09-24 ~16:10 — OPERATÖR KARARI + KONTROL EDİLEN RESİM PROGRAM KLASÖRÜNE KAYDEDİLİYOR (kullanıcı:
+  "operatör doğru/hatalı seçecek ya, bunun ve kontrol edilen resmin kaydedilmesini istiyorum, program dosyasının
+  içine gün tarih ve saatiyle"):** `MainWindow.OPERATOR_DIR = <proje>/operator_kontrol/` (sınıf niteliği; `.gitignore`).
+  Her kontrol penceresi kapanışında `_operator_kaydet(dlg, karar)`: `operator_kontrol/YYYY-AA-GG/
+  YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg` (operatörün gördüğü İŞARETLİ resim, JPEG q85 ≈ 200-300 KB) +
+  `operator_kontrol/operator_kayit.csv` (`tarih;saat;resim;karar;kamera;gerekce;dosya`). KARAR: `DOGRU` / `HATALI` /
+  `CEVAPSIZ` (X ile kapatma, yeni NOK gelince eski pencere, parti Sıfırla). Kayıttan sonra
+  `_operator_eski_kayitlari_sil`: `inspection.operator_kayit_gun` (vars. 30; 0 = hiç silme) günden eski GÜN klasörleri
+  silinir (gün biçiminde olmayan klasörlere dokunulmaz). Ayarlar → "Operatör kontrollerini kaydet" (`inspection.
+  operator_kayit`, vars. true) + "Operatör kayıtlarını sakla (gün)". Yazım hatası arayüzü bozmaz (`[Uyarı] Operatör
+  kaydı yazılamadı`); log `[Operatör] Kayıt yazıldı: KARAR → operator_kontrol/...`. Pencereye `cam_no`/`gerekce`
+  iliştirilir. **TUZAK (test):** `OPERATOR_DIR` sınıf niteliği GERÇEK proje klasörüne yazar → her test dosyasında
+  `main.MainWindow.OPERATOR_DIR = <geçici>` şart (ilk koşuda proje köküne `operator_kontrol/operator_kayit.csv` sızdı,
+  silindi; 11 test dosyasının hepsine eklendi). 9 yeni test (`test_operator.py` 39: DOĞRU/HATALI/CEVAPSIZ dosya adı
+  + CSV satırı, kayıt kapalıyken dosya yok, 30 günden eski klasör silinir / yabancı klasör kalır / 0 gün silmez,
+  Ayarlar kutuları → config); takım 269/269. Çalışan uygulama eski kodda → restart.
 - **✅ 2026-09-24 ~15:25 — NOK'TA OPERATÖR KONTROL PENCERESİ (kullanıcı: "hata verince konveyör yine dursun ama
   Pi ekranında %80 resim + 'ürün doğru mu hatalı mı' sorusu; doğru derse doğruya saysın, demezse hatalıya"):**
   `OperatorReviewDialog` (main.py, SettingsDialog'dan önce): modal DEĞİL, ekranın %80'i (`primaryScreen().

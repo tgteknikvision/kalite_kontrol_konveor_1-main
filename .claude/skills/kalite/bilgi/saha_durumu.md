@@ -77,6 +77,9 @@
 - Sol panel "Sayaç": geçen/OK/NOK/sistem hatası + nokta-sebep dağılımı; `PDF Rapor` (masaüstüne)
   ve `Sıfırla`. Kalıcı: `~/konveyor_loglari/sayac.json`; parça başına `parca-YYYY-AA-GG.csv`.
   Resim KAYDEDİLMİYOR (kullanıcı kararı; 16.000 parça JPEG ≈ 2,5-5 GB olurdu).
+- **Operatör kontrol kayıtları (2026-09-24 16:10, kodda; restart gerekli):** NOK'ta açılan kontrol
+  penceresinin resmi + kararı `<proje>/operator_kontrol/GÜN/tarih-saat_resimNNNN_KARAR.jpg` + `operator_kayit.csv`
+  (yalnız NOK'lar → günde en fazla birkaç yüz KB × NOK sayısı; 30 gün saklanır, Ayarlar'dan değişir).
 - **Paket adedi (13:45):** `inspection.paket_adedi` = 100 (varsayılan); paket sayacı OK parçaları
   sayar, hedefte modal olmayan uyarı (Sıfırla/Devam et). Spinbox okları artık görünür.
 

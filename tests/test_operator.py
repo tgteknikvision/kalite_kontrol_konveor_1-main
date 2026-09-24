@@ -36,6 +36,7 @@ yaml.safe_dump(cfg, open(tmp_cfg, "w", encoding="utf-8"))
 main.CONFIG_PATH = tmp_cfg
 main.load_config = lambda path=None: yaml.safe_load(open(tmp_cfg, encoding="utf-8"))
 main.MainWindow.LOG_DIR = os.path.join(tmpdir, "loglar")
+main.MainWindow.OPERATOR_DIR = os.path.join(tmpdir, "operator_kontrol")   # gerçek proje klasörüne YAZMA
 main.MainWindow._start_worker = lambda self: setattr(self, "_plc_timer", None)
 main.QMessageBox.warning = staticmethod(lambda *a, **k: QMessageBox.Ok)
 main.QMessageBox.question = staticmethod(lambda *a, **k: QMessageBox.Yes)
@@ -84,6 +85,13 @@ check("CSV son satır OPERATOR_DOGRU (resim 1)", rows[-1][3] == "OPERATOR_DOGRU"
 check("log DOĞRU → OK sayıldı", any("DOĞRU → OK sayıldı" in l for l in loglar))
 check("panel 'Operatör: 1 doğru / 0 hatalı'", w.lbl_counter_operator.text() == "Operatör: 1 doğru / 0 hatalı")
 check("PLC'ye ek yazım YOK (hâlâ tek sonuç)", w.plc.results == [False])
+import glob
+gun = time.strftime("%Y-%m-%d"); kdir = main.MainWindow.OPERATOR_DIR
+dosyalar = sorted(glob.glob(os.path.join(kdir, gun, "*_resim0001_DOGRU.jpg")))
+check("kayıt: gün klasöründe tarih-saat-resim0001-DOGRU.jpg (JPEG) yazıldı", len(dosyalar) == 1 and os.path.getsize(dosyalar[0]) > 1000 and os.path.basename(dosyalar[0]).startswith(gun + "_"), str(dosyalar))
+okay = list(csv.reader(open(os.path.join(kdir, "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))
+check("kayıt CSV: başlık + satır (tarih;saat;resim;karar;kamera;gerekce;dosya)", okay[0][:4] == ["tarih", "saat", "resim", "karar"] and okay[-1][0] == gun and okay[-1][2] == "1" and okay[-1][3] == "DOGRU" and "delik YOK" in okay[-1][5] and okay[-1][6].endswith("_DOGRU.jpg"), str(okay[-1]))
+check("log: kayıt yazıldı", any("[Operatör] Kayıt yazıldı: DOGRU" in l for l in loglar))
 
 print("\n[HATALI → NOK kalır]")
 cekim(); dlg2 = w._review_dlg
@@ -92,6 +100,7 @@ c = w._counters
 rows = list(csv.reader(open(csv_path, encoding="utf-8"), delimiter=";"))
 check("NOK 1 kaldı, operator_hatali 1, CSV OPERATOR_HATALI", c["nok"] == 1 and c["ok"] == 1 and c["operator_hatali"] == 1 and rows[-1][3] == "OPERATOR_HATALI" and c["noktalar"].get("1 (delik)"))
 check("panel 'Operatör: 1 doğru / 1 hatalı'", w.lbl_counter_operator.text() == "Operatör: 1 doğru / 1 hatalı")
+check("HATALI kaydı: resim0002_HATALI.jpg + CSV", len(glob.glob(os.path.join(kdir, gun, "*_resim0002_HATALI.jpg"))) == 1 and list(csv.reader(open(os.path.join(kdir, "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))[-1][3] == "HATALI")
 
 print("\n[açıkken yeni NOK / cevapsız kapatma]")
 cekim(); dlg3 = w._review_dlg
@@ -100,6 +109,7 @@ check("yeni NOK gelince eski pencere kapandı (cevapsız → NOK kaldı), yeni #
 dlg4.close(); pump()
 c = w._counters
 check("X ile kapatma → NOK kaldı, sayaç değişmedi (NOK 3)", w._review_dlg is None and c["nok"] == 3 and any("#4: pencere cevapsız" in l for l in loglar))
+check("cevapsız kayıtlar: resim0003 ve resim0004 CEVAPSIZ", len(glob.glob(os.path.join(kdir, gun, "*_resim0003_CEVAPSIZ.jpg"))) == 1 and len(glob.glob(os.path.join(kdir, gun, "*_resim0004_CEVAPSIZ.jpg"))) == 1)
 
 print("\n[OK çekimde pencere yok / özellik kapalı]")
 w._handle_snapshot = lambda *a, **k: True
@@ -111,13 +121,28 @@ cekim()
 check("özellik kapalıyken NOK'ta pencere yok, NOK sayıldı", getattr(w, "_review_dlg", None) is None and w._counters["nok"] == 4)
 w.config["inspection"]["operator_review"] = True
 
+print("\n[kayıt kapalı / eski klasör temizliği]")
+w.config["inspection"]["operator_kayit"] = False
+n_once = len(glob.glob(os.path.join(kdir, gun, "*.jpg")))
+cekim(); w._review_dlg.btn_ok.click(); pump()
+check("kayıt kapalıyken dosya yazılmaz", len(glob.glob(os.path.join(kdir, gun, "*.jpg"))) == n_once)
+w.config["inspection"]["operator_kayit"] = True
+eski = os.path.join(kdir, "2020-01-01"); os.makedirs(eski, exist_ok=True); open(os.path.join(eski, "x.jpg"), "w").close()
+yabanci = os.path.join(kdir, "notlar"); os.makedirs(yabanci, exist_ok=True)
+cekim(); w._review_dlg.btn_nok.click(); pump()
+check("30 günden eski gün klasörü silindi, gün-dışı klasör dokunulmadı", not os.path.exists(eski) and os.path.isdir(yabanci) and any("Eski kayıt klasörü silindi" in l for l in loglar))
+w.config["inspection"]["operator_kayit_gun"] = 0
+os.makedirs(eski, exist_ok=True); cekim(); w._review_dlg.btn_nok.click(); pump()
+check("saklama 0 gün = hiç silme", os.path.isdir(eski))
+w.config["inspection"]["operator_kayit_gun"] = 30
+
 print("\n[paket / PDF / sıfırlama / kalıcılık / Ayarlar]")
 w._counters["paket_ok"] = 99; w._counters["paket_esik"] = 100
 cekim(); w._review_dlg.btn_ok.click(); pump()
 check("DOĞRU ile paket 100'e ulaşınca paket uyarısı açıldı", w._counters["paket_ok"] == 100 and getattr(w, "_paket_dlg", None) is not None)
 w._paket_penceresini_kapat()
 html = w._build_report_html()
-check("PDF: operatör satırı", "Operatör kontrolü" in html and ">2</b> parça DOĞRU" in html, html[html.find("Operatör kontrolü"):][:120])
+check("PDF: operatör satırı (sayaçla uyumlu)", "Operatör kontrolü" in html and f">{w._counters['operator_dogru']}</b> parça DOĞRU" in html and f">{w._counters['operator_hatali']}</b> parça HATALI" in html, html[html.find("Operatör kontrolü"):][:120])
 cekim(); check("sıfırlama öncesi pencere açık", w._review_dlg is not None)
 w._reset_counters(); pump()
 check("parti Sıfırla → pencere kapandı, operatör sayaçları 0", w._review_dlg is None and w._counters["operator_dogru"] == 0 and w._counters["operator_hatali"] == 0)
@@ -128,8 +153,11 @@ eski = dict(data); eski.pop("operator_dogru"); eski.pop("operator_hatali"); json
 check("eski sayac.json (anahtar yok) → 0", w._load_counters()["operator_dogru"] == 0)
 dlg_s = main.SettingsDialog(w.config, w)
 check("Ayarlar: kutu işaretli, values() anahtarı", dlg_s.chk_operator_review.isChecked() and dlg_s.values().get("operator_review") is True)
+check("Ayarlar: kayıt kutusu + gün (30)", dlg_s.chk_operator_kayit.isChecked() and dlg_s.spin_operator_gun.value() == 30 and dlg_s.values().get("operator_kayit") is True and dlg_s.values().get("operator_kayit_gun") == 30)
 v = dlg_s.values(); v["operator_review"] = False; w._apply_settings(v); pump()
-check("Ayarlar → kapalı config'e yazıldı", w.config["inspection"]["operator_review"] is False and not w._operator_review_on())
+v["operator_kayit"] = False; v["operator_kayit_gun"] = 7; w._apply_settings(v); pump()
+check("Ayarlar → kapalı config'e yazıldı (review, kayıt, gün 7)", w.config["inspection"]["operator_review"] is False and not w._operator_review_on() and w.config["inspection"]["operator_kayit"] is False and w.config["inspection"]["operator_kayit_gun"] == 7)
+w.config["inspection"]["operator_kayit"] = True; w.config["inspection"]["operator_kayit_gun"] = 30
 w.config["inspection"]["operator_review"] = True
 w.plc = RecPLC(); w._counters = w._bos_sayac(); w._last_nok_record = None
 w._operator_dogru(999)

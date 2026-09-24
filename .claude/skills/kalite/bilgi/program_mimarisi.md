@@ -954,7 +954,16 @@ karşılığı — elle senkron tutulur.
   `_operator_hatali` CSV `OPERATOR_HATALI`; `_bos_sayac` `operator_dogru/operator_hatali`;
   `_reset_counters` pencereyi kapatır; panel `lbl_counter_operator`; PDF satırı.
 - Config `inspection.operator_review` (vars. true), Ayarlar `chk_operator_review`. PLC'ye yazım yok.
-- Test: `tests/test_operator.py` (30).
+- **Kayıt (2026-09-24 ~16:10):** `MainWindow.OPERATOR_DIR = <proje>/operator_kontrol` (sınıf niteliği, `.gitignore`).
+  `_operator_review` pencereye `cam_no` + `gerekce` iliştirir; `_review_finished` → `_operator_kaydet(dlg, DOGRU|HATALI|
+  CEVAPSIZ)`; `_review_penceresini_kapat` ve "yeni NOK gelince eski pencere" → CEVAPSIZ. `_operator_kaydet`:
+  `OPERATOR_DIR/YYYY-AA-GG/YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg` (`dlg._pm.save(..., "JPG", 85)`) + `OPERATOR_DIR/
+  operator_kayit.csv` (`tarih;saat;resim;karar;kamera;gerekce;dosya`, başlık ilk yazımda) → `_operator_eski_kayitlari_sil`
+  (`inspection.operator_kayit_gun`, vars. 30, 0 = silme; yalnız `%Y-%m-%d` adlı klasörler, `shutil.rmtree`) → log
+  `[Operatör] Kayıt yazıldı`. Hata → `[Uyarı] Operatör kaydı yazılamadı`. `_operator_kayit_on()` ← `inspection.operator_kayit`
+  (vars. true). Ayarlar: `chk_operator_kayit`, `spin_operator_gun` (0-3650) → `values()` `operator_kayit`/`operator_kayit_gun`
+  → `_apply_settings`. **Testte `main.MainWindow.OPERATOR_DIR = <geçici>` şart** (aksi halde proje köküne yazar).
+- Test: `tests/test_operator.py` (39).
 
 ### Şekil kapısı eşikleri nokta başına — yuvarlaklık / dolgu (2026-09-24)
 - `features._evaluate_holes`: `eff_min_circ = ov.get('hole_min_circularity', min_circ)`, `eff_min_fill =

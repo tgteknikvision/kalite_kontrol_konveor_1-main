@@ -16,6 +16,7 @@ import yaml
 import json
 import csv
 import tempfile
+import shutil
 import cv2
 import numpy as np
 
@@ -761,6 +762,18 @@ class SettingsDialog(QDialog):
             "büyük bir pencere açılır. Operatör DOĞRU derse parça OK sayılır (sayaç ve paket düzeltilir),\n"
             "HATALI derse NOK kalır. PLC'ye ek bir şey yazılmaz. Ayar sırasında kapatılabilir.")
         insp_form.addRow("", self.chk_operator_review)
+        self.chk_operator_kayit = QCheckBox("Operatör kontrollerini kaydet (resim + karar → operator_kontrol/)")
+        self.chk_operator_kayit.setChecked(bool(cfg_insp.get("operator_kayit", True)))
+        self.chk_operator_kayit.setToolTip(
+            "Operatörün gördüğü resim (JPEG) ve kararı (DOĞRU/HATALI/CEVAPSIZ) program klasöründe\n"
+            "operator_kontrol/GÜN/ altına tarih-saatle kaydedilir; özet operator_kontrol/operator_kayit.csv.\n"
+            "Bir resim ~200-300 KB; yoğun günde birkaç yüz MB. Eski günler aşağıdaki süre sonunda silinir.")
+        self.spin_operator_gun = NoWheelSpinBox()
+        self.spin_operator_gun.setRange(0, 3650)
+        self.spin_operator_gun.setValue(int(cfg_insp.get("operator_kayit_gun", 30)))
+        self.spin_operator_gun.setToolTip("Operatör kayıtlarının saklanacağı gün sayısı (0 = hiç silme).")
+        insp_form.addRow("", self.chk_operator_kayit)
+        insp_form.addRow("Operatör kayıtlarını sakla (gün):", self.spin_operator_gun)
         layout.addWidget(insp_group)
         layout.addStretch()
 
@@ -887,6 +900,8 @@ class SettingsDialog(QDialog):
             "metal_v_min": int(self.spin_metal_v.value()),
             "metal_s_max": int(self.spin_metal_s.value()),
             "operator_review": bool(self.chk_operator_review.isChecked()),
+            "operator_kayit": bool(self.chk_operator_kayit.isChecked()),
+            "operator_kayit_gun": int(self.spin_operator_gun.value()),
         }
         # Kamera 1 anahtarlari ESKI adlariyla duz sozlukte (geriye uyum).
         vals.update(self._camera_values(self._cam1_w))
@@ -1377,6 +1392,8 @@ class MainWindow(QMainWindow):
 
         self.config.setdefault("inspection", {})["trigger_delay_ms"] = v["trigger_delay_ms"]
         self.config["inspection"]["operator_review"] = bool(v.get("operator_review", True))
+        self.config["inspection"]["operator_kayit"] = bool(v.get("operator_kayit", True))
+        self.config["inspection"]["operator_kayit_gun"] = int(v.get("operator_kayit_gun", 30))
         # Urun bulma esikleri: restart gerekmez, bir sonraki "Urun Cercevesi Bul"/cekimde gecerli.
         al = self.config.setdefault("alignment", {})
         yeni_al = (int(v.get("metal_v_min", al.get("metal_v_min", 110))), int(v.get("metal_s_max", al.get("metal_s_max", 85))))
@@ -2312,6 +2329,11 @@ class MainWindow(QMainWindow):
     # sizmaz). SD asinmasi ihmal edilebilir: satir ~100 bayt, oysa config.yaml her UI
     # etkilesiminde ~148 KB yeniden yaziliyor (§9).
     LOG_DIR = os.path.join(os.path.expanduser("~"), "konveyor_loglari")
+    # OPERATOR KONTROL KAYITLARI (kullanici istegi 2026-09-24: "kararı ve kontrol edilen resmi
+    # program dosyasinin icine gun/tarih/saatle kaydet"): <proje>/operator_kontrol/YYYY-AA-GG/
+    # YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg + operator_kontrol/operator_kayit.csv. Git'e girmez
+    # (.gitignore). Testte gecici klasore yonlendirilir.
+    OPERATOR_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "operator_kontrol")
 
     def _log_file_path(self):
         return os.path.join(self.LOG_DIR, f"denetim-{time.strftime('%Y-%m-%d')}.log")
@@ -2760,12 +2782,15 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
             self._append_log(f"[Operatör] Resim #{old.part_id} kontrol edilmeden yeni NOK geldi → NOK kaldı.")
+            self._operator_kaydet(old, "CEVAPSIZ")
         cams = self._active_cameras()
         cam = (nok_cams or cams or [1])[0]
         pm = self._snapshot_full_pixmap_2 if cam == 2 else self._snapshot_full_pixmap
         sebepler = [f"{name}: {res.get('msg', '')}" for name, res in (self._last_results.get(cam) or {}).items()
                     if not res.get("ok", True)]
         dlg = OperatorReviewDialog(self, part_id, pm, sebepler, cam if len(cams) > 1 else 0)
+        dlg.cam_no = cam
+        dlg.gerekce = "; ".join(sebepler) if sebepler else "-"
         dlg.finished.connect(lambda _r, d=dlg: self._review_finished(d))
         self._review_dlg = dlg
         self._append_log(f"[Operatör] Resim #{part_id} NOK → kontrol penceresi açıldı (DOĞRU / HATALI).")
@@ -2783,6 +2808,7 @@ class MainWindow(QMainWindow):
             self._operator_hatali(dlg.part_id)
         else:
             self._append_log(f"[Operatör] Resim #{dlg.part_id}: pencere cevapsız kapatıldı → NOK kaldı.")
+        self._operator_kaydet(dlg, {"dogru": "DOGRU", "hatali": "HATALI"}.get(dlg.answer, "CEVAPSIZ"))
 
     def _review_penceresini_kapat(self):
         dlg = getattr(self, "_review_dlg", None)
@@ -2793,6 +2819,66 @@ class MainWindow(QMainWindow):
             dlg.blockSignals(True); dlg.close()
         except Exception:
             pass
+        self._operator_kaydet(dlg, "CEVAPSIZ")
+
+    # ---- OPERATOR KONTROL KAYDI (kullanici istegi 2026-09-24) -------------------------------
+    def _operator_kayit_on(self) -> bool:
+        return bool((self.config.get("inspection", {}) or {}).get("operator_kayit", True))
+
+    def _operator_kaydet(self, dlg, karar: str):
+        """Operatorun gordugu resmi (isaretli, JPEG q85 ~%15-25 boyut) ve kararini diske yazar:
+        OPERATOR_DIR/YYYY-AA-GG/YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg + OPERATOR_DIR/operator_kayit.csv
+        (tarih;saat;resim;karar;kamera;gerekce;dosya). Karar: DOGRU | HATALI | CEVAPSIZ.
+        Eski gun klasorleri inspection.operator_kayit_gun (vars. 30) gun sonra silinir."""
+        if not self._operator_kayit_on() or dlg is None:
+            return None
+        try:
+            now = time.localtime()
+            gun = time.strftime("%Y-%m-%d", now)
+            klasor = os.path.join(self.OPERATOR_DIR, gun)
+            os.makedirs(klasor, exist_ok=True)
+            dosya = ""
+            pm = getattr(dlg, "_pm", None)
+            if pm is not None and not pm.isNull():
+                dosya = os.path.join(klasor, f"{gun}_{time.strftime('%H-%M-%S', now)}_resim{int(dlg.part_id):04d}_{karar}.jpg")
+                if not pm.save(dosya, "JPG", 85):
+                    dosya = ""
+            csv_path = os.path.join(self.OPERATOR_DIR, "operator_kayit.csv")
+            yeni = not os.path.exists(csv_path)
+            with open(csv_path, "a", encoding="utf-8", newline="") as f:
+                w = csv.writer(f, delimiter=";")
+                if yeni:
+                    w.writerow(["tarih", "saat", "resim", "karar", "kamera", "gerekce", "dosya"])
+                w.writerow([gun, time.strftime("%H:%M:%S", now), int(dlg.part_id), karar,
+                            int(getattr(dlg, "cam_no", 1) or 1), getattr(dlg, "gerekce", "-"),
+                            os.path.relpath(dosya, self.OPERATOR_DIR) if dosya else "-"])
+            self._operator_eski_kayitlari_sil()
+            self._append_log(f"[Operatör] Kayıt yazıldı: {karar} → operator_kontrol/"
+                             f"{os.path.relpath(dosya, self.OPERATOR_DIR) if dosya else gun + '/ (resim yok)'}")
+            return dosya or csv_path
+        except Exception as exc:
+            self._append_log(f"[Uyarı] Operatör kaydı yazılamadı: {exc}")
+            return None
+
+    def _operator_eski_kayitlari_sil(self):
+        try:
+            gun_sayisi = int((self.config.get("inspection", {}) or {}).get("operator_kayit_gun", 30))
+        except (TypeError, ValueError):
+            gun_sayisi = 30
+        if gun_sayisi <= 0 or not os.path.isdir(self.OPERATOR_DIR):
+            return
+        sinir = time.time() - gun_sayisi * 86400
+        for ad in os.listdir(self.OPERATOR_DIR):
+            yol = os.path.join(self.OPERATOR_DIR, ad)
+            if not os.path.isdir(yol):
+                continue
+            try:
+                t = time.mktime(time.strptime(ad, "%Y-%m-%d"))
+            except ValueError:
+                continue                                   # gun klasoru degil
+            if t < sinir:
+                shutil.rmtree(yol, ignore_errors=True)
+                self._append_log(f"[Operatör] Eski kayıt klasörü silindi: operator_kontrol/{ad} ({gun_sayisi} günden eski).")
 
     def _operator_dogru(self, part_id: int):
         """Operator 'DOGRU' dedi: son NOK kaydi geri alinir (NOK-1, OK+1, paket+1, nokta/sebep

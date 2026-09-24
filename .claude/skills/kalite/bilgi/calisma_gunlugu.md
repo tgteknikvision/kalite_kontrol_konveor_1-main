@@ -3,6 +3,20 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~16:10 — Operatör kararı + kontrol edilen resim program klasörüne kaydediliyor
+**Kullanıcı:** "hata verince ekran çıkacak ya, operatör doğru/hatalı seçecek ya; bunun kaydedilmesini ve
+kontrol edilen resmin kaydedilmesini istiyorum, program dosyasının içine gün tarih ve saatiyle".
+**Yapılan:** `MainWindow.OPERATOR_DIR = <proje>/operator_kontrol/` (`.gitignore`); pencere kapanınca
+`_operator_kaydet`: `operator_kontrol/YYYY-AA-GG/YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg` (operatörün gördüğü
+işaretli resim, JPEG q85 ≈ 200-300 KB) + `operator_kontrol/operator_kayit.csv` (tarih;saat;resim;karar;kamera;
+gerekce;dosya). Karar DOGRU / HATALI / CEVAPSIZ (X, yeni NOK, parti Sıfırla). 30 günden eski gün klasörleri
+silinir (`inspection.operator_kayit_gun`, 0 = silme); Ayarlar'da "Operatör kontrollerini kaydet" + "sakla (gün)".
+**Tuzak:** `OPERATOR_DIR` sınıf niteliği → ilk test koşusunda proje köküne `operator_kontrol/operator_kayit.csv`
+sızdı; silindi, 11 test dosyasının hepsine `main.MainWindow.OPERATOR_DIR = <geçici>` eklendi. PDF testi sayaçla
+uyumlu hale getirildi. 9 yeni test (`test_operator.py` 39), takım **269/269**. Çalışan uygulama eski kodda →
+restart. Ayrıca kullanıcı sordu: konuşmalar kaydediliyor mu (evet: bu günlük + CLAUDE.md + hafıza) ve /kalite
+bunları okuyor mu (evet; bugün /kalite çağrılmadı, çağrılınca tam okuma yapılır).
+
 ## 2026-09-24 ~15:25 — NOK'ta operatör kontrol penceresi (DOĞRU / HATALI) eklendi
 
 Kullanıcı: gecikmeyi 40 ms yaptı. İstek: "hata verince konveyör yine dursun ama Pi ekranında %80 resim +

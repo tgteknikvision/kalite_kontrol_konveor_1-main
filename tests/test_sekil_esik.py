@@ -68,6 +68,7 @@ yaml.safe_dump(c, open(tmp_cfg, "w", encoding="utf-8"))
 main.CONFIG_PATH = tmp_cfg
 main.load_config = lambda path=None: yaml.safe_load(open(tmp_cfg, encoding="utf-8"))
 main.MainWindow.LOG_DIR = os.path.join(tmpdir, "loglar")
+main.MainWindow.OPERATOR_DIR = os.path.join(tmpdir, "operator_kontrol")   # gerçek proje klasörüne YAZMA
 main.MainWindow._start_worker = lambda self: setattr(self, "_plc_timer", None)
 w = main.MainWindow(); w.show(); app.processEvents()
 w._last_snapshot = f.copy()
