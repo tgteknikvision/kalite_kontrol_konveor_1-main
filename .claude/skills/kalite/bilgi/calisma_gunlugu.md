@@ -3,6 +3,16 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~13:50 — "Tıkalı/dolu olabilir" mesajının eşiği var mı? → var: paneldeki "derinlik"
+
+Ekran görüntüsü: nokta 1 "delik YOK (cekirdek %4.9 < %5.0, tikali/dolu olabilir)", panelde derinlik
+kutusu 5.0. Eşik `hole_core_ratio_min` zaten nokta başına ayarlanabilir (panel "derinlik" kutusu /
+editör sağ tık → Derinlik Eşiği); mesajdaki "çekirdek" kelimesi kutuyla eşleşmediği için fark
+edilmiyordu. Mesaj "derinlik %x < %y: siyaha yakın çekirdek az, tıkalı/dolu olabilir; eşik = paneldeki
+'derinlik' kutusu" oldu; sayaç kategorisi "derinlik %" ile de eşleşir. Öneri: nokta 1 için derinlik 5 → 3
+(havşalı delik çekirdek %5 civarı okuyor). Şekil eşikleri (yuvarlaklık/dolgu) panelde yok (config).
+Takım 211/211.
+
 ## 2026-09-24 ~13:40 — Oluk eşiği varsayılanı 50 → 25 (kullanıcı isteği)
 
 `config.yaml` `roi.notch_dark_min` 50 → 25; kod varsayılanları (panel THRESHOLDS, `_open_roi_manager`

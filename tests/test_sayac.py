@@ -64,6 +64,7 @@ print("\n[kategori eşlemesi]")
 kat = main.MainWindow._nok_reason_category
 check("şekil", kat("delik YOK (sekil uygun degil: yuvarlak 0.26, dolgu 0.13, kenar 3)") == "şekil uygun değil")
 check("çekirdek", kat("delik YOK (cekirdek %0.5 < %2.0, tikali/dolu olabilir)") == "derinlik yetersiz")
+check("derinlik (yeni mesaj, 2026-09-24)", kat("delik YOK (derinlik %4.9 < %5.0: siyaha yakin cekirdek az, tikali/dolu olabilir; esik = paneldeki 'derinlik' kutusu)") == "derinlik yetersiz")
 check("ayna", kat("AYNA/TERS parca (delik parlaklik farki -70, referans +48 ters)") == "ayna / ters parça")
 check("oluk şekil", kat("oluk YOK (sekil yok: blob %16.3<%25, en/boy 1.0)") == "oluk yok (şekil yok)")
 check("bilinmeyen mesaj → parantez öncesi", kat("bambaska bir sey (x)") == "bambaska bir sey")

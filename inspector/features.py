@@ -231,8 +231,11 @@ def _evaluate_holes(snapshot: np.ndarray, config: dict) -> tuple:
                 #    delik tikali/dolu (yuzeyde koyu pul/kir olabilir) -> NOK.
                 #    Bu kapi koyu+yuvarlak ama SIG/yansiyan tikaclari da eler.
                 ok = False
-                msg = (f"delik YOK (cekirdek %{core_ratio:.1f} < %{eff_core_min:.1f}, "
-                       f"tikali/dolu olabilir)")
+                # Mesaj paneldeki kutuyla AYNI adi kullanir ("derinlik"; 2026-09-24 kullanici sorusu:
+                # "tikali/dolu icin esik var mi?" -> var, derinlik kutusu). "cekirdek" kelimesi
+                # sayac kategorisi (main._nok_reason_category) icin korunur.
+                msg = (f"delik YOK (derinlik %{core_ratio:.1f} < %{eff_core_min:.1f}: siyaha yakin "
+                       f"cekirdek az, tikali/dolu olabilir; esik = paneldeki 'derinlik' kutusu)")
             elif shape_check:
                 # Sekil dogrulamasi: koyu blob GERCEK yuvarlak/dolgun delik mi?
                 #    Centik/golge -> dusuk yuvarlaklik; kismen bantli delik -> dusuk

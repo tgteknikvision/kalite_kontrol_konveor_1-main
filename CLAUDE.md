@@ -85,7 +85,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (210 test, 9 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (211 test, 9 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -340,6 +340,13 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-24 ~13:50 — "TIKALI/DOLU" MESAJI = DERİNLİK EŞİĞİ (kullanıcı: "delik yok, tıkalı/dolu
+  olabilir diyor; bunun eşiği var mı, ayarlanabilir yap"):** Eşik ZATEN VARDI ve paneldeydi: `hole_core_ratio_min`
+  = Kontrol Merkezi'ndeki **"derinlik"** kutusu (nokta 1'de 5.0; ölçülen 4.9 → NOK). Mesaj "cekirdek %4.9 < %5.0"
+  dediği için kutuyla eşleşmiyordu → mesaj artık `delik YOK (derinlik %4.9 < %5.0: siyaha yakin cekirdek az,
+  tikali/dolu olabilir; esik = paneldeki 'derinlik' kutusu)`; `_nok_reason_category` "derinlik %" de
+  "derinlik yetersiz"e gider ("cekirdek" korunur). Şekil eşikleri (yuvarlaklık/dolgu/en-boy/kenar) hâlâ yalnız
+  config'te (`hole_min_*`), panelde değil. Takım 211/211.
 - **✅ 2026-09-24 ~13:40 — OLUK EŞİĞİ VARSAYILANI 50 → 25 (kullanıcı: "oluk değerini default olarak 50 değil
   de 25 yapsın"):** `config.yaml` `roi.notch_dark_min: 25`; kod varsayılanları da 25: `ROIResultPanel.THRESHOLDS`
   (panel kutusu), `_open_roi_manager` `roi_defaults` (yeni çentik noktasının 'Oluk Eşiği' ön değeri),

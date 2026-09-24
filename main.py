@@ -2370,6 +2370,7 @@ class MainWindow(QMainWindow):
             ("kapali/eksik/tikali", "kapalı / eksik / tıkalı"),
             ("sekil uygun degil", "şekil uygun değil"),
             ("cekirdek", "derinlik yetersiz"),
+            ("derinlik %", "derinlik yetersiz"),
             ("arka plan/golge", "arka plan / gölge"),
             ("bant disi", "oluk yok (oran bant dışı)"),
             ("sekil yok", "oluk yok (şekil yok)"),
