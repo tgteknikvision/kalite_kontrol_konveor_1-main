@@ -330,7 +330,7 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   senkronu. **Gecikme özelliği DURUYOR:** `inspection.trigger_delay_ms` ⚙ Ayarlar'daki "Çekim Gecikmesi ms"
   kutusundan ayarlanır (config'te şu an 50), resimdeki `Gecikme X ms | kare Y ms` damgası ve `[Tetik]`
   zamanlama logu aynen. Test: `test_gecikme_kamera` (sol panelde kutu/grup yok; Ayarlar → config + dosya).
-  Takım 157/157. Çalışan uygulama eski kodda; restart'ta kutu kaybolur.
+  Takım 156/156. Çalışan uygulama eski kodda; restart'ta kutu kaybolur.
 - **✅ 2026-09-24 ~11:15 — ELLE ÇEKİM MODU KOMPLE KALDIRILDI (kullanıcı, ekran görüntüsüyle: "elle
   çekim modu varya onu kaldıralım komple programdan, bide onun altında açıklama var onu da; Elle çekim
   diye başlayan"):** Sol panel: "Çalışma Modu" grubu → **"Çekim"** (yalnız Çekim Gecikmesi kutusu);
