@@ -100,13 +100,18 @@ class ROIResultPanel(QGroupBox):
     gösterge kafa karıştırıyordu, yazı yeterli).
     """
 
-    # tip -> [(config anahtari, sutun basligi, olcum anahtari, varsayilan), ...]
+    # tip -> [(config anahtari, sutun basligi, olcum anahtari, varsayilan, bicim), ...]
+    # bicim: "pct" = yuzde kutusu (0-100, 1 ondalik, " %") | "ratio" = 0-1 oran (2 ondalik).
+    # Delikte DORT esik (2026-09-24, kullanici: "yuvarlak ve dolgu esiklerini de buraya ekleyelim,
+    # alt alta da olur"): 1. satir aciklik + derinlik, 2. satir yuvarlak + dolgu (sekil kapisi).
     THRESHOLDS = {
-        "hole": [("hole_dark_ratio_min", "açıklık", "black_ratio", 20.0),
-                 ("hole_core_ratio_min", "derinlik", "core_ratio", 2.0)],
-        "notch": [("notch_dark_min", "oluk", "black_ratio", 25.0)],     # varsayilan 25 (kullanici, 2026-09-24)
+        "hole": [("hole_dark_ratio_min", "açıklık", "black_ratio", 20.0, "pct"),
+                 ("hole_core_ratio_min", "derinlik", "core_ratio", 2.0, "pct"),
+                 ("hole_min_circularity", "yuvarlak", "circularity", 0.55, "ratio"),
+                 ("hole_min_fill", "dolgu", "fill", 0.50, "ratio")],
+        "notch": [("notch_dark_min", "oluk", "black_ratio", 25.0, "pct")],     # varsayilan 25 (kullanici, 2026-09-24)
     }
-    MAX_ESIK = 2                       # bir satirda en fazla kac esik kutusu
+    MAX_ESIK = 2                       # bir SATIRDA en fazla kac esik kutusu (fazlasi alt satira)
 
     threshold_changed = pyqtSignal(str, str, float)   # (nokta_adi, anahtar, yeni_deger)
 
@@ -148,26 +153,31 @@ class ROIResultPanel(QGroupBox):
         self.lbl_header.setText(text)
         self.lbl_header.setStyleSheet(f"color:{color}; padding:1px;")
 
-    def _make_row(self, name, grid_row, esik_var=True):
-        """esik_var=False (ör. 'YON' satırı): eşik sütunları HİÇ oluşturulmaz ve
-        sonuç yazısı rozetin hemen yanından başlar (boş sütunların sağına itilmesin)."""
-        info = {"name": name, "cells": [], "widgets": []}
-        col = 0
+    def _make_row(self, name, grid_row, esikler):
+        """esikler: [(anahtar, baslik, olcum_anahtari, deger, bicim), ...] — her esik icin bir
+        kutu; MAX_ESIK'ten fazlasi ALT SATIRA sarar (delik: 1. satir aciklik+derinlik, 2. satir
+        yuvarlak+dolgu). Ad/rozet/sebep etiketi tum satirlari kaplar. Bos liste (ör. 'YON'):
+        eşik sütunu HİÇ oluşturulmaz, sonuç yazısı rozetin hemen yanından başlar."""
+        n_esik = len(esikler)
+        lines = max(1, -(-n_esik // self.MAX_ESIK))          # tavan bolme
+        info = {"name": name, "cells": [], "widgets": [], "lines": lines}
 
         lbl_name = QLabel(str(name))
         lbl_name.setFont(QFont("Arial", 11, QFont.Bold))
         lbl_name.setMinimumWidth(38)
         lbl_name.setStyleSheet("color:#d7dae0;")
-        self._grid.addWidget(lbl_name, grid_row, col); col += 1
+        self._grid.addWidget(lbl_name, grid_row, 0, lines, 1)
 
         lbl_state = QLabel("—")
         lbl_state.setAlignment(Qt.AlignCenter)
         lbl_state.setFixedWidth(56)
         lbl_state.setFont(QFont("Arial", 11, QFont.Bold))
-        self._grid.addWidget(lbl_state, grid_row, col); col += 1
+        self._grid.addWidget(lbl_state, grid_row, 1, lines, 1)
 
-        # Her esik icin 3 sutun: "olcum" | "en az" | kutu
-        for _ in range(self.MAX_ESIK if esik_var else 0):
+        # Her esik icin 3 sutun: "olcum" | "en az" | kutu ; i. esik -> satir i//MAX, sutun i%MAX
+        for i, (key, baslik, _olcum, _deger, bicim) in enumerate(esikler):
+            r = grid_row + i // self.MAX_ESIK
+            col = 2 + (i % self.MAX_ESIK) * 3
             lbl_m = QLabel("")
             lbl_m.setFont(QFont("Arial", 11, QFont.Bold))
             lbl_m.setStyleSheet("color:#d7dae0;")
@@ -175,17 +185,17 @@ class ROIResultPanel(QGroupBox):
             lbl_r = QLabel("en az")
             lbl_r.setStyleSheet("color:#9aa0ab; font-size:11px;")
             spin = NoWheelDoubleSpinBox()
-            spin.setRange(0.0, 100.0)
-            spin.setDecimals(1)
-            spin.setSingleStep(1.0)
-            spin.setSuffix(" %")
+            if bicim == "ratio":                          # 0-1 oran (yuvarlaklik / dolgu)
+                spin.setRange(0.0, 1.0); spin.setDecimals(2); spin.setSingleStep(0.05); spin.setSuffix("")
+            else:                                         # yuzde
+                spin.setRange(0.0, 100.0); spin.setDecimals(1); spin.setSingleStep(1.0); spin.setSuffix(" %")
             spin.setFixedWidth(88)
             spin.setKeyboardTracking(False)
             spin.setAlignment(Qt.AlignCenter)
             spin.setFont(QFont("Arial", 11, QFont.Bold))
-            for wdg in (lbl_m, lbl_r, spin):
-                self._grid.addWidget(wdg, grid_row, col); col += 1
-            hucre = {"measured": lbl_m, "rule": lbl_r, "spin": spin, "key": None}
+            for j, wdg in enumerate((lbl_m, lbl_r, spin)):
+                self._grid.addWidget(wdg, r, col + j)
+            hucre = {"measured": lbl_m, "rule": lbl_r, "spin": spin, "key": key, "bicim": bicim}
             timer = QTimer(spin)
             timer.setSingleShot(True); timer.setInterval(400)
             timer.timeout.connect(lambda n=name, h=hucre: self._emit_change(n, h))
@@ -197,11 +207,13 @@ class ROIResultPanel(QGroupBox):
 
         lbl_note = QLabel("")
         lbl_note.setFont(QFont("Arial", 11))
-        # Esik sutunu yoksa yazi rozetin yanindan baslasin: kalan sutunlari kapla.
-        if esik_var:
-            self._grid.addWidget(lbl_note, grid_row, col)
+        lbl_note.setWordWrap(True)
+        note_col = 2 + self.MAX_ESIK * 3
+        if n_esik:
+            self._grid.addWidget(lbl_note, grid_row, note_col, lines, 1)
         else:
-            self._grid.addWidget(lbl_note, grid_row, col, 1, self.MAX_ESIK * 3 + 1)
+            # Esik sutunu yoksa yazi rozetin yanindan baslasin: kalan sutunlari kapla.
+            self._grid.addWidget(lbl_note, grid_row, 2, 1, self.MAX_ESIK * 3 + 1)
         info["note"] = lbl_note
         info["widgets"] += [lbl_name, lbl_state, lbl_note]
         info["state"] = lbl_state
@@ -233,15 +245,16 @@ class ROIResultPanel(QGroupBox):
         thresholds: {ad: [(anahtar, baslik, olcum_anahtari, deger), ...]}
         types: {ad: 'hole'|'notch'|'yon'}"""
         self._set_header(is_ok)
-        if set(results) != set(self._rows):
+        # Nokta kumesi ya da bir noktanin esik SAYISI degistiyse tabloyu yeniden kur.
+        if (set(results) != set(self._rows)
+                or any(len(self._rows[n]["cells"]) != len(thresholds.get(n) or []) for n in results)):
             self._clear()
             satir = 0
             for name in results:
                 if satir:
                     self._add_separator(satir); satir += 1
-                self._rows[name] = self._make_row(
-                    name, satir, esik_var=bool(thresholds.get(name)))
-                satir += 1
+                self._rows[name] = self._make_row(name, satir, thresholds.get(name) or [])
+                satir += self._rows[name]["lines"]
 
         for name, res in results.items():
             info = self._rows[name]
@@ -260,14 +273,17 @@ class ROIResultPanel(QGroupBox):
                     for k in ("measured", "rule", "spin"):
                         hucre[k].setVisible(False)
                     continue
-                key, baslik, olcum_anahtari, deger = esikler[i]
+                key, baslik, olcum_anahtari, deger, bicim = esikler[i]
                 hucre["key"] = key
                 for k in ("measured", "rule", "spin"):
                     hucre[k].setVisible(True)
                 olculen = metrics.get(olcum_anahtari)
-                hucre["measured"].setText(
-                    f"{baslik} %{olculen:.1f}" if isinstance(olculen, (int, float))
-                    else f"{baslik} —")
+                if not isinstance(olculen, (int, float)):
+                    hucre["measured"].setText(f"{baslik} —")       # sekil kapisina gelinmedi
+                elif bicim == "ratio":
+                    hucre["measured"].setText(f"{baslik} {olculen:.2f}")
+                else:
+                    hucre["measured"].setText(f"{baslik} %{olculen:.1f}")
                 # Programatik guncelleme sinyal TETIKLEMESIN (yoksa config'e geri yazar).
                 hucre["spin"].blockSignals(True)
                 hucre["spin"].setValue(float(deger))
@@ -1700,9 +1716,9 @@ class MainWindow(QMainWindow):
         roi_cfg = self._camera_config_view(cam_no).get("roi", {}) or {}
         ov = (roi_cfg.get("point_overrides", {}) or {}).get(name, {}) or {}
         sonuc = []
-        for key, baslik, olcum, varsayilan in tanim:
+        for key, baslik, olcum, varsayilan, bicim in tanim:
             deger = ov.get(key, roi_cfg.get(key, varsayilan))
-            sonuc.append((key, baslik, olcum, float(deger)))
+            sonuc.append((key, baslik, olcum, float(deger), bicim))
         return sonuc
 
     def _update_live_errors(self, is_ok, results, cam_no: int = 1):
@@ -1736,7 +1752,8 @@ class MainWindow(QMainWindow):
         overrides = roi_cfg.setdefault("point_overrides", {})
         overrides.setdefault(str(name), {})[key] = float(value)
         self._save_config()
-        self._append_log(f"[Eşik] {self._cam_prefix(cam_no)}{name} → {key} = %{value:.0f} "
+        gosterim = f"{value:.2f}" if key in ("hole_min_circularity", "hole_min_fill") else f"%{value:.0f}"
+        self._append_log(f"[Eşik] {self._cam_prefix(cam_no)}{name} → {key} = {gosterim} "
                          "(panelden ayarlandı)")
         full = self._last_full_snapshot_2 if cam_no == 2 else self._last_full_snapshot
         if full is not None:

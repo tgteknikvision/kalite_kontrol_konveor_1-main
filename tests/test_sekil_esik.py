@@ -82,6 +82,31 @@ finally:
     re_mod.ROIDialog = orig
 rd = captured.get("roi_defaults", {})
 check("roi_defaults yuvarlaklık 0.55 / dolgu 0.5 içeriyor", rd.get("hole_min_circularity") == 0.55 and rd.get("hole_min_fill") == 0.5, str(rd))
+print("\n[Kontrol Merkezi: yuvarlak/dolgu kutuları ikinci satırda]")
+loglar = []; w._append_log = lambda m: loglar.append(m)
+def pump(n=6):
+    for _ in range(n): app.processEvents()
+w.config["dynamic_rois"] = {"1": [40, 40, 160, 160], "3": [10, 10, 60, 30]}
+w.config["roi"]["roi_types"] = {"1": "hole", "3": "notch"}; w.config["roi"]["point_overrides"] = {}
+ok_p, res_p, _ = evaluate_with_profile(f, cfg())
+res_p["3"] = {"ok": True, "msg": "oluk VAR", "metrics": {"black_ratio": 40.0}}
+res_p["YON"] = {"ok": True, "msg": "yon dogru", "metrics": {}}
+w._update_live_errors(False, res_p, 1)
+panel = w._cam_widgets(1)["errors"]; row1 = panel._rows["1"]; row3 = panel._rows["3"]; rowy = panel._rows["YON"]
+check("delik satırında 4 kutu (açıklık, derinlik, yuvarlak, dolgu), 2 satır", [c["key"] for c in row1["cells"]] == ["hole_dark_ratio_min", "hole_core_ratio_min", "hole_min_circularity", "hole_min_fill"] and row1["lines"] == 2)
+check("çentik satırı 1 kutu / 1 satır; YÖN kutusuz", len(row3["cells"]) == 1 and row3["lines"] == 1 and row3["cells"][0]["key"] == "notch_dark_min" and rowy["cells"] == [] and rowy["lines"] == 1)
+g = panel._grid
+pos = {c["key"]: g.getItemPosition(g.indexOf(c["spin"])) for c in row1["cells"]}
+check("yuvarlak/dolgu kutuları açıklık/derinliğin ALTINDA aynı sütunlarda", pos["hole_min_circularity"][0] == pos["hole_dark_ratio_min"][0] + 1 and pos["hole_min_circularity"][1] == pos["hole_dark_ratio_min"][1] and pos["hole_min_fill"][1] == pos["hole_core_ratio_min"][1], str(pos))
+yc = [c for c in row1["cells"] if c["key"] == "hole_min_circularity"][0]
+check("yuvarlak kutusu 0-1, 2 ondalık, % yok, değeri genel 0.55", yc["spin"].maximum() == 1.0 and yc["spin"].decimals() == 2 and yc["spin"].suffix() == "" and abs(yc["spin"].value() - 0.55) < 1e-9)
+check("ölçülen yuvarlaklık 2 ondalık yazılıyor", yc["measured"].text().startswith("yuvarlak 0."), yc["measured"].text())
+check("sebep etiketi 2 satırı kaplıyor", g.getItemPosition(g.indexOf(row1["note"]))[2] == 2)
+loglar.clear(); yc["spin"].setValue(0.20); yc["timer"].stop(); panel._emit_change("1", yc); pump()
+check("kutu → override 0.20 + log (2 ondalık) + önizleme", w.config["roi"]["point_overrides"].get("1", {}).get("hole_min_circularity") == 0.20 and any("hole_min_circularity = 0.20" in l for l in loglar), str(loglar[:2]))
+w._update_live_errors(True, res_p, 1)
+check("aynı nokta kümesinde tablo yeniden kurulmaz (kutular aynı nesne)", panel._rows["1"]["cells"][2]["spin"] is yc["spin"])
+
 w.worker = None; w.worker2 = None; w.close()
 
 basarisiz = [ad for ad, k in sonuc if not k]

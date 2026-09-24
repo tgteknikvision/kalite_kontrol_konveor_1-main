@@ -85,7 +85,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (222 test, 10 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (230 test, 10 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -114,7 +114,8 @@ zoom / PLC adapter yenileme + poll aralığı). Ayarlar ya da Kontrol Noktaları
 AÇIKKEN **`_dialog_paused`** PLC tetiğini duraklatır (eski kalibrasyon davranışının yerine). content = ÜST SATIRDA 2 eşit görüntü (solda canlı `video_label`,
 **üstünde son denetim sonucu paneli `lbl_live_errors` = `ROIResultPanel`** — başlıkta
 PARÇA OK/NOK, altında **HER kontrol noktası için bir satır**: ad | OK/NOK rozeti
-(yeşil/kırmızı kutu) | ölçülen `koyu%` | **eşik slider'ı** | eşik değeri.
+(yeşil/kırmızı kutu) | ölçülen `koyu%` | **eşik slider'ı** | eşik değeri. **Delikte 4 eşik, 2 satır (2026-09-24):**
+1. satır açıklık + derinlik (%), 2. satır yuvarlak + dolgu (0-1, 2 ondalık); ad/rozet/sebep iki satırı kaplar.
 Slider o noktanın eşiğini doğrudan `point_overrides`'a yazar (§12); `_update_live_errors`
 doldurur, `_on_panel_threshold_changed` uygular),
 sağda "Son Alınan Tam Resim" `lbl_snapshot` — her ikisi stretch 1) + ALTTA tam-genişlik
@@ -357,6 +358,13 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `roi_defaults` +2 anahtar. Panelde sütun EKLENMEDİ (4 eşik × 3 sütun sığmıyor, 1015 px). 11 test
   (`tests/test_sekil_esik.py`: hilal sentetik ROI → NOK/işaret, override → OK, başka nokta etkilemez, editör
   alanları, roi_defaults); takım 222/222. Kullanıcı restart sonrası nokta 1'de yuvarlak/dolgu 0.40'a çekebilir.
+  **Ek (~14:40, kullanıcı: "yuvarlak ve dolgu eşiklerini buraya sağa ekleyelim, alt alta da olur"):** Kontrol
+  Merkezi'nde delik satırı artık İKİ SATIR: 1. açıklık + derinlik, 2. yuvarlak + dolgu (`THRESHOLDS` 5'li:
+  `bicim` "pct"|"ratio"; `_make_row(name, grid_row, esikler)` kutuları MAX_ESIK=2'şer satıra sarar, ad/rozet/
+  sebep `rowSpan=lines`; `update_results` eşik sayısı değişince tabloyu yeniden kurar; ölçülen oran 2 ondalık;
+  `_on_panel_threshold_changed` logu oran için 2 ondalık). Çentik 1 satır, YÖN kutusuz. 8 test; takım 230/230.
+  Saha ölçümü (14:17-14:20, 5 sağlam parça): nokta 1 yuvarlak 0.25-0.52 < 0.55, dolgu 0.70-0.86 → havşa
+  yansıması; öneri yuvarlak 0.20, açıklık 14→10, derinlik 11→8.
 - **✅ 2026-09-24 ~13:50 — "TIKALI/DOLU" MESAJI = DERİNLİK EŞİĞİ (kullanıcı: "delik yok, tıkalı/dolu
   olabilir diyor; bunun eşiği var mı, ayarlanabilir yap"):** Eşik ZATEN VARDI ve paneldeydi: `hole_core_ratio_min`
   = Kontrol Merkezi'ndeki **"derinlik"** kutusu (nokta 1'de 5.0; ölçülen 4.9 → NOK). Mesaj "cekirdek %4.9 < %5.0"

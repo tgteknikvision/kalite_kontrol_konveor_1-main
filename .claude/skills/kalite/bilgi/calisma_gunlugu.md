@@ -3,6 +3,15 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~14:40 — Yuvarlak/dolgu eşikleri Kontrol Merkezi'ne (delik satırı 2 satır)
+
+Kullanıcı: "yuvarlak ve dolgu eşiklerini buraya sağa ekleyelim, alt alta da olur". `ROIResultPanel`:
+THRESHOLDS 5'li (bicim pct/ratio), delikte 4 eşik; `_make_row(name, grid_row, esikler)` kutuları
+2'şer satıra sarar (1. açıklık+derinlik, 2. yuvarlak+dolgu), ad/rozet/sebep rowSpan=2; oran kutuları
+0-1 / 2 ondalık / % yok; ölçülen "yuvarlak 0.41"; `update_results` eşik sayısı değişince yeniden kurar;
+`_point_thresholds` 5'li; `[Eşik]` logu oran için 2 ondalık. Çentik 1 satır, YÖN kutusuz. Ekransız
+render doğrulandı. 8 yeni test (`test_sekil_esik.py` 19); takım 230/230. Uygulama restart ister.
+
 ## 2026-09-24 ~14:30 — "Doğru parçayı hatalı gösteriyor" (5 ekran görüntüsü, 14:17-14:20) → nokta 1 yuvarlaklık kapısı
 
 5 sağlam parçada nokta 1 (havşalı delik) hep NOK: açıklık 15.1-17.4 (eşik 14, geçti), derinlik 12.9-15.2
