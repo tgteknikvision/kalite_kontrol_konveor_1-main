@@ -3,6 +3,18 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~14:55 — "Ürünü doğru çerçeveye alamıyor galiba" (kesitler 14:40-14:46) → çerçeve doğru, ürün üstten kesik
+
+5 kesit: nokta 1-2 OK, **nokta 3 (oluk) NOK** (koyu %20-24, eşik 25/30; bir kez "şekil yok blob %12.7").
+Log 14:38-14:47, 100 çekim: çerçeve genişliği 700-726 (referans 723) → **ürün bulucu doğru**.
+90 çekimde ürün tam kadrajda (y 17-240, h≈561) → oluk %40-45, hepsi OK (1 istisna 14:40:40 %18.4).
+**10 çekimde kutu y=0, h≈511** (ürünün üst ~50 px'i kare DIŞINDA; oluk ürünün üstünde) → oluk ort %27 →
+6 NOK. Sebep: `trigger_delay_ms` 1 (kullanıcı 14:2x'te 50→1 yapmış); ürün üstten girerken bazen daha
+tam girmeden çekiliyor. Kapı (±%25) −%10 boyu yakalamıyor → NOK sayılıyor.
+**Öneri:** gecikme ~40 ms (y ≈ +160 px → 180-400, kare 1088/ürün 560 → güvenli); isteğe bağlı
+`inspection.product_box_tolerance` 0.12 (kesik ürün "yanlış çekim" olsun; config uygulama kapalıyken).
+Kod değişmedi. (14:43 kesitinde canlı görüntü simsiyah/netlik 8: anlık; incelenmedi.)
+
 ## 2026-09-24 ~14:40 — Yuvarlak/dolgu eşikleri Kontrol Merkezi'ne (delik satırı 2 satır)
 
 Kullanıcı: "yuvarlak ve dolgu eşiklerini buraya sağa ekleyelim, alt alta da olur". `ROIResultPanel`:

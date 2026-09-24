@@ -136,7 +136,7 @@ roi:
       hole_core_ratio_min: 2.0
       hole_dark_ratio_min: 10.0
     '3':
-      notch_dark_min: 30.0
+      notch_dark_min: 25.0
   reference_box:
   - 723
   - 566
