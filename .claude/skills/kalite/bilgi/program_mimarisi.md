@@ -946,6 +946,20 @@ karşılığı — elle senkron tutulur.
 - **TUZAK (test):** `MainWindow.LOG_DIR` sınıf niteliği → ekransız testte `_append_log` GERÇEK saha
   loguna yazar; testte `main.MainWindow.LOG_DIR = <geçici>` yap (2026-09-23'te 24 satır sızdı, silindi).
 
+### Snapshot etiketi cırcır tuzağı — sağa taşma (2026-09-24, düzeltildi)
+- `_build_camera_row`: `lbl_snapshot.setMinimumSize(160, 240)` (eskiden yalnız `minimumHeight`; Qt
+  `qSmartMinSize`: min genişlik 0 ise `minimumSizeHint().width()` = pixmap genişliği → etiket
+  küçülemez → yatay çubuğu kapalı `QScrollArea`'dan sağa taşar) + `installEventFilter(self)`;
+  grup başlığı kısa "Son Alınan Tam Resim" (QGroupBox min genişliği başlığı kapsar; uzun başlık
+  283 px min veriyordu, 248 px görünür alana sığmıyordu).
+- `MainWindow.eventFilter(obj, event)`: `QEvent.Resize` ve obj `lbl_snapshot(_2)` ise
+  `QTimer.singleShot(0, _rescale_snapshot(n))`.
+- `_rescale_snapshot`: hedef `contentsRect()` − 2 px; `pixmap.size().scaled(tw, th, KeepAspectRatio)`
+  mevcut pixmap boyutuna eşitse atla (döngü koruması); değilse `setPixmap(scaled)`.
+- Test: `tests/test_snapshot_olcek.py` (9): büyük resim → pencere küçült → panel ≤ viewport, resim ≤
+  etiket, oran korunur; yalnız etiket küçülünce de yeniden ölçek. PyQt5 `QLabel.pixmap()` aynı nesne →
+  boyut sakla.
+
 ### Ürün var/yok kapısı — "yanlış çekim" (2026-09-24, kullanıcı kararı; PLC seçenek 1)
 - **Sorun:** tetik boş banda gelince (sensör çift tetik şüphesi) `find_product_box` yine kutu çizer
   (Otsu yedeği → ray kenarı/metal şerit; sahada 286×1088 vs referans 708×542) → tüm noktalar NOK.

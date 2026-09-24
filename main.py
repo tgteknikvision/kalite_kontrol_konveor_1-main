@@ -25,7 +25,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QLineEdit, QSpinBox, QCheckBox, QDoubleSpinBox,
                              QScrollArea, QSizePolicy, QGridLayout, QFrame, QAbstractSpinBox,
                              QFileDialog)
-from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer, QUrl, QPoint
+from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer, QUrl, QPoint, QEvent
 from PyQt5.QtGui import (QImage, QPixmap, QFont, QPalette, QColor, QTextDocument, QDesktopServices,
                          QPainter, QPolygon, QPen)
 
@@ -1091,15 +1091,24 @@ class MainWindow(QMainWindow):
         right_layout = QVBoxLayout(right_panel)
         right_layout.setContentsMargins(0, 0, 0, 0)
 
-        snapshot_group = QGroupBox(f"Son Alınan Tam Resim{suffix}  (tam çözünürlük için tıkla)")
+        # Baslik KISA: QGroupBox'in en kucuk genisligi baslik metnini de kapsar; uzun baslik
+        # ("... (tam cozunurluk icin tikla)") dar pencerede paneli tasiriyordu. Ipucu tooltip'te.
+        snapshot_group = QGroupBox(f"Son Alınan Tam Resim{suffix}")
+        snapshot_group.setToolTip("Resme tıklayınca tam çözünürlükte açılır.")
         snapshot_layout = QVBoxLayout(snapshot_group)
         lbl_snapshot = QLabel("Henüz resim alınmadı.")
         lbl_snapshot.setAlignment(Qt.AlignCenter)
         lbl_snapshot.setStyleSheet("background-color: #14161b; border: 1px solid #2c313b; border-radius: 6px;")
-        lbl_snapshot.setMinimumHeight(240)
+        # CIRCIR TUZAGI (2026-09-24, kullanici: "sagdaki resim saga kayiyor, sayfaya sigmiyor"):
+        # yalniz minimumHeight verilirse Qt, en kucuk GENISLIGI icindeki pixmap kadar sayar;
+        # resim etiketin o anki boyutuna olceklenince etiket bir daha KUCULEMEZ ve yatay
+        # cubugu kapali kaydirma alanindan sagdan tasar. Iki boyutta da ACIK minimum ver
+        # (video_label gibi) -> etiket serbestce kuculur, resim yeniden olceklenir.
+        lbl_snapshot.setMinimumSize(160, 240)
         lbl_snapshot.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        lbl_snapshot.installEventFilter(self)       # etiket boyutu degisince resmi yeniden olcekle
         lbl_snapshot.setCursor(Qt.PointingHandCursor)
-        lbl_snapshot.setToolTip("Büyütmek için tıklayın")
+        lbl_snapshot.setToolTip("Tam çözünürlükte büyütmek için tıklayın")
         lbl_snapshot.mousePressEvent = lambda event, n=cam_no: self._open_snapshot_zoom(event, n)
         snapshot_layout.addWidget(lbl_snapshot, stretch=1)
 
@@ -1853,18 +1862,31 @@ class MainWindow(QMainWindow):
     def _rescale_snapshot(self, cam_no=None):
         """Snapshot'i lbl_snapshot'in GUNCEL boyutuna gore yeniden olcekler (canli
         goruntu gibi paneli doldursun; pencere buyuyunce kucuk kalmasin).
-        cam_no verilmezse (resizeEvent) etkin tum kameralar icin calisir."""
+        cam_no verilmezse (resizeEvent) etkin tum kameralar icin calisir.
+        Hedef boyut etiketin icerik alani (cerceve payi dusulmus); hedef zaten mevcut
+        pixmap boyutuysa dokunulmaz (eventFilter -> setPixmap -> resize dongusu olmasin)."""
         for n in ([cam_no] if cam_no else self._active_cameras()):
             pixmap = self._snapshot_full_pixmap_2 if n == 2 else self._snapshot_full_pixmap
             label = self._cam_widgets(n)["snapshot"]
             if pixmap is None or pixmap.isNull() or label is None:
                 continue
-            label.setPixmap(pixmap.scaled(
-                max(1, label.width()),
-                max(1, label.height()),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation,
-            ))
+            cr = label.contentsRect()
+            tw, th = max(1, cr.width() - 2), max(1, cr.height() - 2)
+            hedef = pixmap.size().scaled(tw, th, Qt.KeepAspectRatio)
+            mevcut = label.pixmap()
+            if mevcut is not None and not mevcut.isNull() and mevcut.size() == hedef:
+                continue
+            label.setPixmap(pixmap.scaled(tw, th, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+    def eventFilter(self, obj, event):
+        """Snapshot etiketi KENDI BASINA buyuyup kuculunce (pencere resizeEvent'i olmadan da:
+        kamera satiri gizle/goster, Ayarlar, layout oturmasi) resmi yeni boyuta gore olcekle."""
+        if event.type() == QEvent.Resize:
+            if obj is getattr(self, "lbl_snapshot", None):
+                QTimer.singleShot(0, lambda: self._rescale_snapshot(1))
+            elif obj is getattr(self, "lbl_snapshot_2", None):
+                QTimer.singleShot(0, lambda: self._rescale_snapshot(2))
+        return super().eventFilter(obj, event)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)

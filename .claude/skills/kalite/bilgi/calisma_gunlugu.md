@@ -3,6 +3,23 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~10:50 — "Sağdaki kontrol resmi sağa kayıyor, sayfaya sığmıyor" → cırcır tuzağı düzeltildi
+
+Kullanıcı ekran görüntüsü (dünkü 09:28 sürümü: Sayaç grubu yok, kutular görünmez): sağdaki
+"Son Alınan Tam Resim" etiketi pencereden sağa taşıyor. **Sebep:** `lbl_snapshot` yalnız
+`minimumHeight(240)` taşıyordu; Qt (`qSmartMinSize`) min genişliği verilmeyen pixmap'li QLabel'in
+en küçük genişliğini pixmap genişliği sayar; `_rescale_snapshot` resmi etiketin o anki boyutuna
+ölçekleyince etiket bir daha küçülemez (cırcır), `QScrollArea` yatay çubuğu kapalı → sağdan taşar.
+Ekransız yeniden üretildi: 1920 px pencerede resim gösterilip 1100'e küçültülünce panel 526 px,
+görünür alan 248 px. Canlı `video_label` iki boyutta açık minimum (480×360) taşıdığı için taşmıyordu.
+**Düzeltme (main.py):** `setMinimumSize(160, 240)`; grup başlığı kısaltıldı (uzun başlık QGroupBox min
+genişliğini 283 px yapıyordu, 248 px görünür alana sığmıyordu); `installEventFilter(self)` + `eventFilter`
+(Resize → gecikmeli `_rescale_snapshot(n)`); `_rescale_snapshot` hedef `contentsRect()`−2, hedef
+mevcut pixmap boyutuna eşitse atlar. `QEvent` importu. **Test:** `tests/test_snapshot_olcek.py`
+9 test — düzeltme öncesi 5 kırmızı (taşma, ölçek yok), sonrası 9/9; takım 156/156.
+**Tuzak:** PyQt5 `QLabel.pixmap()` aynı iç nesneyi döndürür (`setPixmap` üzerine yazar) → testte
+boyut sakla. Uygulama açık değildi; kullanıcı açınca düzelmiş görecek.
+
 ## 2026-09-24 ~10:30 — ÜRÜN VAR/YOK KAPISI uygulandı (kullanıcı: "dediğin gibi yapalım, PLC'de 1. öneri")
 
 Kararlar: boş kare → NOK DEĞİL "yanlış çekim"; operatör uyarısı; PLC'ye yine 1 (PLC değişmedi).

@@ -85,7 +85,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (147 test, 6 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (156 test, 7 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -123,7 +123,12 @@ sağda "Son Alınan Tam Resim" `lbl_snapshot` — her ikisi stretch 1) + ALTTA t
 Anlık gösterim tek yerden: `_display_snapshot` (hem `_handle_snapshot` hem önizlemeler).
 `lbl_snapshot` paneli **doldurur** (canlı görüntü boyutunda); `_rescale_snapshot` +
 `resizeEvent` ile pencere boyutu değişince yeniden ölçeklenir (eskiden tek seferlik ölçekle
-küçük kalıyordu).
+küçük kalıyordu). **CIRCIR TUZAĞI (2026-09-24, düzeltildi):** etikete yalnız `minimumHeight`
+verilmişti → Qt en küçük GENİŞLİĞİ pixmap kadar sayıyor → etiket bir daha küçülemiyor, yatay
+çubuğu kapalı kaydırma alanından SAĞA TAŞIYORDU. Şimdi `setMinimumSize(160, 240)` (iki boyut
+açık, `video_label` gibi) + `installEventFilter` (etiket kendi başına boyut değişince de
+`_rescale_snapshot`) + hedef boyut = mevcut pixmap ise atla (döngü koruması); ölçek hedefi
+`contentsRect()` − 2 px çerçeve.
 
 ## 5. İki ROI analiz yöntemi (önemli)
 `config.yaml -> roi.decision_method` ile seçilir:
@@ -319,6 +324,20 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-24 ~10:50 — SAĞDAKİ RESİM PANELİ TAŞMIYOR (kullanıcı, ekran görüntüsüyle: "sağdaki
+  kontrol resmi sağa kayıyor, sayfaya sığdırmıyor"):** Sebep `lbl_snapshot`'ta yalnız `minimumHeight(240)`
+  olması: Qt, en küçük genişliği verilmeyen pixmap'li QLabel'in min genişliğini PIXMAP genişliği sayar;
+  `_rescale_snapshot` resmi etiketin o anki boyutuna ölçekleyince etiket bir daha KÜÇÜLEMEZ (cırcır),
+  `QScrollArea`'nın yatay çubuğu kapalı → panel sağdan taşar (ekransız yeniden üretildi: pencere
+  1920→1100 küçültülünce panel 526 px / görünür 248 px). Canlı `video_label` iki boyutta açık minimum
+  taşıdığı için taşmıyordu. **Düzeltme:** `setMinimumSize(160, 240)`; grup başlığı kısaltıldı
+  ("Son Alınan Tam Resim" — QGroupBox'ın en küçük genişliği BAŞLIK metnini de kapsar, uzun başlık dar
+  pencerede paneli taşırıyordu; ipucu tooltip'te); `installEventFilter(self)` +
+  `MainWindow.eventFilter` (QEvent.Resize → `_rescale_snapshot(n)` gecikmeli; pencere resizeEvent'i
+  olmadan da, ör. satır gizle/göster); `_rescale_snapshot` hedef = `contentsRect()`−2 px ve hedef ==
+  mevcut pixmap boyutu ise atlar (setPixmap→resize döngüsü yok). 9 test (`tests/test_snapshot_olcek.py`,
+  önce kırmızı 5/9, sonra 9/9); takım 156/156. **TUZAK (test):** PyQt5 `QLabel.pixmap()` aynı iç QPixmap
+  nesnesini döndürür, `setPixmap` üzerine yazar → karşılaştırmak için BOYUTU sakla, nesneyi değil.
 - **✅ 2026-09-24 ~10:30 — ÜRÜN VAR/YOK KAPISI: BOŞ KARE ARTIK NOK DEĞİL, "YANLIŞ ÇEKİM" (kullanıcı:
   "bazen resimdeki gibi yakalıyor... ürün var yok anlasın... NOK'a sokmasın, operatöre yanlış algılama
   desin" → "dediğin gibi yapalım, PLC tarafında 1. önerin"):** **Teşhis (log 09:48:17, Resim #0010):**
