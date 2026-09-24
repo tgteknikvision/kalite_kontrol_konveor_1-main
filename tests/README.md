@@ -20,6 +20,7 @@ python3 tests/test_paket.py             # tek dosya
 | `test_urun_yok.py` | ürün var/yok kapısı: saf `product_present`, uçtan uca boş kare → URUN_YOK (PLC 1, NOK sayılmaz, panel/durum/uyarı penceresi, son geçerli kare korunur), kapı kapalı/tolerans/referanssız, önizleme, PDF, kalıcılık, sıfırlama, tetik aralığı logu, iki kamera |
 | `test_snapshot_olcek.py` | sağdaki 'Son Alınan Tam Resim' paneli pencereye sığar: açık min genişlik (cırcır koruması), büyük resim + pencere küçültme → taşma yok, resim etikete sığar, oran korunur, etiket kendi boyutu değişince yeniden ölçek |
 | `test_paket_dur.py` | paket dolunca konveyör dur bayrağı (HR102): açılış temizliği, 100'de 1, Devam et/Sıfırla/X/parti Sıfırla/adet değişimi → 0, bağlantı yok/gelince/yazım hatası, açılışta dolu paket, özellik kapalı, Ayarlar kutusu+register, Modbus sahte istemci + beyaz liste |
+| `test_urun_bulma.py` | ürün bulma eşiği: aydınlık bant + ürün sentetik sahnede 110 bantla birleşir / 160 yalnız ürün, karanlık bantta ikisi de ürün, ray kenarı katılmaz, varsayılan 110; Ayarlar kutuları, Kaydet → config + log, 'Ürün Çerçevesi Bul' logu eşiği yazar |
 
 NEDEN burada: testler önce `/tmp` altındaki oturum klasöründeydi; Pi yeniden başlayınca
 `/tmp` temizlendi ve sabahki takım kayboldu (2026-09-23). Testler artık repoda yaşar.

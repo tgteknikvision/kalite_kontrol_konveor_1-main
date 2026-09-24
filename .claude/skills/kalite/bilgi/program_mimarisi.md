@@ -447,7 +447,8 @@ Karede ürünü (tam braketi) bulup `[x, y, w, h]` kutusu döndürür; saf gör�
 durumsuz.
 
 - **`DEFAULT_ALIGNMENT` (5-14):** `mode: contour`, `min_area_ratio: 0.02`,
-  `padding_px: 20`, `foreground: bright`, `metal_v_min: 110`, `metal_s_max: 85`.
+  `padding_px: 20`, `foreground: bright`, `metal_v_min: 110`, `metal_s_max: 85` (**V/S eşikleri 2026-09-24'ten
+  beri Ayarlar'da: `SettingsDialog.spin_metal_v/spin_metal_s` → `_apply_settings` → `alignment.*`; saha 160/85**).
   Tasarım: parça PARLAK + RENKSİZ (gri metal); yeşil raylar parlak ama RENKLİ →
   doygunlukla (S) ayırt edilir. (`mode: off` ayrımını çağıran taraf uygular.)
 - **`get_alignment_config` (17-20):** varsayılanlar + `config["alignment"]`.
@@ -642,7 +643,8 @@ kaybolur, SD aşınması riski; koda yeni anahtar `setdefault` ile eklenir). Git
 | `mode` | `contour` | `off` = tam kare, ROI'ler mutlak (kutu kararsızsa daha kararlı OLABİLİR — ölçülmeli). |
 | `padding_px` | `20` | Kutu payı. |
 
-`metal_v_min` (110) / `metal_s_max` (85) dosyada yazılı değil — kod varsayılanları geçerli.
+`metal_v_min` / `metal_s_max`: 2026-09-24 13:20'den beri dosyada **160 / 85** (bant parlaklaşınca ürünle
+birleşiyordu; §6 "Bant parlaklığı tuzağı"). Ayarlar'dan değişir.
 
 ### `calibration` (satır 6-18) — **ÖLÜ BLOK**
 Kalibrasyon modu 2026-07-10'da koddan kaldırıldı; blok hiçbir yerden okunmaz/yazılmaz.
@@ -939,6 +941,18 @@ karşılığı — elle senkron tutulur.
   *.log) + `.gitattributes` (*.sh LF, *.bat CRLF) yeniden eklendi. ⏳ `origin` GitHub'da yok.
 - **TUZAK (test):** `MainWindow.LOG_DIR` sınıf niteliği → ekransız testte `_append_log` GERÇEK saha
   loguna yazar; testte `main.MainWindow.LOG_DIR = <geçici>` yap (2026-09-23'te 24 satır sızdı, silindi).
+
+### Bant parlaklığı tuzağı — ürün çerçevesi bantla birleşti (2026-09-24 13:06)
+- Belirti: `Ürün Çerçevesi Bul` 760×1025 (tam boy), tetiklerde 808×1088 / 1092×788; ürün karenin üstünde.
+- Ölçüm (ekran görüntüsü): bant V 72-125 (S 11-14), ürün V 184-238 (S 4-7), ray metal kenarı V 166-180
+  (S 23-39), yeşil ray S 211. `_metal_mask` V≥110 → aydınlık bant bölgesi metal → `_pick_box(union=True)`
+  ürünle yatay örtüşen bant blobunu kutuya kattı → tam boy.
+- Sentetik doğrulama: bant 70→125 gradyanı: 110 → [332,0,806,1088]; 140/160 → [400,100,670,560]; bant
+  60→100: hepsi ürün. (Gürültülü ama düşük ortalamalı bant OPEN ile temizlenir; SÜREKLİ aydınlık bant temizlenmez.)
+- Çözüm: eşikler `SettingsDialog`'da (V 0-255 adım 5, S 0-255), `values()` `metal_v_min`/`metal_s_max`,
+  `_apply_settings` değişince `alignment` + log; `_capture_product_box_for_roi` logu eşiği ve "tam boy ise
+  eşiği artır" ipucunu yazar; restart gerekmez. Kod varsayılanı 110 (geriye uyum), sahada 160.
+- Test: `tests/test_urun_bulma.py` (12).
 
 ### Paket dolunca konveyör DUR bayrağı — HR102 (2026-09-24, kullanıcı isteği)
 - **plc.py:** `STOP_REGISTER = 102`, `ALLOWED_REGISTERS = {100, 101, 102}`; `ModbusTCPPLCAdapter.stop_addr`

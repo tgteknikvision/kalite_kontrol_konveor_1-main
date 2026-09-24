@@ -3,6 +3,21 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~13:20 — "Ürünü doğru bulamıyor": bant parlaklaşıp ürünle birleşti → eşik Ayarlar'a taşındı, 160
+
+Ekran görüntüsü 13:06: Ürün Çerçevesi Bul → 760×1025 (tam boy), ürün karenin üstünde; tetiklerde
+808×1088, 1092×788 (referans bile bantlı çizilmiş). **Ölçüm (ekran görüntüsünden HSV):** bant V 72 (ürün
+altı) … 104-125 (alt/sol), S 11-14; ürün V 184-238, S 4-7; ray metal kenarı V 166-180; yeşil ray S 211.
+`_metal_mask` V≥110 → aydınlık bant "metal" → `_pick_box(union=True)` ürünle yatay örtüşen bant blobunu
+kutuya kattı. Sentetik doğrulama: bant 70→125 gradyanı → 110: [332,0,806,1088]; 140/160: [400,100,670,560];
+dünkü karanlık bant (60→100) → 110 sorunsuz. Bugün kamera/ışık değişince bant eşiği aştı.
+**Yapılan:** Ayarlar'a "Ürün bulma: metal parlaklık eşiği (V)" + "doygunluk üst sınırı (S)" (restartsız,
+`[Ayarlar] Ürün bulma eşikleri` logu); `[Ürün Bulma]` logu eşiği + "tam boy ise eşiği artır" ipucunu yazar;
+config `alignment.metal_v_min: 160`, `metal_s_max: 85` (uygulama açıkken yazıldı — eski örnek config'i
+kaydederse silinebilir; o zaman Ayarlar'dan 160). Kod varsayılanı 110 kaldı (kamera 2 / kısa pozda metal
+150 okuyabilir). `tests/test_urun_bulma.py` 12/12; takım 205/205.
+**Kullanıcıya sıra:** restart → Ürün Çerçevesi Bul (yalnız ürün) → Kontrol Noktaları yeniden çiz → gecikme.
+
 ## 2026-09-24 ~11:50 — Paket dolunca konveyör DUR (PLC HR102) eklendi; PLC tarafı bekliyor
 
 Kullanıcı: "100 adete ulaşınca PLC'yi durdur desin konveyör dursun". PLC arayüzünde durdurma sinyali

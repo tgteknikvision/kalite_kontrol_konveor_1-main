@@ -547,6 +547,7 @@ class SettingsDialog(QDialog):
         cfg_cam = config.get("camera", {}) or {}
         cfg_res = config.get("resolution", {}) or {}
         cfg_insp = config.get("inspection", {}) or {}
+        cfg_align = config.get("alignment", {}) or {}
         cfg_cams = config.get("cameras", {}) or {}
         cfg_cam2 = config.get("camera2", {}) or {}
         cfg_res2 = config.get("resolution2", {}) or {}
@@ -636,6 +637,29 @@ class SettingsDialog(QDialog):
         self.spin_trigger_delay.setSingleStep(10)
         self.spin_trigger_delay.setValue(int(cfg_insp.get("trigger_delay_ms", 0)))
         insp_form.addRow("Çekim Gecikmesi ms:", self.spin_trigger_delay)
+        # URUN BULMA ESIKLERI (2026-09-24, saha: bant parlaklasinca urun cercevesi bantla birlesti,
+        # cerceve tam boy oldu). Urun bulucu "parlak (V >= esik) + renksiz (S <= esik)" pikselleri
+        # metal sayar; bant/zemin V esiginin ALTINDA, urun USTUNDE kalmali. Sonuc "Urun Cercevesi Bul"
+        # ile aninda gorulur; restart gerekmez (find_product_box config'i her cagrida okur).
+        self.spin_metal_v = NoWheelSpinBox()
+        self.spin_metal_v.setRange(0, 255)
+        self.spin_metal_v.setSingleStep(5)
+        self.spin_metal_v.setValue(int(cfg_align.get("metal_v_min", 110)))
+        self.spin_metal_v.setToolTip(
+            "Ürün bulucu bu parlaklığın ÜSTÜNDEKİ renksiz pikselleri 'metal' (ürün) sayar (0-255).\n"
+            "Bant/zemin bu değerin ALTINDA, ürün ÜSTÜNDE kalmalı.\n"
+            "Çerçeve bantla birleşip tam boy / çok büyük çıkıyorsa ARTIR; ürün bulunamıyorsa AZALT.\n"
+            "Kaydet → 'Ürün Çerçevesi Bul' ile sonucu hemen gör (yeniden başlatma gerekmez).\n"
+            "Ölçüm 2026-09-24: bant ~100-125, ürün ~180-240 → 160 önerilir.")
+        self.spin_metal_s = NoWheelSpinBox()
+        self.spin_metal_s.setRange(0, 255)
+        self.spin_metal_s.setSingleStep(5)
+        self.spin_metal_s.setValue(int(cfg_align.get("metal_s_max", 85)))
+        self.spin_metal_s.setToolTip(
+            "Bu doygunluğun ÜSTÜNDEKİ (renkli) pikseller metal sayılmaz (yeşil raylar böyle elenir).\n"
+            "Gri/beyaz metal S≈5-40; artırmak daha çok rengi 'metal' sayar. Normalde dokunma.")
+        insp_form.addRow("Ürün bulma: metal parlaklık eşiği (V):", self.spin_metal_v)
+        insp_form.addRow("Ürün bulma: doygunluk üst sınırı (S):", self.spin_metal_s)
         layout.addWidget(insp_group)
         layout.addStretch()
 
@@ -759,6 +783,8 @@ class SettingsDialog(QDialog):
             "plc_paket_dur": bool(self.chk_paket_dur.isChecked()),
             "plc_stop_reg": int(self.spin_stop_reg.value()),
             "trigger_delay_ms": int(self.spin_trigger_delay.value()),
+            "metal_v_min": int(self.spin_metal_v.value()),
+            "metal_s_max": int(self.spin_metal_s.value()),
         }
         # Kamera 1 anahtarlari ESKI adlariyla duz sozlukte (geriye uyum).
         vals.update(self._camera_values(self._cam1_w))
@@ -1243,6 +1269,13 @@ class MainWindow(QMainWindow):
             self._stop_written = None
 
         self.config.setdefault("inspection", {})["trigger_delay_ms"] = v["trigger_delay_ms"]
+        # Urun bulma esikleri: restart gerekmez, bir sonraki "Urun Cercevesi Bul"/cekimde gecerli.
+        al = self.config.setdefault("alignment", {})
+        yeni_al = (int(v.get("metal_v_min", al.get("metal_v_min", 110))), int(v.get("metal_s_max", al.get("metal_s_max", 85))))
+        if yeni_al != (int(al.get("metal_v_min", 110)), int(al.get("metal_s_max", 85))):
+            al["metal_v_min"], al["metal_s_max"] = yeni_al
+            self._append_log(f"[Ayarlar] Ürün bulma eşikleri: metal parlaklık V≥{yeni_al[0]}, doygunluk S≤{yeni_al[1]} "
+                             "(bir sonraki çekim/'Ürün Çerçevesi Bul'dan itibaren).")
 
         camera_cfg = self.config.setdefault("camera", {})
         res_cfg = self.config.setdefault("resolution", {})
@@ -1766,9 +1799,12 @@ class MainWindow(QMainWindow):
         cv2.putText(preview, label, (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 255), 2, cv2.LINE_AA)
         self._display_snapshot(preview, cam_no)
         if product_box:
+            al_cfg = self._camera_config_view(cam_no).get("alignment", {}) or {}
             self._append_log(
                 f"[Ürün Bulma] {self._cam_prefix(cam_no)}Çerçeve bulundu: x={product_box[0]}, y={product_box[1]}, "
-                f"w={product_box[2]}, h={product_box[3]}. ROI'leri bu çerçevenin içinde çizin."
+                f"w={product_box[2]}, h={product_box[3]} (metal eşiği V≥{al_cfg.get('metal_v_min', 110)}, "
+                f"S≤{al_cfg.get('metal_s_max', 85)}). ROI'leri bu çerçevenin içinde çizin. Çerçeve bantı da "
+                "kapsıyorsa (tam boy): Ayarlar → 'metal parlaklık eşiği'ni artır."
             )
         else:
             self._append_log(

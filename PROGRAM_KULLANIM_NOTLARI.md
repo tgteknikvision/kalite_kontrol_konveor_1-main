@@ -95,7 +95,8 @@ yanlış çerçeve turuncu gösterilir.
 PLC (tip, IP, port, unit id, poll) · **Kamera 1 / Kamera 2** (grup başlığındaki kutu = kamerayı
 kullan) · çözünürlük (imx477 doğal modları: 4056x3040 ağır, 2028x1520, 2028x1080, 1332x990) ·
 FPS · dijital zoom (**1.0 bırak**, detay üretmez) · **Exposure/Gain Kilidi** (üretimde AÇIK;
-hareketli bantta poz ≤1 ms, imx477'de 400 µs iyi sonuç verdi) · çekim gecikmesi.
+hareketli bantta poz ≤1 ms, imx477'de 400 µs iyi sonuç verdi) · çekim gecikmesi · **ürün bulma
+eşikleri** (metal parlaklık V, doygunluk S — bkz. §5 madde 2).
 - **Pencere açıkken PLC tetiği işlenmez.** Kaydet ile yalnız değişen taraf uygulanır
   (kamera yeniden başlatma / PLC bağlantısını yenileme).
 - Kameraları açıp kapatırken program önce kapatır sonra açar. Yine de kamera gelmezse 10 s içinde
@@ -114,6 +115,11 @@ hareketli bantta poz ≤1 ms, imx477'de 400 µs iyi sonuç verdi) · çekim geci
 6. Yön/el: doğru parça görüntüsü açıkken Kontrol Noktaları menüsünden **🧭 Yön Referansı Al**
    (en az 2 delik noktası gerekir) → ters/ayna parça NOK verir.
 7. İki kamera açıksa 3-6 adımları her kamera için ayrı yapılır; PLC'ye tek (VE'lenmiş) sonuç yazılır.
+
+- **Çerçeve bantı da kapsıyorsa (tam boy / çok büyük çıkıyorsa):** bant, kamera ya da ışık değişince
+  parlaklaşmış ve ürünle birleşmiştir. Ayarlar → **"Ürün bulma: metal parlaklık eşiği (V)"** değerini
+  artır (sahada 160; bant ~100-125, ürün ~180-240), Kaydet, tekrar **Ürün Çerçevesi Bul**. Logda
+  `[Ürün Bulma] ... (metal eşiği V≥160 ...)` görünür. Sonra kontrol noktalarını yeniden çiz.
 
 ## 6. Üretim
 - PLC bağlı, her açık kamerada en az bir delik/çentik noktası.

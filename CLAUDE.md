@@ -85,7 +85,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (193 test, 8 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (205 test, 9 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -201,6 +201,14 @@ vb.) birleştirilir → **tam braket** tek çerçeve. `RETR_EXTERNAL` deliği "�
 bulunamazsa eski **Otsu**'ya düşer (`foreground: dark` → THRESH_BINARY_INV). Eski hata: salt-
 parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye genişletiyordu.
 `alignment.py::find_product_box`, `_metal_mask`, `_pick_box`.
+**⚠️ BANT PARLAKLIĞI TUZAĞI (2026-09-24 13:06, saha):** kamera/ışık değişince bant V≈100-125 okumaya
+başladı; sabit `metal_v_min: 110` ile aydınlık bant bölgesi de "metal" sayıldı ve **ÜNYON kuralı**
+(ürünle yatay örtüşen her metal blob kutuya katılır) bantı ürüne ekledi → çerçeve tam boy (760×1025,
+808×1088), referans şişti (1092×788), kapı her şeyi "yanlış çekim" saydı. Sentetik yeniden üretim:
+bant 70→125 aydınlanınca 110 → [332,0,806,1088]; 140/160 → yalnız ürün; dünkü karanlık bantta (60→100)
+110 sorunsuzdu. **Çözüm:** eşikler Ayarlar → "Ürün bulma: metal parlaklık eşiği (V)" / "doygunluk üst
+sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `metal_v_min: 160` (bant 125 /
+ürün 180-240 arası). Kod varsayılanı 110 KALDI (kamera 2 / kısa poz kurulumlarında metal 150 okuyabilir).
 
 ## 7. PLC / Modbus
 - İstemci Pi, sunucu PLC. `192.168.10.10:502`, unit_id config'te.
@@ -249,7 +257,8 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   noktası; kusur kontrolüne GİRMEZ, yalnız yön/el ölçümünde kullanılır).
   `roi.reference_box` `[w,h]` (ROI çizimindeki ürün kutusu boyutu; ölçekleme için, ROI editörü yazar).
 - `alignment.mode`: `contour` | `off`; `alignment.foreground`: `bright` | `dark`;
-  `alignment.metal_v_min`, `alignment.metal_s_max` (metal izolasyon HSV eşikleri).
+  `alignment.metal_v_min`, `alignment.metal_s_max` (metal izolasyon HSV eşikleri; **Ayarlar'dan
+  ayarlanır, 2026-09-24; saha 160/85** — bant parlaklaşınca artır, §6 tuzağı).
 - `camera.*`: backend (picamera2), exposure_us, analogue_gain, zoom, fps, max_frame_age_ms.
   **`manual_exposure_enabled` (bool) = ANA ŞALTER:** false iken `exposure_us`/`analogue_gain`
   KESİNLİKLE UYGULANMAZ (`worker._camera_controls` boş sözlük döner → oto-pozlama). Hareketli
@@ -331,6 +340,18 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-24 ~13:20 — "ÜRÜNÜ DOĞRU BULAMIYOR": BANT PARLAKLIĞI ÜRÜNLE BİRLEŞİYORDU → EŞİK AYARLAR'DA
+  (kullanıcı ekran görüntüsüyle: çerçeve 760×1025 tam boy, ürün üstte):** Ekran görüntüsünden ölçüm: bant
+  V≈72 (ürün altı) … 104-125 (alt/sol), ürün 184-238 (S 4-7), ray metal kenarı 166-180 (S 23-39), yeşil
+  ray S 211. Sabit `metal_v_min 110` → aydınlık bant "metal" → ünyon kuralı bantı ürüne ekledi (§6
+  tuzağı). Sentetik yeniden üretim + çözüm doğrulandı (110 → tam boy; 140/160 → ürün; karanlık bantta
+  110 sorunsuz). **Kod:** `SettingsDialog` "Ürün bulma: metal parlaklık eşiği (V)" + "doygunluk üst sınırı
+  (S)" (`spin_metal_v`/`spin_metal_s`, `values()` `metal_v_min`/`metal_s_max`); `_apply_settings` →
+  `alignment.*` + `[Ayarlar] Ürün bulma eşikleri` logu (restart yok); `_capture_product_box_for_roi` logu
+  eşiği ve tam-boy ipucunu yazar. `config.yaml` `alignment.metal_v_min: 160`, `metal_s_max: 85` (uygulama
+  AÇIKKEN yazıldı → eski örnek config'i kaydederse silinebilir; o zaman Ayarlar'dan 160 girilir).
+  12 test (`tests/test_urun_bulma.py`); takım 205/205. **Saha sırası:** restart → Ürün Çerçevesi Bul
+  (yalnız ürün olmalı) → Kontrol Noktaları'nı yeniden çiz (referans güncellenir) → gecikme.
 - **✅ 2026-09-24 ~11:50 — PAKET DOLUNCA KONVEYÖR DUR (kullanıcı: "100 adete ulaşınca PLC'yi durdur
   desin konveyör dursun"):** Yeni PLC bayrağı **HR102** (`plc.registers.stop`, vars. 102; `STOP_REGISTER`,
   `ALLOWED_REGISTERS`'a eklendi, yazma beyaz listesi `nok_addr`+`stop_addr`). `ModbusTCPPLCAdapter.publish_stop(bool)`
