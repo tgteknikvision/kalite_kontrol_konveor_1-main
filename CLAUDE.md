@@ -85,7 +85,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (156 test, 7 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (193 test, 8 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -207,7 +207,14 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 - **HR101 = trigger** (PLC→Pi, yalnız oku): 0→1 yükselen kenar = denetim başlat.
 - **HR100 = nok** (Pi→PLC, yalnız yaz): **0 = OK, 1 = NOK/hata**. **ÜRÜN YOK / yanlış çekim de 1**
   (kullanıcı kararı 2026-09-24, "PLC tarafı seçenek 1": PLC değişmedi; program NOK saymaz, operatörü uyarır).
-- Sadece 100/101 register'larına dokunulur (`ALLOWED_REGISTERS`).
+- **HR102 = dur** (Pi→PLC, yalnız yaz; `plc.registers.stop`, vars. 102): **1 = KONVEYÖRÜ DURDUR (paket
+  dolu), 0 = çalış** (2026-09-24, kullanıcı: "100 adete ulaşınca PLC'yi durdur desin"). Paket hedefine
+  ulaşılınca 1; Sıfırla / Devam et / X / parti Sıfırla / paket adedi hedefi aşınca 0; açılışta ve her
+  yeniden bağlantıda istenen değer yeniden yazılır (`_sync_plc_stop`, `_poll_plc`). **PLC PROGRAMI BU
+  REGISTER'I OKUYUP KONVEYÖRÜ DURDURMALI — PLC'ci tarafında yapılmadı; HR102 PLC'de başka amaçla
+  kullanılıyorsa Ayarlar'dan adres değiştirilmeli.** Ayarlar → "Paket dolunca konveyörü durdur"
+  (`plc.paket_dolu_durdur`, vars. true) kapatınca bayrak 0'a çekilir.
+- Sadece 100/101/102 register'larına dokunulur (`ALLOWED_REGISTERS`; yazma beyaz listesi nok + stop).
 - Sonuç yazıldıktan ~1 sn sonra HR100=0'a resetlenir (`QTimer`). **ACK okuması YOK.**
 - `plc.type: null` → simülasyon (tetik otomatik gelmez; sadece "PLC Dışı Test Çekimi").
 - **ELLE ÇEKİM MODU KALDIRILDI (2026-09-24, kullanıcı: "elle çekim modunu komple programdan
@@ -264,7 +271,8 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   Kamera 2'de YAZILMAMIŞ kamera ayarı kamera 1'den devralınır; nokta kimliğine bağlı
   `roi2.roi_types/point_overrides/reference_box/handedness_*` DEVRALINMAZ.
 - `dynamic_rois`: ROI'ler `[x,y,w,h]` (alignment açıkken ürün çerçevesine göreli).
-- `plc.*`: host/port/unit_id/poll_ms/timeout_s/reconnect_s, registers {nok:100, trigger:101}
+- `plc.*`: host/port/unit_id/poll_ms/timeout_s/reconnect_s, registers {nok:100, trigger:101,
+  **stop:102**}, **`paket_dolu_durdur`** (bool, vars. true — paket dolunca HR<stop>=1; §7)
   (~~`manual_mode`~~ 2026-09-24'te KALDIRILDI; bkz. §7).
 - **`inspection.product_presence_check`** (bool, vars. **true**) + **`inspection.product_box_tolerance`**
   (vars. **0.25** = ±%25): ÜRÜN VAR/YOK KAPISI (2026-09-24). Bulunan ürün çerçevesinin en/boyu
@@ -323,6 +331,23 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-24 ~11:50 — PAKET DOLUNCA KONVEYÖR DUR (kullanıcı: "100 adete ulaşınca PLC'yi durdur
+  desin konveyör dursun"):** Yeni PLC bayrağı **HR102** (`plc.registers.stop`, vars. 102; `STOP_REGISTER`,
+  `ALLOWED_REGISTERS`'a eklendi, yazma beyaz listesi `nok_addr`+`stop_addr`). `ModbusTCPPLCAdapter.publish_stop(bool)`
+  / `NullPLCAdapter.publish_stop` (simülasyon). main: `_stop_desired`/`_stop_written` (None = bilinmiyor),
+  `_set_conveyor_stop(stop, reason)` → `_sync_plc_stop()`; `_poll_plc` her turda eşitler (bağlantı yoksa
+  sessiz bekler, yazım başarısızsa `[PLC HATA] ... tekrar denenecek`); `_update_plc_connection_status`
+  bağlantı gelince ve `_restart_plc_adapter` → `_stop_written=None` (yeniden yaz). Akış: `_paket_uyarisi`
+  → 1 (log `[Paket] KONVEYÖR DURDURULDU: PLC'ye HR102=1`); `_paket_sifirla` / `_paket_devam` (X dahil) /
+  `_reset_counters` / `_on_paket_adedi_changed` (hedef sayımın üstüne çıkınca pencere kapanır) → 0. Açılışta
+  sayac.json'da paket doluysa uyarı + 1, değilse ilk poll'da 0 (takılı bayrak temizliği). Uyarı metni
+  "KONVEYÖR DURDURULDU (PLC HR102 = 1)", panel "PAKET DOLDU ... — konveyör durdu". Ayarlar → PLC: "Paket
+  dolunca konveyörü durdur" kutusu (`plc.paket_dolu_durdur`) + "Dur register (HR)" (`plc.registers.stop`;
+  değişince adapter yenilenir; kapatınca bayrak 0'a çekilir). **PLC TARAFI YAPILMADI:** PLC programı
+  HR102'yi okuyup 1 iken konveyörü durdurmalı — PLC'ciyle konuşulacak; HR102 başka amaçla kullanılıyorsa
+  adres değiştirilir. `tests/test_paket_dur.py` (Null/RecPLC akış, bağlantı yok/gelince, açılış, özellik
+  kapalı, Ayarlar, Modbus sahte istemciyle HR105 yazımı + beyaz liste) 37 test; takım 193/193.
+  `_apply_settings` `_plc_timer` yoksa (test) interval atlamaz. Çalışan uygulama eski kodda.
 - **✅ 2026-09-24 ~11:30 — SOL PANELDEKİ "ÇEKİM GECİKMESİ" KUTUSU DA KALDIRILDI (kullanıcı: "ben sana
   gecikmeyi kaldıralım demiştim kaldırmamışsın" — önceki istekteki "onun altındaki" = gecikme kutusu +
   açıklama):** eski "Çalışma Modu" grubu artık sol panelde HİÇ yok (Sistem Durumu / Sayaç / ⚙ Ayarlar).

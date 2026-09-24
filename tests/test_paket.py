@@ -47,7 +47,7 @@ check("100. OK parçada uyarı penceresi açıldı", dlg is not None and dlg.isV
 check("pencere MODAL DEĞİL (denetim durmaz)", dlg is not None and dlg.windowModality() == Qt.NonModal)
 check("metin '100 adete ulaşıldı'", dlg is not None and "100 adete ulaşıldı" in dlg.text())
 check("bip + log", beeps and any("100 adete ulaşıldı" in l for l in loglar))
-check("panel 'PAKET DOLDU: 100 / 100'", w.lbl_paket.text() == "PAKET DOLDU: 100 / 100")
+check("panel 'PAKET DOLDU: 100 / 100 — konveyör durdu'", w.lbl_paket.text() == "PAKET DOLDU: 100 / 100 — konveyör durdu", w.lbl_paket.text())
 w._record_part(101, True, {1: ok_res}, "plc"); pump()
 check("pencere açıkken yeni parça ikinci pencere AÇMAZ, sayım sürer", w._paket_dlg is dlg and w._counters["paket_ok"] == 101 and "101" in dlg.text())
 

@@ -4,7 +4,8 @@ import time
 
 NOK_REGISTER = 100
 TRIGGER_REGISTER = 101
-ALLOWED_REGISTERS = {NOK_REGISTER, TRIGGER_REGISTER}
+STOP_REGISTER = 102     # KONVEYOR DUR bayragi (2026-09-24): 1 = dur (paket dolu), 0 = calis. plc.registers.stop ile degisir.
+ALLOWED_REGISTERS = {NOK_REGISTER, TRIGGER_REGISTER, STOP_REGISTER}
 
 
 class InspectionState(str, Enum):
@@ -25,6 +26,7 @@ class NullPLCAdapter:
         self.config = config or {}
         self.state = InspectionState.READY
         self.last_result = None
+        self.stop_flag = False
 
     def poll(self):
         return None
@@ -44,6 +46,10 @@ class NullPLCAdapter:
 
     def reset_nok(self):
         self.last_result = True
+        return True
+
+    def publish_stop(self, stop: bool):
+        self.stop_flag = bool(stop)
         return True
 
     def close(self):
@@ -89,6 +95,14 @@ class ModbusTCPPLCAdapter:
 
         self.trigger_addr = TRIGGER_REGISTER
         self.nok_addr = NOK_REGISTER
+        # KONVEYOR DUR bayragi: plc.registers.stop (vars. HR102). PLC programi bu register'i
+        # OKUYUP 1 iken konveyoru durdurmali, 0 olunca calistirmali (PLC'ci isi).
+        regs = self.config.get("registers", {}) or {}
+        try:
+            self.stop_addr = int(regs.get("stop", STOP_REGISTER))
+        except (TypeError, ValueError):
+            self.stop_addr = STOP_REGISTER
+        self.stop_flag = False
 
         self._connect()
         self.set_state(InspectionState.READY)
@@ -151,6 +165,20 @@ class ModbusTCPPLCAdapter:
         self._mark_disconnected()
         return False
 
+    def publish_stop(self, stop: bool):
+        """KONVEYOR DUR bayragi (paket dolu, 2026-09-24): HR{stop_addr} = 1 -> PLC konveyoru
+        durdurmali; 0 -> calisabilir. Basarisizsa baglanti kopuk sayilir (main tekrar dener)."""
+        self.stop_flag = bool(stop)
+        if not self._ensure_connected():
+            return False
+        value = 1 if stop else 0
+        if self._write_holding_register(self.stop_addr, value):
+            self._log_debug(f"HR{self.stop_addr} yazıldı: {value} "
+                            + ("(KONVEYÖR DUR: paket dolu)" if stop else "(konveyör çalışabilir)"))
+            return True
+        self._mark_disconnected()
+        return False
+
     def close(self):
         if self._client is not None:
             try:
@@ -164,7 +192,7 @@ class ModbusTCPPLCAdapter:
         self._last_connect_attempt = time.time()
         self._log_debug(
             f"Bağlantı deneniyor: {self.host}:{self.port}, unit_id={self.unit_id}, "
-            f"oku=HR{TRIGGER_REGISTER}, yaz=HR{NOK_REGISTER}"
+            f"oku=HR{TRIGGER_REGISTER}, yaz=HR{NOK_REGISTER}, dur=HR{self.stop_addr}"
         )
         try:
             try:
@@ -255,8 +283,8 @@ class ModbusTCPPLCAdapter:
         return True
 
     def _write_holding_register(self, address: int, value: int):
-        if int(address) != NOK_REGISTER:
-            self.last_error = f"PLC yazma engellendi: sadece HR{NOK_REGISTER} yazılabilir"
+        if int(address) not in (self.nok_addr, self.stop_addr):
+            self.last_error = f"PLC yazma engellendi: sadece HR{self.nok_addr} ve HR{self.stop_addr} yazılabilir"
             self._log_debug(self.last_error)
             return False
 

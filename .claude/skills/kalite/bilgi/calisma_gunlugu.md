@@ -3,6 +3,19 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~11:50 — Paket dolunca konveyör DUR (PLC HR102) eklendi; PLC tarafı bekliyor
+
+Kullanıcı: "100 adete ulaşınca PLC'yi durdur desin konveyör dursun". PLC arayüzünde durdurma sinyali
+yoktu (yalnız HR100 sonuç / HR101 tetik). **Yeni bayrak HR102** (`plc.registers.stop`, vars. 102):
+paket hedefine ulaşılınca 1, Sıfırla / Devam et / X / parti Sıfırla / paket adedi hedefi aşınca 0.
+Açılışta sayac.json'da paket doluysa uyarı + 1, değilse ilk poll'da 0 (takılı bayrak temizliği);
+PLC yeniden bağlanınca ve adapter yenilenince bayrak yeniden yazılır; bağlantı yokken sessiz bekler,
+yazım hatasında log + tekrar. Ayarlar → PLC: "Paket dolunca konveyörü durdur" kutusu + "Dur register (HR)".
+Uyarı metni ve sol panel "konveyör durdu" der. Modbus: `publish_stop`, beyaz liste nok+stop, `_connect`
+debug `dur=HR102`. **PLC programı HR102'yi okuyup konveyörü durdurmalı — PLC'ci yapmadı; HR102 başka
+amaçla kullanılıyorsa adres değiştirilmeli.** Test `tests/test_paket_dur.py` 37/37; takım 193/193; `test_paket` etiket
+metni güncellendi. Uygulama eski kodda (restart gerekir).
+
 ## 2026-09-24 ~11:30 — Sol paneldeki "Çekim Gecikmesi" kutusu da kaldırıldı
 
 Kullanıcı: "kontrol noktalarını yeniden çizince güncelleniyorsa süper; ama gecikmeyi kaldıralım

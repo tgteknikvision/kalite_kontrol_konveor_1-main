@@ -57,6 +57,12 @@ uygulama kapansa da kaybolmaz.
   başlar (günlük toplamlar kalır); **Devam et** = sayım sürer, bir sonraki uyarı 200'de, sonra
   300'de… Uyarı açıkken denetim ve PLC durmaz; pencereyi X ile kapatmak "Devam et" sayılır.
   Kutu değişince hedef, mevcut sayımın üstündeki ilk kata ayarlanır.
+- **Paket dolunca konveyör durur (2026-09-24):** hedefe ulaşılınca program PLC'deki **HR102**
+  register'ına 1 yazar ("dur"); **Sıfırla** ya da **Devam et** deyince 0 yazar ("çalış"). Uyarı
+  penceresinde "KONVEYÖR DURDURULDU" yazar, sol panelde "PAKET DOLDU … — konveyör durdu". Uygulama
+  yeniden açılınca paket hâlâ doluysa uyarı ve dur bayrağı yeniden gelir. **PLC programında HR102
+  okunup 1 iken konveyör durdurulmalı** (PLC'ci yapar); HR102 başka işte kullanılıyorsa Ayarlar →
+  PLC → "Dur register" değiştirilir. Özellik Ayarlar → "Paket dolunca konveyörü durdur" ile kapatılır.
 - **PDF Rapor:** özet, nokta/sebep dağılımı, sistem hataları ve son 300 NOK parçanın listesi
   (zaman, resim no, sebep). Masaüstüne `kalite_raporu_TARİH_SAAT.pdf` olarak kaydeder ve açar.
 - **Sıfırla:** yeni parti/vardiya başlatır (onay sorar); önceki değerler loga ve CSV'ye yazılır.
@@ -112,6 +118,7 @@ hareketli bantta poz ≤1 ms, imx477'de 400 µs iyi sonuç verdi) · çekim geci
 ## 6. Üretim
 - PLC bağlı, her açık kamerada en az bir delik/çentik noktası.
 - Tetik: HR101 0→1. Sonuç: HR100 = 0 OK, 1 NOK/hata; yaklaşık 1 s sonra 0'a çekilir.
+- Konveyör dur: HR102 = 1 (paket dolu) / 0 (çalış) — PLC bu register'ı okumalı (§3c).
 - Nokta yoksa, kamera karesi yoksa ya da ürün çerçevesi bulunamazsa PLC'ye hata (1) yazılır ve
   durum ERROR olur; sebep logda yazar.
 

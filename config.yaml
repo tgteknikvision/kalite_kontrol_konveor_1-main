@@ -45,20 +45,20 @@ disabled_rois: []
 disabled_rois_2: []
 dynamic_rois:
   '1':
-  - 430
-  - 285
-  - 209
-  - 210
+  - 481
+  - 299
+  - 264
+  - 254
   '2':
-  - 87
-  - 268
-  - 217
-  - 203
+  - 106
+  - 298
+  - 235
+  - 232
   '3':
-  - 88
-  - 5
-  - 548
-  - 115
+  - 72
+  - 6
+  - 714
+  - 130
 dynamic_rois_2:
   '1':
   - 571
@@ -76,7 +76,7 @@ dynamic_rois_2:
   - 747
   - 133
 inspection:
-  trigger_delay_ms: 50
+  trigger_delay_ms: 10
 plc:
   host: 192.168.10.10
   poll_ms: 20
@@ -126,13 +126,13 @@ roi:
   notch_dark_min: 50.0
   point_overrides:
     '1':
-      hole_core_ratio_min: 9.0
-      hole_dark_ratio_min: 13.0
+      hole_core_ratio_min: 11.0
+      hole_dark_ratio_min: 12.0
     '3':
-      notch_dark_min: 25.0
+      notch_dark_min: 20.0
   reference_box:
-  - 708
-  - 542
+  - 827
+  - 615
   roi_types:
     '1': hole
     '2': hole

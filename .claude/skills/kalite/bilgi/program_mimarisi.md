@@ -940,6 +940,28 @@ karşılığı — elle senkron tutulur.
 - **TUZAK (test):** `MainWindow.LOG_DIR` sınıf niteliği → ekransız testte `_append_log` GERÇEK saha
   loguna yazar; testte `main.MainWindow.LOG_DIR = <geçici>` yap (2026-09-23'te 24 satır sızdı, silindi).
 
+### Paket dolunca konveyör DUR bayrağı — HR102 (2026-09-24, kullanıcı isteği)
+- **plc.py:** `STOP_REGISTER = 102`, `ALLOWED_REGISTERS = {100, 101, 102}`; `ModbusTCPPLCAdapter.stop_addr`
+  = `config.registers.stop` (vars. 102); `publish_stop(stop)` → HR<stop> 1/0 (log `HR102 yazıldı: 1
+  (KONVEYÖR DUR: paket dolu)`), başarısızsa `_mark_disconnected` + False; `_write_holding_register`
+  beyaz listesi `(nok_addr, stop_addr)`; `_connect` debug'ında `dur=HR102`. `NullPLCAdapter.publish_stop`
+  → `stop_flag`, True.
+- **main.py:** `__init__`: `_stop_desired` (sayac.json'da paket doluysa True) + `_stop_written=None`;
+  doluysa `QTimer.singleShot(0, _paket_uyarisi)`. `_stop_feature_on()` (`plc.paket_dolu_durdur`, vars.
+  true), `_stop_register()`, `_set_conveyor_stop(stop, reason)` → `_sync_plc_stop(reason)`: özellik
+  kapalıysa / eşitse dön; adapter'da `publish_stop` yoksa ya da bağlı değilse dön; yazınca
+  `_stop_written` güncelle + log `[Paket] KONVEYÖR DURDURULDU: PLC'ye HR102=1 …` / `[Paket] Konveyör
+  serbest: … HR102=0`; başarısızsa `[PLC HATA] Konveyör dur bayrağı … tekrar denenecek`. `_poll_plc` her
+  turda `_sync_plc_stop()`; `_update_plc_connection_status` bağlantı gelince ve `_restart_plc_adapter`
+  → `_stop_written=None`. Çağrılar: `_paket_uyarisi` → True; `_paket_sifirla`, `_paket_devam`,
+  `_reset_counters`, `_on_paket_adedi_changed` (p_ok < yeni eşik ve pencere açıkken kapat) → False.
+  `_paket_metni` + informative text konveyör satırı; `_refresh_counter_panel` "— konveyör durdu".
+  `SettingsDialog`: `chk_paket_dur`, `spin_stop_reg`; `values()` `plc_paket_dur`/`plc_stop_reg`;
+  `_apply_settings`: stop reg PLC karşılaştırmasında (değişince adapter yenilenir), özellik kapatılınca
+  `publish_stop(False)` + `_stop_written=False`, açılınca `None`.
+- **PLC tarafı:** HR102'yi okuyup konveyörü durduran mantık PLC programında YAZILMALI (yapılmadı).
+- Test: `tests/test_paket_dur.py`.
+
 ### Snapshot etiketi cırcır tuzağı — sağa taşma (2026-09-24, düzeltildi)
 - `_build_camera_row`: `lbl_snapshot.setMinimumSize(160, 240)` (eskiden yalnız `minimumHeight`; Qt
   `qSmartMinSize`: min genişlik 0 ise `minimumSizeHint().width()` = pixmap genişliği → etiket

@@ -94,6 +94,9 @@
   anahtarı henüz yok → varsayılan 100).
 
 ## Üretim durumu
+**2026-09-24 11:50 — PLC'Cİ İŞİ BEKLİYOR:** program paket dolunca **HR102=1** (dur), Sıfırla/Devam et'te
+0 yazıyor; PLC programı HR102'yi okuyup konveyörü durdurmalı/çalıştırmalı — henüz yapılmadı. HR102
+PLC'de başka amaçla kullanılıyorsa Ayarlar → PLC → Dur register değiştirilir.
 **2026-09-24 11:20 — REFERANS ESKİ:** 10:45'ten beri ürün karede ~%20 büyük (OK çerçeveleri 830×655,
 referans 708×542) ve netlik 163→19: kamera/lens oynamış olabilir. Sınırdaki kareler sahte "yanlış çekim"
 veriyor. Yapılacak: odak → Kontrol Noktaları yeniden çiz (referans güncellenir) → gecikme (şu an 50 ms,

@@ -582,6 +582,22 @@ class SettingsDialog(QDialog):
         plc_form.addRow("PLC Port:", self.spin_plc_port)
         plc_form.addRow("Unit ID:", self.spin_plc_unit)
         plc_form.addRow("Poll ms:", self.spin_plc_poll)
+        # KONVEYOR DUR (2026-09-24): paket dolunca PLC'ye HR<dur>=1 yazilir; PLC programi bu
+        # register'i okuyup konveyoru durdurmali, 0 olunca calistirmali (Sifirla / Devam et).
+        regs_cfg = cfg_plc.get("registers", {}) or {}
+        self.chk_paket_dur = QCheckBox("Paket dolunca konveyörü durdur")
+        self.chk_paket_dur.setChecked(bool(cfg_plc.get("paket_dolu_durdur", True)))
+        self.chk_paket_dur.setToolTip(
+            "İşaretliyse paket adedine ulaşılınca PLC'deki 'dur' register'ına 1 yazılır;\n"
+            "Sıfırla ya da Devam et ile 0 yazılır. PLC programı bu register'ı okuyup konveyörü\n"
+            "durdurmalı/çalıştırmalı (PLC tarafında yapılmalı). Kapatınca register 0'a çekilir.")
+        self.spin_stop_reg = NoWheelSpinBox()
+        self.spin_stop_reg.setRange(0, 65535)
+        self.spin_stop_reg.setValue(int(regs_cfg.get("stop", 102)))
+        self.spin_stop_reg.setToolTip("PLC'nin konveyör 'dur' bayrağını okuduğu holding register (varsayılan HR102).\n"
+                                      "1 = dur, 0 = çalış. PLC'de başka amaçla kullanılan bir adres OLMAMALI.")
+        plc_form.addRow("", self.chk_paket_dur)
+        plc_form.addRow("Dur register (HR):", self.spin_stop_reg)
         layout.addWidget(plc_group)
 
         # --- Kameralar (her ikisi de BAGIMSIZ acilip kapanir) ---
@@ -740,6 +756,8 @@ class SettingsDialog(QDialog):
             "plc_port": int(self.spin_plc_port.value()),
             "plc_unit_id": int(self.spin_plc_unit.value()),
             "plc_poll_ms": int(self.spin_plc_poll.value()),
+            "plc_paket_dur": bool(self.chk_paket_dur.isChecked()),
+            "plc_stop_reg": int(self.spin_stop_reg.value()),
             "trigger_delay_ms": int(self.spin_trigger_delay.value()),
         }
         # Kamera 1 anahtarlari ESKI adlariyla duz sozlukte (geriye uyum).
@@ -804,6 +822,12 @@ class MainWindow(QMainWindow):
         self._last_plc_connected = None
         self._nok_reset_pending = False
         self.plc = create_plc_adapter(self.config)
+        # KONVEYOR DUR bayragi (kullanici istegi 2026-09-24: "100 adete ulasinca PLC'yi durdur desin,
+        # konveyor dursun"): paket dolunca PLC'ye HR102=1, Sifirla/Devam et'te 0. _stop_desired =
+        # istenen deger; _stop_written = PLC'ye en son yazilan (None = bilinmiyor -> _poll_plc yazar).
+        # Acilista paket hala doluysa (sayac.json) bayrak yeniden 1, degilse 0 (eski takili bayrak temizlenir).
+        self._stop_desired = bool(int(self._counters.get("paket_ok", 0)) >= int(self._counters.get("paket_esik", 10 ** 9)))
+        self._stop_written = None
 
         self.setWindowTitle("Konveyör Denetim Sistemi - ROI Eşik")
         self.resize(1180, 720)
@@ -949,6 +973,8 @@ class MainWindow(QMainWindow):
         counter_layout.addLayout(counter_btns)
         left_layout.addWidget(counter_group)
         self._refresh_counter_panel()
+        if self._stop_desired:                 # acilista paket doluysa uyariyi (ve dur bayragini) yeniden goster
+            QTimer.singleShot(0, self._paket_uyarisi)
 
         left_layout.addStretch()
 
@@ -1175,6 +1201,7 @@ class MainWindow(QMainWindow):
             self.plc.close()
         self._nok_reset_pending = False
         self.plc = create_plc_adapter(self.config)
+        self._stop_written = None           # yeni adapter: dur bayragi yeniden yazilsin
         self._set_inspection_state(InspectionState.READY)
 
     def _open_settings(self):
@@ -1193,16 +1220,27 @@ class MainWindow(QMainWindow):
         """Ayarlar penceresinden gelen değerleri uygular: config'e yazar; yalnız
         DEĞİŞEN tarafı tetikler (kamera restart / zoom / PLC adapter yenileme)."""
         plc_cfg = self.config.setdefault("plc", {})
-        new_plc = (v["plc_type"], v["plc_host"], v["plc_port"], v["plc_unit_id"], v["plc_poll_ms"])
+        stop_reg = int(v.get("plc_stop_reg", self._stop_register()))
+        new_plc = (v["plc_type"], v["plc_host"], v["plc_port"], v["plc_unit_id"], v["plc_poll_ms"], stop_reg)
         plc_changed = new_plc != (
             str(plc_cfg.get("type", "null")), str(plc_cfg.get("host", "192.168.10.10")),
             int(plc_cfg.get("port", 502)), int(plc_cfg.get("unit_id", 1)),
-            int(plc_cfg.get("poll_ms", 50)))
+            int(plc_cfg.get("poll_ms", 50)), self._stop_register())
         plc_cfg["type"] = v["plc_type"]
         plc_cfg["host"] = v["plc_host"]
         plc_cfg["port"] = v["plc_port"]
         plc_cfg["unit_id"] = v["plc_unit_id"]
         plc_cfg["poll_ms"] = v["plc_poll_ms"]
+        plc_cfg.setdefault("registers", {})["stop"] = stop_reg
+        # Konveyor durdurma ozelligi: kapatilirken PLC'de bayrak 1 kalmasin; acilirken yeniden esitle.
+        eski_dur = self._stop_feature_on()
+        plc_cfg["paket_dolu_durdur"] = bool(v.get("plc_paket_dur", True))
+        if eski_dur and not plc_cfg["paket_dolu_durdur"]:
+            if self._stop_written and getattr(self.plc, "publish_stop", None) and self.plc.publish_stop(False):
+                self._append_log(f"[Paket] Konveyör durdurma KAPATILDI; PLC HR{self._stop_register()} 0'a çekildi.")
+            self._stop_written = False
+        elif plc_cfg["paket_dolu_durdur"] and not eski_dur:
+            self._stop_written = None
 
         self.config.setdefault("inspection", {})["trigger_delay_ms"] = v["trigger_delay_ms"]
 
@@ -1293,7 +1331,8 @@ class MainWindow(QMainWindow):
             self._append_log("[Ayarlar] PLC ayarları değişti; bağlantı yenileniyor...")
             self._last_plc_connected = None
             self._restart_plc_adapter()
-            self._plc_timer.setInterval(v["plc_poll_ms"])
+            if getattr(self, "_plc_timer", None) is not None:
+                self._plc_timer.setInterval(v["plc_poll_ms"])
         self._save_config()
         self._append_log("[Ayarlar] Kaydedildi.")
 
@@ -2007,6 +2046,7 @@ class MainWindow(QMainWindow):
         # baglanti geri geldiginde HR100=0'i tekrar dene (takili NOK'u temizle).
         if self._nok_reset_pending and self.plc.is_connected():
             self._reset_plc_nok()
+        self._sync_plc_stop()               # paket dolu/serbest bayragi PLC'dekiyle esit mi?
         if command == "capture":
             self._capture_from_plc()
 
@@ -2047,6 +2087,7 @@ class MainWindow(QMainWindow):
         self._last_plc_connected = connected
         if connected:
             self._append_log(f"[PLC] {self.plc.status_text()}")
+            self._stop_written = None       # PLC yeniden baglandi (guc kesintisi olabilir): dur bayragini yeniden yaz
             if self._inspection_state == InspectionState.ERROR:
                 self._set_inspection_state(InspectionState.READY)
         else:
@@ -2378,7 +2419,7 @@ class MainWindow(QMainWindow):
         self.lbl_counter_missing.setStyleSheet("color:#ffb454; font-weight:bold;" if uy else "color:#9aa0ab;")
         p_ok, p_esik = int(c.get("paket_ok", 0)), int(c.get("paket_esik", self._paket_adedi()))
         if p_ok >= p_esik:
-            self.lbl_paket.setText(f"PAKET DOLDU: {p_ok} / {p_esik}")
+            self.lbl_paket.setText(f"PAKET DOLDU: {p_ok} / {p_esik}" + (" — konveyör durdu" if self._stop_feature_on() else ""))
             self.lbl_paket.setStyleSheet("color:#ffb454; background-color:#4a3410; border-radius:4px; padding:2px 4px;")
         else:
             self.lbl_paket.setText(f"Paket: {p_ok} / {p_esik}")
@@ -2406,6 +2447,7 @@ class MainWindow(QMainWindow):
             return
         eski = dict(self._counters)
         self._paket_penceresini_kapat()
+        self._set_conveyor_stop(False, "parti sıfırlandı")
         self._counters = self._bos_sayac()
         self._save_counters()
         self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), "-", "-", "SIFIRLA", "",
@@ -2425,6 +2467,10 @@ class MainWindow(QMainWindow):
         c = self._counters
         p_ok = int(c.get("paket_ok", 0))
         c["paket_esik"] = (p_ok // n + 1) * n          # mevcut sayimin ustundeki ilk katı
+        if p_ok < int(c["paket_esik"]) and getattr(self, "_paket_dlg", None) is not None:
+            # Hedef sayimin ustune cikti: acik paket uyarisini kapat, konveyoru serbest birak.
+            self._paket_penceresini_kapat()
+            self._set_conveyor_stop(False, "paket adedi değişti")
         self._save_counters()
         self._refresh_counter_panel()
         self._append_log(f"[Paket] Paket adedi = {n} (paket şu an {p_ok}, bir sonraki uyarı {c['paket_esik']} adette).")
@@ -2433,7 +2479,9 @@ class MainWindow(QMainWindow):
         c = self._counters
         return (f"<b style='font-size:16pt'>{int(c.get('paket_esik', 0))} adete ulaşıldı!</b><br><br>"
                 f"Paketteki OK parça: <b>{int(c.get('paket_ok', 0))}</b><br>"
-                f"Parti toplamı: {int(c.get('toplam', 0))} parça, OK {int(c.get('ok', 0))}, NOK {int(c.get('nok', 0))}")
+                f"Parti toplamı: {int(c.get('toplam', 0))} parça, OK {int(c.get('ok', 0))}, NOK {int(c.get('nok', 0))}"
+                + (f"<br><br><b style='color:#b35c00'>KONVEYÖR DURDURULDU</b> (PLC HR{self._stop_register()} = 1). "
+                   "Sıfırla ya da Devam et → konveyör çalışır." if self._stop_feature_on() else ""))
 
     def _paket_uyarisi(self):
         """Paket hedefine ulasildi: buyuk, MODAL OLMAYAN uyari (denetim/PLC durmaz).
@@ -2443,6 +2491,7 @@ class MainWindow(QMainWindow):
             return                                    # bu arada sifirlanmis olabilir
         QApplication.beep()
         self._refresh_counter_panel()
+        self._set_conveyor_stop(True, f"{int(c.get('paket_esik', 0))} adete ulaşıldı")
         dlg = getattr(self, "_paket_dlg", None)
         if dlg is not None:
             dlg.setText(self._paket_metni())
@@ -2455,7 +2504,8 @@ class MainWindow(QMainWindow):
         dlg.setTextFormat(Qt.RichText)
         dlg.setText(self._paket_metni())
         dlg.setInformativeText(f"Sıfırla: paket sayacı 0'dan başlar (günlük toplamlar kalır).\n"
-                               f"Devam et: sayım sürer, bir sonraki uyarı {n} parça sonra.")
+                               f"Devam et: sayım sürer, bir sonraki uyarı {n} parça sonra."
+                               + ("\nİkisi de konveyörü yeniden çalıştırır (PLC bayrağı 0)." if self._stop_feature_on() else ""))
         dlg.setWindowModality(Qt.NonModal)            # PLC/denetim bloke olmasin
         btn_reset = dlg.addButton("Sıfırla", QMessageBox.AcceptRole)
         dlg.addButton("Devam et", QMessageBox.RejectRole)
@@ -2494,6 +2544,7 @@ class MainWindow(QMainWindow):
         eski = int(c.get("paket_ok", 0))
         c["paket_ok"] = 0
         c["paket_esik"] = n
+        self._set_conveyor_stop(False, "Sıfırla")
         self._save_counters()
         self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), "-", "-", "PAKET", "", "",
                                f"paket kapatıldı: {eski} OK parça; yeni paket hedefi {n}", ""])
@@ -2507,9 +2558,50 @@ class MainWindow(QMainWindow):
         while esik <= int(c.get("paket_ok", 0)):
             esik += n
         c["paket_esik"] = esik
+        self._set_conveyor_stop(False, "Devam et")
         self._save_counters()
         self._refresh_counter_panel()
         self._append_log(f"[Paket] Devam edildi; bir sonraki uyarı {esik} adette.")
+
+    # ---- KONVEYOR DUR BAYRAGI (kullanici istegi 2026-09-24: "100 adete ulasinca PLC'yi durdur
+    #      desin, konveyor dursun") ---------------------------------------------------------
+    def _stop_feature_on(self) -> bool:
+        return bool((self.config.get("plc", {}) or {}).get("paket_dolu_durdur", True))
+
+    def _stop_register(self) -> int:
+        regs = (self.config.get("plc", {}) or {}).get("registers", {}) or {}
+        try:
+            return int(regs.get("stop", 102))
+        except (TypeError, ValueError):
+            return 102
+
+    def _set_conveyor_stop(self, stop: bool, reason: str = ""):
+        """Paket dolu -> PLC'ye DUR (HR102=1); Sifirla / Devam et -> 0 (calis). PLC bagli degilse
+        ya da yazim basarisizsa _poll_plc baglanti gelince yazar (_stop_written != _stop_desired)."""
+        self._stop_desired = bool(stop)
+        self._sync_plc_stop(reason)
+
+    def _sync_plc_stop(self, reason: str = ""):
+        if not self._stop_feature_on() or self._stop_written == self._stop_desired:
+            return
+        pub = getattr(self.plc, "publish_stop", None)
+        if pub is None or not self.plc.is_connected():
+            return
+        reg = self._stop_register()
+        ilk = self._stop_written is None
+        if pub(self._stop_desired):
+            self._stop_written = self._stop_desired
+            self._append_plc_debug_events()
+            ek = f" — {reason}" if reason else (" — başlangıç / yeniden bağlantı eşitlemesi" if ilk else "")
+            if self._stop_desired:
+                self._append_log(f"[Paket] KONVEYÖR DURDURULDU: PLC'ye HR{reg}=1 yazıldı{ek}. "
+                                 "Sıfırla ya da Devam et ile konveyör çalışır.")
+            else:
+                self._append_log(f"[Paket] Konveyör serbest: PLC'ye HR{reg}=0 yazıldı{ek}.")
+        else:
+            self._append_plc_debug_events()
+            self._append_log(f"[PLC HATA] Konveyör dur bayrağı (HR{reg}={1 if self._stop_desired else 0}) "
+                             "yazılamadı; bağlantı gelince tekrar denenecek.")
 
     def _build_report_html(self) -> str:
         import html as _h
