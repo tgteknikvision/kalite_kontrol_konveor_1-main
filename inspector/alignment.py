@@ -189,3 +189,26 @@ def product_present(box, ref_box, tolerance=0.25):
         return True, None
     tol = max(0.0, float(tolerance))
     return (abs(dev[0]) <= tol and abs(dev[1]) <= tol), dev
+
+
+def metal_threshold_suggestion(frame, s_max=85):
+    """metal_v_min icin OTOMATIK ONERI (2026-09-24, saha: bant parlaklasinca urun cercevesi bantla
+    birlesti; pozlama degisince esik yeniden ayarlanmali). Renksiz (S<=s_max) ve yesil olmayan
+    piksellerin V histogramina Otsu uygulanir: iki grup = zemin/bant (koyu) ve urun (parlak);
+    esik ikisinin arasina duser. Bulunan kutuya BAGLI DEGIL (kutu yanlisken de dogru calisir).
+    Doner: (oneri, zemin_medyan, urun_medyan) ya da None (yeterli piksel yoksa)."""
+    if frame is None or getattr(frame, "ndim", 0) != 3 or frame.shape[2] < 3:
+        return None
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    hue, sat, val = hsv[:, :, 0], hsv[:, :, 1], hsv[:, :, 2]
+    green = (hue >= 35) & (hue <= 90) & (sat >= 60) & (val >= 40)
+    secim = (sat <= int(s_max)) & (~green)
+    v = val[secim]
+    if v.size < 1000:
+        return None
+    thr, _ = cv2.threshold(v.reshape(-1, 1), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    thr = int(round(float(thr)))
+    koyu, parlak = v[v < thr], v[v >= thr]
+    if koyu.size < 100 or parlak.size < 100:
+        return None
+    return thr, int(np.median(koyu)), int(np.median(parlak))

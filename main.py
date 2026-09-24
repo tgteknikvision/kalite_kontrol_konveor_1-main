@@ -1780,7 +1780,7 @@ class MainWindow(QMainWindow):
             product_frame, product_box = self._prepare_roi_analysis_frame(frame, cam_no)
         except ValueError as exc:
             QMessageBox.warning(self, "Ürün Bulunamadı", str(exc))
-            self._append_log(f"[Ürün Bulma HATA] {exc}")
+            self._append_log(f"[Ürün Bulma HATA] {exc}{self._metal_threshold_hint(frame, cam_no)}")
             return
 
         if cam_no == 2:
@@ -1805,6 +1805,7 @@ class MainWindow(QMainWindow):
                 f"w={product_box[2]}, h={product_box[3]} (metal eşiği V≥{al_cfg.get('metal_v_min', 110)}, "
                 f"S≤{al_cfg.get('metal_s_max', 85)}). ROI'leri bu çerçevenin içinde çizin. Çerçeve bantı da "
                 "kapsıyorsa (tam boy): Ayarlar → 'metal parlaklık eşiği'ni artır."
+                + self._metal_threshold_hint(frame, cam_no)
             )
         else:
             self._append_log(
@@ -1858,6 +1859,21 @@ class MainWindow(QMainWindow):
         super().resizeEvent(event)
         # Pencere boyutu degisince snapshot'i da yeniden olcekle (layout otursun diye gecikmeli).
         QTimer.singleShot(0, self._rescale_snapshot)
+
+    def _metal_threshold_hint(self, frame, cam_no: int = 1) -> str:
+        """'Urun Cercevesi Bul' logu icin otomatik esik onerisi (alignment.metal_threshold_suggestion):
+        pozlama/isik degisince kullanici hangi degeri girecegini buradan okur."""
+        try:
+            from inspector.alignment import metal_threshold_suggestion
+            al_cfg = self._camera_config_view(cam_no).get("alignment", {}) or {}
+            oneri = metal_threshold_suggestion(frame, int(al_cfg.get("metal_s_max", 85)))
+        except Exception:
+            return ""
+        if not oneri:
+            return ""
+        thr, zemin, urun = oneri
+        return (f" | Parlaklık: zemin/bant ~{zemin}, ürün ~{urun} → önerilen metal eşiği ≈ {thr} "
+                f"(şu an {int(al_cfg.get('metal_v_min', 110))}; Ayarlar → 'Ürün bulma: metal parlaklık eşiği').")
 
     def _open_snapshot_zoom(self, event=None, cam_no: int = 1):
         """Son alınan tam resmi tam çözünürlükte, kaydırılabilir bir pencerede açar."""

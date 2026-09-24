@@ -79,6 +79,17 @@ check("160 ile 'Ürün Çerçevesi Bul' yalnız ürünü buldu ve eşiği loglad
 w.config["alignment"]["metal_v_min"] = 110; loglar.clear(); w._capture_product_box_for_roi(1)
 check("110 ile aynı kare tam boy çerçeve verir (sorun yeniden üretildi) + öneri metni", any("[Ürün Bulma] Çerçeve bulundu" in l and ("h=10" in l or "h=9") and "metal parlaklık eşiği" in l for l in loglar), str([l for l in loglar if "Ürün Bulma" in l]))
 
+print("\n[otomatik eşik önerisi]")
+from inspector.alignment import metal_threshold_suggestion
+o1 = metal_threshold_suggestion(parlak); o2 = metal_threshold_suggestion(karanlik)
+check("aydınlık bant sahnesinde öneri bant (≤125) ile ürün (235) ARASINDA", o1 is not None and 125 < o1[0] < 235 and o1[1] <= 125 and o1[2] >= 200, str(o1))
+check("karanlık bant sahnesinde de öneri arada", o2 is not None and 100 < o2[0] < 235, str(o2))
+check("düz gri karede (tek grup) öneri yok", metal_threshold_suggestion(np.full((300, 400, 3), 200, np.uint8)) is None)
+w.config["alignment"]["metal_v_min"] = 110; loglar.clear(); w._capture_product_box_for_roi(1)
+check("'Ürün Çerçevesi Bul' logunda 'önerilen metal eşiği ≈ N' var (kutu yanlışken de)", any("önerilen metal eşiği ≈" in l and "zemin/bant ~" in l for l in loglar), str([l for l in loglar if "Ürün Bulma" in l])[:300])
+w.worker = FakeWorker(np.zeros((300, 400, 3), np.uint8)); loglar.clear(); w._capture_product_box_for_roi(1)
+check("ürün bulunamayınca çökmez, HATA logu düşer", any("[Ürün Bulma HATA]" in l for l in loglar))
+
 w.worker = None; w.worker2 = None; w.close()
 basarisiz = [ad for ad, k in sonuc if not k]
 print(f"\nTOPLAM {len(sonuc)} test, {len(sonuc) - len(basarisiz)} geçti, {len(basarisiz)} başarısız", basarisiz or "")
