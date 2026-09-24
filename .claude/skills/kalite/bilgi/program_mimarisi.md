@@ -234,7 +234,7 @@ sıfırlama), `_stop_camera` (1164 — `stop()` + `wait(3000)`), `closeEvent` (1
 | `_poll_plc` | 1675 | `_dialog_paused` iken hiçbir şey yapmaz; `plc.poll()`; `_nok_reset_pending` + bağlantı geldiyse `_reset_plc_nok` tekrar denenir; `"capture"` → `_capture_from_plc`. |
 | `_capture_from_plc` | 1697 | BUSY/pending yok sayar; `trigger_delay_ms` > 0 ise `QTimer.singleShot`. |
 | `_delayed_capture` | 1708 | `_dialog_paused` olduysa çekimi İPTAL eder. |
-| `_capture_full_frame` | 1561 | **SIRA (1565):** kareler ÖNCE, hazırlık kontrolü SONRA. Kare veremezse ERROR; `ready_error` varsa `_store_setup_snapshot` + `publish_error` + ERROR; normal yolda kamera başına `_handle_snapshot`, kararlar VE'lenir, `_publish_plc_result`; yazım başarısızsa ERROR. Tüm istisnalar → `publish_error` + ERROR. |
+| `_capture_full_frame` | 1561 | **SIRA (1565):** kareler ÖNCE, hazırlık kontrolü SONRA. Kare veremezse ERROR; `ready_error` varsa `_store_setup_snapshot` + `publish_error` + ERROR; normal yolda kamera başına `_handle_snapshot`, kararlar VE'lenir, `_publish_plc_result`; yazım başarısızsa ERROR. `ProductMissing` → `_on_product_missing` (ÜRÜN YOK: NOK sayılmaz, PLC 1, uyarı — 2026-09-24). Tüm diğer istisnalar → `publish_error` + ERROR. |
 | `_handle_snapshot(part_id, crop_img, cam_no)` | 1291 | Tek karenin analizi; `cfg_view` → `_prepare_roi_analysis_frame` → `evaluate_with_profile` → gösterim + panel + ayrıntılı log. **`part_id == 0` = ÖNİZLEME:** PLC'ye yazılmaz ama LOGLANIR (`[Önizleme] ... (PLC'ye YAZILMAZ)`) — kaydet-bak-ayarla döngüsü ürün geçirmeden yapılır. |
 | `_get_latest_camera_frame` | 1902 | `last_raw_frame` KOPYASI; `max_frame_age_ms` bayatlık kontrolü (bayatsa `None`). |
 | `_production_ready_error` | 1728 | Her etkin kamerada en az bir aktif, `yon` OLMAYAN nokta; template'te referans şartı; PLC bağlı mı. |
@@ -945,6 +945,37 @@ karşılığı — elle senkron tutulur.
   *.log) + `.gitattributes` (*.sh LF, *.bat CRLF) yeniden eklendi. ⏳ `origin` GitHub'da yok.
 - **TUZAK (test):** `MainWindow.LOG_DIR` sınıf niteliği → ekransız testte `_append_log` GERÇEK saha
   loguna yazar; testte `main.MainWindow.LOG_DIR = <geçici>` yap (2026-09-23'te 24 satır sızdı, silindi).
+
+### Ürün var/yok kapısı — "yanlış çekim" (2026-09-24, kullanıcı kararı; PLC seçenek 1)
+- **Sorun:** tetik boş banda gelince (sensör çift tetik şüphesi) `find_product_box` yine kutu çizer
+  (Otsu yedeği → ray kenarı/metal şerit; sahada 286×1088 vs referans 708×542) → tüm noktalar NOK.
+- **Kapı:** `alignment.box_size_deviation(box, ref)` → (dw, dh) kesir; `alignment.product_present(box,
+  ref, tol=0.25)` → (var_mı, sapma); referans yoksa (True, None). `main._product_missing(box, cam_no)`
+  config `inspection.product_presence_check`/`product_box_tolerance` + `roi(2).reference_box` ile
+  `ProductMissing(cam_no, box, ref, dev, tol)` döner (`.detail()` = "çerçeve WxH, referans RWxRH: en %±x,
+  boy %±y (tolerans ±%t)").
+- **Akış:** `_handle_snapshot` → `_prepare_roi_analysis_frame` → kapı → uymuyorsa önceki
+  `_last_full_snapshot(_2)` + `_last_product_box(_2)` GERİ KONUR ve `raise ProductMissing`
+  (`_last_snapshot` hiç değişmez). `_capture_full_frame` `except ProductMissing` (genel `except`ten
+  ÖNCE) → `_on_product_missing(exc, frames, source)`: `[ÜRÜN YOK]` log (+ `önceki tetikten X s`),
+  `draw_product_box(frames[n], box, "BULUNAN CERCEVE (URUN DEGIL)")` + "URUN ALGILANAMADI - YANLIS
+  CEKIM" yazısı + damga → `_display_snapshot` (TAM kare); `ROIResultPanel.show_notice(text)` (=
+  `_set_header(None)` + `_clear()` + turuncu başlık); `_record_part(..., product_missing=detay)`;
+  `_publish_plc_error` (HR100=1); `_set_inspection_state(ERROR, label="ÜRÜN YOK", color="#ffb454")`;
+  `QTimer.singleShot(0, _urun_yok_uyarisi)`.
+- **Sayaç:** `_bos_sayac` `urun_yok`; `_record_part(product_missing=…)` → `toplam += 1`, `urun_yok += 1`,
+  CSV sonuc `URUN_YOK`, hatalı nokta "ürün algılanamadı", sebep = detay; NOK/noktalar/paket DEĞİŞMEZ.
+  Panel `lbl_counter_missing` ("Yanlış çekim (ürün yok): N", >0 turuncu); PDF özet sütunu; Sıfırla
+  CSV/log metninde "yanlış çekim N". Eski sayac.json (anahtar yok) → 0.
+- **Uyarı:** `_urun_yok_uyarisi` — `QApplication.beep()`, `QMessageBox` NonModal, RichText
+  `_urun_yok_metni()` (son detay `_last_missing_detail`, parti sayısı), tek buton "Kontrol ettim";
+  açıkken tekrar → `setText` + `raise_()`; `finished` → `_urun_yok_pencere_kapandi` (`_urun_yok_dlg=None`, log).
+- **Önizleme:** `_on_panel_threshold_changed` (except Exception → "[Uyarı] Önizleme yenilenemedi") ve
+  `_open_roi_manager` (except ProductMissing → "[Uyarı] Önizleme yapılamadı") çökmez.
+- **Tetik aralığı:** `_capture_from_plc` `_trigger_gap_s = now - _trigger_time`; `[Tetik] ...
+  önceki tetikten X s sonra` (çift tetik teşhisi için).
+- **Test:** `tests/test_urun_yok.py` (40). Sentetik kareler: siyah zemin + gri 400×300 → kutu
+  [180,130,440,340]; şerit 60×600 + yeşil ray → [280,0,160,600] (kapı yakalar).
 
 ### Sayaç + parça CSV + PDF rapor (2026-09-23, kullanıcı isteği; resim kaydı yerine)
 - **Veri:** `self._counters` = `{baslangic, toplam, ok, nok, hata, noktalar{etiket{kategori:n}},

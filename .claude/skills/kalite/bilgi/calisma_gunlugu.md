@@ -3,6 +3,26 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~10:30 — ÜRÜN VAR/YOK KAPISI uygulandı (kullanıcı: "dediğin gibi yapalım, PLC'de 1. öneri")
+
+Kararlar: boş kare → NOK DEĞİL "yanlış çekim"; operatör uyarısı; PLC'ye yine 1 (PLC değişmedi).
+**Kod:** `alignment.py` `box_size_deviation` + `product_present(box, ref, tol=0.25)` (saf);
+`main.py` `ProductMissing` sınıfı, `_product_missing` (config `inspection.product_presence_check`
+/ `product_box_tolerance`), `_handle_snapshot` kapı + önceki geçerli karelerin geri konması,
+`_capture_full_frame` `except ProductMissing` → `_on_product_missing` (log `[ÜRÜN YOK]`, tam kare +
+yanlış çerçeve + damga, panel `show_notice`, `_record_part(product_missing=…)` → sayaç `urun_yok` +
+CSV `URUN_YOK`, `_publish_plc_error` → HR100=1, durum "ÜRÜN YOK" turuncu, `_urun_yok_uyarisi`
+modal olmayan pencere "Kontrol ettim"), sol panel "Yanlış çekim (ürün yok): N", PDF sütunu,
+Sıfırla metni, `_set_inspection_state(label, color)`, `[Tetik]` loguna "önceki tetikten X s sonra".
+**Test:** `tests/test_urun_yok.py` 40/40; takım 147/147. Sentetik ürün karesi → [180,130,440,340];
+boş kare (şerit + yeşil ray) → [280,0,160,600] → kapı yakalar (en −%64, boy +%76).
+**Tuzaklar:** `ROIResultPanel._set_header` satırları temizlemez (`_clear()` temizler); testte iki
+pencere aynı sayac.json'ı paylaşınca ikinci pencerede sayaç sıfırlanmalı; gri ürün + köşe ROI'si
+"şekil uygun değil" verir (kategori varsayma).
+**Açık:** uygulama (kullanıcı, 10:01) yeniden başlatılmadı → kapı restart'ta devreye girer. Delik 1
+eşiği 13 → 11 önerisi kullanıcıda (Kontrol Merkezi kutusundan; uygulama açıkken config elle değişmez).
+Sensör çift tetik şüphesi PLC/sensör tarafında doğrulanmalı (log artık tetik aralığını yazıyor).
+
 ## 2026-09-24 ~10:05 — "Bazen boş kareyi yakalıyor, hepsi NOK" → teşhis + ürün var/yok kapısı önerisi (karar bekliyor)
 
 Kullanıcı ekran görüntüsüyle: 3 nokta + YÖN NOK, resimde ürün yok (çerçeve yeşil rayın yanındaki

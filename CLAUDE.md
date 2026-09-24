@@ -77,14 +77,15 @@ inspector/worker.py     InspectionWorker(config, cam_index) — kamera QThread'i
 inspector/plc.py        NullPLCAdapter + ModbusTCPPLCAdapter. Tetik/sonuç handshake.
 inspector/features.py   ROI analiz motoru: 'hole' (delik açık-alan+şekil + delik/çentik tipi) +
                         'template' (eski) + YÖN/EL kontrolü (ayna/simetrik parça → NOK).
-inspector/alignment.py  find_product_box: HSV metal izolasyonu ile ürünü (tam braket) bulup kırpar.
+inspector/alignment.py  find_product_box: HSV metal izolasyonu ile ürünü (tam braket) bulup kırpar;
+                        product_present: ÜRÜN VAR/YOK kapısı (kutu ↔ reference_box, 2026-09-24).
 inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontrol Noktası" menü-butonu
                         (delik=daire / çentik=kutu / YÖN=turuncu kutu seç → çizim modu silahlanır,
                         TEK çizim), sağ tık → Sil, otomatik rakam isim.
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (107 test, 5 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (147 test, 6 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -199,7 +200,8 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 ## 7. PLC / Modbus
 - İstemci Pi, sunucu PLC. `192.168.10.10:502`, unit_id config'te.
 - **HR101 = trigger** (PLC→Pi, yalnız oku): 0→1 yükselen kenar = denetim başlat.
-- **HR100 = nok** (Pi→PLC, yalnız yaz): **0 = OK, 1 = NOK/hata**.
+- **HR100 = nok** (Pi→PLC, yalnız yaz): **0 = OK, 1 = NOK/hata**. **ÜRÜN YOK / yanlış çekim de 1**
+  (kullanıcı kararı 2026-09-24, "PLC tarafı seçenek 1": PLC değişmedi; program NOK saymaz, operatörü uyarır).
 - Sadece 100/101 register'larına dokunulur (`ALLOWED_REGISTERS`).
 - Sonuç yazıldıktan ~1 sn sonra HR100=0'a resetlenir (`QTimer`). **ACK okuması YOK.**
 - `plc.type: null` → simülasyon (tetik otomatik gelmez; sadece "PLC Dışı Test Çekimi").
@@ -260,6 +262,12 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
 - `dynamic_rois`: ROI'ler `[x,y,w,h]` (alignment açıkken ürün çerçevesine göreli).
 - `plc.*`: host/port/unit_id/poll_ms/timeout_s/reconnect_s, registers {nok:100, trigger:101},
   **`manual_mode`** (true → PLC tamamen kapalı, elle çekim; bkz. §7).
+- **`inspection.product_presence_check`** (bool, vars. **true**) + **`inspection.product_box_tolerance`**
+  (vars. **0.25** = ±%25): ÜRÜN VAR/YOK KAPISI (2026-09-24). Bulunan ürün çerçevesinin en/boyu
+  `roi.reference_box`'a göre toleranstan fazla sapıyorsa "ÜRÜN ALGILANAMADI / yanlış çekim": analiz
+  yapılmaz, NOK SAYILMAZ (sayaç `urun_yok`, CSV `URUN_YOK`), PLC'ye yine 1, modal olmayan operatör
+  uyarısı. Referans yoksa / hizalama kapalıysa kapı devre dışı. Sahada OK çerçeveler ±%8, boş kare
+  %-60/%+100 (§12). Config'te anahtar yoksa varsayılanlar geçerli (setdefault yazılmaz).
 - `inspection.paket_adedi` (vars. 100): bir pakete konacak OK parça sayısı (sol panel "Paket
   adedi" kutusu). Sayaç `sayac.json`'da `paket_ok`/`paket_esik`; hedefe ulaşınca uyarı (§12).
 - `inspection.trigger_delay_ms`: tetikten sonra çekime kadar bekleme (ürün ortalansın diye).
@@ -311,6 +319,32 @@ parlaklık Otsu, parlak yeşil rayları da ürün sanıp çerçeveyi tüm kareye
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-24 ~10:30 — ÜRÜN VAR/YOK KAPISI: BOŞ KARE ARTIK NOK DEĞİL, "YANLIŞ ÇEKİM" (kullanıcı:
+  "bazen resimdeki gibi yakalıyor... ürün var yok anlasın... NOK'a sokmasın, operatöre yanlış algılama
+  desin" → "dediğin gibi yapalım, PLC tarafında 1. önerin"):** **Teşhis (log 09:48:17, Resim #0010):**
+  tetik bir önceki tetikten 2 s sonra geldi, gecikme 300 ms / kare yaşı 28 ms normal, KARE BOŞTU;
+  `find_product_box` "ürün yok" DEMEZ — metal maskesi boş kalınca Otsu yedeği en parlak bloba (ray
+  kenarı/metal şerit) kutu çizer (286×1088, referans 708×542) → 3 nokta + YÖN NOK → PLC'ye 1.
+  Bugünkü NOK'ların çoğu önceki tetikten 1-2 s sonra (OK'lar 3-10 s) → **sensör çift tetik şüphesi**
+  (PLC/sensör tarafında doğrulanmalı; `[Tetik]` loguna artık `önceki tetikten X s sonra` yazılıyor).
+  **Çözüm:** `alignment.product_present(box, reference_box, tol)` saf kapı; `main._product_missing`
+  `_handle_snapshot`'ta çerçeveyi referansla kıyaslar, sapma > ±%25 ise `ProductMissing` atar
+  (önceki geçerli `_last_full_snapshot`/`_last_product_box` GERİ KONUR → editör/önizleme son gerçek
+  ürün karesiyle çalışır). `_capture_full_frame` → `_on_product_missing`: `[ÜRÜN YOK]` logu, ekranda
+  TAM kare + bulunan (yanlış) çerçeve + "URUN ALGILANAMADI" damgası, panel `show_notice` (turuncu,
+  satırsız), `_record_part(product_missing=…)` → sayaç `urun_yok` (NOK/dağılım/paket DEĞİŞMEZ), CSV
+  `URUN_YOK`, `_publish_plc_error` → **HR100=1 (PLC seçenek 1)**, durum etiketi "ÜRÜN YOK" (turuncu,
+  makine ERROR), `QTimer.singleShot(0, _urun_yok_uyarisi)`: bip + MODAL OLMAYAN QMessageBox
+  ("Kontrol ettim" kapatır; açıkken yeni yanlış çekim metni günceller, ikinci pencere açılmaz).
+  Sol panelde "Yanlış çekim (ürün yok): N" satırı; PDF özetinde sütun; Sıfırla CSV/log'da sayı.
+  Config: `inspection.product_presence_check` / `product_box_tolerance` (§8). **TUZAKLAR:**
+  `ROIResultPanel._set_header` satırları TEMİZLEMEZ (`_clear()` temizler) — `show_notice` ikisini de
+  çağırır; testte iki pencere aynı `sayac.json`'ı paylaşır → ikinci pencerede `_counters = _bos_sayac()`.
+  40 ekransız test (`tests/test_urun_yok.py`: saf kapı, uçtan uca PLC/sayaç/CSV/panel/uyarı/kare koruma,
+  kapı kapalı/tolerans/referanssız, önizleme, PDF, kalıcılık, sıfırlama, tetik aralığı, iki kamera);
+  takım 147/147. **Çalışan uygulama (kullanıcı, 10:01) yeniden BAŞLATILMADI** — kapı restart'ta devreye
+  girer. **Delik 1 eşiği 13 sınırda** (OK parçalar 12.8-14.5; #19 tam 13.0'da NOK) → kullanıcıya 11 önerildi
+  (uygulama açıkken config elle değiştirilmez; Kontrol Merkezi kutusundan).
 - **✅ 2026-09-23 ~15:10 — SEÇENEK (İŞARET) KUTULARI GÖRÜNÜR (kullanıcı, ekran kesitiyle:
   "bu seçeneklerin kutuları gözükmüyor, tüm programda açık renk yap, okların renginde olabilir"):**
   Fusion'ın koyu palette çizdiği `QCheckBox` kutusu zeminle aynı tondaydı — temiz süreçte ekransız

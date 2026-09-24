@@ -140,6 +140,14 @@ class ROIResultPanel(QGroupBox):
             self.lbl_header.setText("PARÇA NOK"); renk = "#ff4d4d"
         self.lbl_header.setStyleSheet(f"color:{renk}; padding:1px;")
 
+    def show_notice(self, text: str, color: str = "#ffb454"):
+        """Sonuc satirlari OLMADAN tek satirlik durum (orn. 'URUN ALGILANAMADI'): satirlar
+        temizlenir, baslik verilen renkte yazilir (2026-09-24)."""
+        self._set_header(None)
+        self._clear()                                   # satirlar da temizlensin (eski sonuc kalmasin)
+        self.lbl_header.setText(text)
+        self.lbl_header.setStyleSheet(f"color:{color}; padding:1px;")
+
     def _make_row(self, name, grid_row, esik_var=True):
         """esik_var=False (ör. 'YON' satırı): eşik sütunları HİÇ oluşturulmaz ve
         sonuç yazısı rozetin hemen yanından başlar (boş sütunların sağına itilmesin)."""
@@ -287,6 +295,21 @@ class ROIResultPanel(QGroupBox):
 def load_config(path: str = CONFIG_PATH) -> dict:
     with open(path, "r", encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+class ProductMissing(Exception):
+    """Tetik geldi ama URUN KAREDE YOK (yanlis cekim, 2026-09-24). Analiz yapilmaz; NOK DEGIL,
+    ayri kayit (sayac 'urun_yok', CSV URUN_YOK) + operator uyarisi; PLC'ye yine 1 (kullanici
+    karari: PLC tarafi degismedi). _handle_snapshot atar, _capture_full_frame yakalar."""
+
+    def __init__(self, cam_no, box, ref, dev, tol):
+        self.cam_no, self.box, self.ref, self.dev, self.tol = int(cam_no), box, ref, dev, float(tol)
+        super().__init__(f"Kamera {cam_no}: ürün karede bulunamadı ({self.detail()})")
+
+    def detail(self) -> str:
+        b, r, d = self.box, self.ref, self.dev
+        return (f"çerçeve {int(b[2])}x{int(b[3])}, referans {int(r[0])}x{int(r[1])}: "
+                f"en %{d[0] * 100:+.0f}, boy %{d[1] * 100:+.0f} (tolerans ±%{self.tol * 100:.0f})")
 
 STYLESHEET = """
 /* === Profesyonel koyu (grafit) tema === */
@@ -918,6 +941,13 @@ class MainWindow(QMainWindow):
         self.lbl_counter_nok.setStyleSheet("color:#d96b6b;")
         self.lbl_counter_err = QLabel("Sistem hatası: 0")
         self.lbl_counter_err.setStyleSheet("color:#d8a657;")
+        # URUN YOK / YANLIS CEKIM (2026-09-24): NOK'tan AYRI sayilir (bkz. _on_product_missing).
+        self.lbl_counter_missing = QLabel("Yanlış çekim (ürün yok): 0")
+        self.lbl_counter_missing.setStyleSheet("color:#9aa0ab;")
+        self.lbl_counter_missing.setToolTip(
+            "Tetik geldi ama kamera karede ürün bulamadı (bulunan çerçeve referansa uymuyor).\n"
+            "NOK sayılmaz; PLC'ye yine NOK (1) yazılır; ekranda operatör uyarısı çıkar.\n"
+            "Sık oluyorsa: sensör boş banda tetik veriyor (çift tetik) ya da çekim gecikmesi yanlış.")
         self.lbl_counter_breakdown = QLabel("Henüz NOK yok.")
         self.lbl_counter_breakdown.setWordWrap(True)
         self.lbl_counter_breakdown.setStyleSheet("color:#c4c9d2; font-size:11px;")
@@ -956,7 +986,7 @@ class MainWindow(QMainWindow):
                     self.lbl_counter_nok):
             counter_layout.addWidget(wdg)
         counter_layout.addLayout(paket_row)
-        for wdg in (self.lbl_paket, self.lbl_counter_err, self.lbl_counter_breakdown):
+        for wdg in (self.lbl_paket, self.lbl_counter_err, self.lbl_counter_missing, self.lbl_counter_breakdown):
             counter_layout.addWidget(wdg)
         counter_btns = QHBoxLayout()
         self.btn_pdf = QPushButton("PDF Rapor")
@@ -1535,6 +1565,10 @@ class MainWindow(QMainWindow):
             return False
         # Kamera 2 icin config GORUNUMU: analiz motoru degismeden kendi ROI/esikleriyle calisir.
         cfg_view = self._camera_config_view(cam_no)
+        # Onceki gecerli kareler: URUN YOK cikarsa GERI KONUR (editor/onizleme son GERCEK urun
+        # karesiyle calismaya devam etsin; bos kare onlarin yerine gecmesin).
+        prev = ((self._last_full_snapshot_2, self._last_product_box_2) if cam_no == 2
+                else (self._last_full_snapshot, self._last_product_box))
         if cam_no == 2:
             self._last_full_snapshot_2 = crop_img.copy()
         else:
@@ -1546,6 +1580,16 @@ class MainWindow(QMainWindow):
             self._append_log("[Uyarı] OK referans yok; template yöntemi analizde NOK dönecek "
                              "(aktif kullanım için roi.decision_method: hole önerilir).")
         analysis_img, product_box = self._prepare_roi_analysis_frame(crop_img, cam_no)
+        # URUN VAR/YOK KAPISI (2026-09-24): bulunan cerceve referansa uymuyorsa urun karede
+        # YOK (yanlis cekim) -> analiz YAPILMAZ, ProductMissing yukari gider
+        # (_capture_full_frame -> _on_product_missing: ayri kayit + operator uyarisi + PLC 1).
+        missing = self._product_missing(product_box, cam_no)
+        if missing is not None:
+            if cam_no == 2:
+                self._last_full_snapshot_2, self._last_product_box_2 = prev
+            else:
+                self._last_full_snapshot, self._last_product_box = prev
+            raise missing
         if cam_no == 2:
             self._last_snapshot_2 = analysis_img.copy()
         else:
@@ -1579,6 +1623,100 @@ class MainWindow(QMainWindow):
                 log_msg += f"\n     OK bant: {format_limits(res.get('limits', {}))}"
             self._append_log(log_msg)
         return bool(is_ok)
+
+    # ---- URUN VAR/YOK KAPISI (kullanici karari 2026-09-24) ----------------------------
+    def _product_missing(self, box, cam_no: int):
+        """Bulunan cerceve referans kutuya (roi.reference_box; kontrol noktalari cizilirken
+        kaydedilir) gore en YA DA boyda toleranstan fazla sapiyorsa ProductMissing DONER
+        (atmaz); urun varsa / kapi kapaliysa / referans yoksa / hizalama kapaliysa None.
+        config: inspection.product_presence_check (vars. true),
+                inspection.product_box_tolerance (vars. 0.25 = ±%25; sahada OK cerceveler
+                ±%8 icinde, bos kare %-60 / %+100 sapiyor -> ayrim net)."""
+        insp = self.config.get("inspection", {}) or {}
+        if box is None or not bool(insp.get("product_presence_check", True)):
+            return None
+        try:
+            tol = float(insp.get("product_box_tolerance", 0.25))
+        except (TypeError, ValueError):
+            tol = 0.25
+        ref = (self._camera_config_view(cam_no).get("roi", {}) or {}).get("reference_box")
+        from inspector.alignment import product_present
+        present, dev = product_present(box, ref, tol)
+        if present:
+            return None
+        return ProductMissing(cam_no, box, ref, dev, tol)
+
+    def _on_product_missing(self, exc, frames, source):
+        """URUN YOK / YANLIS CEKIM yolu (PLC secenegi 1, kullanici karari): NOK SAYILMAZ (ayri
+        sayac 'urun_yok', CSV URUN_YOK, dagilima girmez, paket etkilenmez); PLC'ye YINE 1
+        yazilir (PLC tarafi degismedi -> hat NOK'taki gibi durur/ayirir); ekranda tam kare +
+        bulunan (yanlis) cerceve + modal OLMAYAN operator uyarisi ('Kontrol ettim' kapatir;
+        denetim ve PLC durmaz). Son gecerli kareler _handle_snapshot'ta korunmustur."""
+        n = exc.cam_no
+        detay = exc.detail()
+        gap = getattr(self, "_trigger_gap_s", None)
+        gap_txt = f" Önceki tetikten {gap:.1f} s sonra geldi." if (source == "plc" and gap is not None) else ""
+        self._last_missing_detail = f"{self._cam_prefix(n)}{detay}"
+        self._append_log(
+            f"[ÜRÜN YOK] {self._cam_prefix(n)}Resim #{self._capture_counter:04d}: ürün karede bulunamadı "
+            f"— YANLIŞ ÇEKİM ({detay}).{gap_txt} NOK sayılmadı; PLC'ye 1 yazıldı; operatör kontrol etsin. "
+            "Boş banda tetik geliyorsa sensör / çift tetik kontrol edilmeli.")
+        try:
+            from inspector.alignment import draw_product_box
+            disp = draw_product_box(frames[n], exc.box, label="BULUNAN CERCEVE (URUN DEGIL)")
+            cv2.putText(disp, "URUN ALGILANAMADI - YANLIS CEKIM", (16, 56),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 165, 255), 3, cv2.LINE_AA)
+            self._stamp_capture_note(disp)
+            self._display_snapshot(disp, n)
+        except Exception as e:
+            self._append_log(f"[Uyarı] Ürün-yok görüntüsü çizilemedi: {e}")
+        panel = self._cam_widgets(n)["errors"]
+        if panel is not None:
+            panel.show_notice("ÜRÜN ALGILANAMADI — yanlış çekim (NOK sayılmadı)")
+            panel.setVisible(True)
+        self._record_part(self._capture_counter, False, {}, source, product_missing=detay)
+        self._publish_plc_error(f"ürün algılanamadı: {detay}")
+        self._set_inspection_state(InspectionState.ERROR, label="ÜRÜN YOK", color="#ffb454")
+        QTimer.singleShot(0, self._urun_yok_uyarisi)      # PLC yazimini geciktirmesin
+
+    def _urun_yok_metni(self) -> str:
+        import html as _h
+        c = self._counters
+        return (f"<b style='font-size:16pt'>ÜRÜN ALGILANAMADI</b><br>"
+                f"Tetik geldi ama kamera karede ürün bulamadı (yanlış çekim).<br>"
+                f"<span style='color:#9aa0ab'>{_h.escape(getattr(self, '_last_missing_detail', '') or '-')}</span><br><br>"
+                f"PLC'ye NOK (1) yazıldı; parça <b>NOK SAYILMADI</b>.<br>"
+                f"Bu partide yanlış çekim: <b>{int(c.get('urun_yok', 0))}</b>")
+
+    def _urun_yok_uyarisi(self):
+        """Operator uyarisi: buyuk, MODAL OLMAYAN (denetim/PLC durmaz). Acikken yeni yanlis
+        cekimler metni gunceller, ikinci pencere ACILMAZ. 'Kontrol ettim' kapatir."""
+        QApplication.beep()
+        dlg = getattr(self, "_urun_yok_dlg", None)
+        if dlg is not None:
+            dlg.setText(self._urun_yok_metni())
+            dlg.raise_()
+            return
+        dlg = QMessageBox(self)
+        dlg.setWindowTitle("Ürün algılanamadı")
+        dlg.setIcon(QMessageBox.Warning)
+        dlg.setTextFormat(Qt.RichText)
+        dlg.setText(self._urun_yok_metni())
+        dlg.setInformativeText("Bantı ve parçayı kontrol edin: parça kameranın altından geçti mi, "
+                               "sensör boş banda mı tetik verdi? Sonra 'Kontrol ettim' ile kapatın. "
+                               "Denetim ve PLC bu pencere açıkken de çalışır.")
+        dlg.setWindowModality(Qt.NonModal)
+        dlg.addButton("Kontrol ettim", QMessageBox.AcceptRole)
+        dlg.finished.connect(lambda _r, d=dlg: self._urun_yok_pencere_kapandi(d))
+        self._urun_yok_dlg = dlg
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+
+    def _urun_yok_pencere_kapandi(self, dlg):
+        if getattr(self, "_urun_yok_dlg", None) is dlg:
+            self._urun_yok_dlg = None
+            self._append_log("[ÜRÜN YOK] Operatör 'Kontrol ettim' dedi; uyarı kapatıldı.")
 
     def _point_thresholds(self, cam_no: int, name: str, roi_type: str):
         """Bir noktanin YURURLUKTEKI esikleri (delikte İKİ tane: açıklık + derinlik).
@@ -1840,6 +1978,9 @@ class MainWindow(QMainWindow):
             self._last_capture_note = f"Gecikme {delay_ms} ms | kare {age_ms:.0f} ms"
             timing = (f" | gecikme {delay_ms} ms, tetikten {since_ms:.0f} ms sonra, "
                       f"kare yaşı {age_ms:.0f} ms")
+            gap = getattr(self, "_trigger_gap_s", None)
+            if gap is not None:                       # cift tetik / bos bant teshisi icin
+                timing += f", önceki tetikten {gap:.1f} s sonra"
         else:
             self._last_capture_note = "Elle cekim"
             timing = f" | elle çekim, kare yaşı {age_ms:.0f} ms"
@@ -1886,6 +2027,8 @@ class MainWindow(QMainWindow):
                 # Baglanti geri gelince _update_plc_connection_status ERROR->READY toparlar.
                 self._append_log("[HATA] PLC sonucu yazılamadı; durum ERROR.")
                 self._set_inspection_state(InspectionState.ERROR)
+        except ProductMissing as exc:
+            self._on_product_missing(exc, frames, source)     # NOK degil: ayri kayit + uyari + PLC 1
         except Exception as exc:
             self._append_log(f"[HATA] Analiz başarısız: {exc}")
             self._record_part(self._capture_counter, False, {}, source, error=str(exc))
@@ -1930,10 +2073,11 @@ class MainWindow(QMainWindow):
             return
         self._set_inspection_state(InspectionState.READY)
 
-    def _set_inspection_state(self, state: InspectionState):
+    def _set_inspection_state(self, state: InspectionState, label: str = None, color: str = None):
+        """label/color: ayni durum makinesi degeriyle FARKLI yazi (orn. ERROR -> 'ÜRÜN YOK', turuncu)."""
         self._inspection_state = state
         self.plc.set_state(state)
-        self.lbl_plc.setText(state.value)
+        self.lbl_plc.setText(label or state.value)
         colors = {
             InspectionState.READY: "#62b87d",
             InspectionState.BUSY: "#d8a657",
@@ -1941,7 +2085,7 @@ class MainWindow(QMainWindow):
             InspectionState.NOK: "#d96b6b",
             InspectionState.ERROR: "#d96b6b",
         }
-        self.lbl_plc.setStyleSheet(f"color: {colors.get(state, '#9aa0ab')};")
+        self.lbl_plc.setStyleSheet(f"color: {color or colors.get(state, '#9aa0ab')};")
 
     def _poll_plc(self):
         # Ayarlar/Kontrol Noktalari penceresi acikken tetik isleme: duzenleme
@@ -1969,7 +2113,11 @@ class MainWindow(QMainWindow):
         if self._capture_pending or self._inspection_state == InspectionState.BUSY:
             return
         # Tetik ani: gecikme ve log'daki "tetikten X ms sonra" buradan sayilir.
-        self._trigger_time = time.time()
+        now = time.time()
+        # Tetikler arasi sure (2026-09-24): bos kare NOK'lari 1-2 s araliklarda geldi ->
+        # sensor cift tetik suphesi; loga yazilir ki PLC/sensor tarafinda dogrulanabilsin.
+        self._trigger_gap_s = (now - self._trigger_time) if self._trigger_time else None
+        self._trigger_time = now
         delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
         if delay_ms <= 0:
             self._capture_full_frame(source="plc")
@@ -2170,7 +2318,10 @@ class MainWindow(QMainWindow):
                              f"{active_count}/{len(rois)} aktif nokta kaydedildi.")
             full = self._last_full_snapshot_2 if two else self._last_full_snapshot
             preview_frame = full if full is not None else snapshot
-            self._handle_snapshot(0, preview_frame, cam_no)
+            try:
+                self._handle_snapshot(0, preview_frame, cam_no)
+            except ProductMissing as exc:
+                self._append_log(f"[Uyarı] Önizleme yapılamadı: {exc}")
 
     # ======================================================================
     # SAYAC + PARCA KAYDI + PDF RAPOR (kullanici istegi 2026-09-23)
@@ -2191,7 +2342,7 @@ class MainWindow(QMainWindow):
     def _bos_sayac(self):
         n = self._paket_adedi()
         return {"baslangic": time.strftime("%Y-%m-%d %H:%M:%S"), "toplam": 0, "ok": 0, "nok": 0,
-                "hata": 0, "noktalar": {}, "hata_sebepleri": {}, "son_nok": [],
+                "hata": 0, "urun_yok": 0, "noktalar": {}, "hata_sebepleri": {}, "son_nok": [],
                 "paket_ok": 0, "paket_esik": n}
 
     def _load_counters(self):
@@ -2248,14 +2399,20 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-    def _record_part(self, part_id, is_ok, results_by_cam, source="plc", error=None):
+    def _record_part(self, part_id, is_ok, results_by_cam, source="plc", error=None,
+                     product_missing=None):
         """Bir cekimi sayaca ve CSV'ye isler. error verilirse 'sistem hatasi' (parca
-        denetlenemedi, PLC'ye 1 yazildi). results_by_cam: {cam_no: evaluate sonuclari}."""
+        denetlenemedi, PLC'ye 1 yazildi). product_missing verilirse 'URUN YOK / yanlis cekim'
+        (2026-09-24): NOK DEGIL, ayri sayac urun_yok (PLC'ye yine 1 yazilmistir).
+        results_by_cam: {cam_no: evaluate sonuclari}."""
         from inspector.features import roi_point_type
         c = self._counters
         c["toplam"] += 1
         zaman = time.strftime("%Y-%m-%d %H:%M:%S")
-        if error:
+        if product_missing:
+            c["urun_yok"] = int(c.get("urun_yok", 0)) + 1
+            sonuc, failed, olcum = "URUN_YOK", [f"ürün algılanamadı = {product_missing}"], []
+        elif error:
             c["hata"] += 1
             kisa = str(error).split(".")[0].strip()[:60]
             c["hata_sebepleri"][kisa] = c["hata_sebepleri"].get(kisa, 0) + 1
@@ -2312,6 +2469,9 @@ class MainWindow(QMainWindow):
         self.lbl_counter_ok.setText(f"OK: {c.get('ok', 0)}{pct(c.get('ok', 0))}")
         self.lbl_counter_nok.setText(f"NOK: {c.get('nok', 0)}{pct(c.get('nok', 0))}")
         self.lbl_counter_err.setText(f"Sistem hatası: {c.get('hata', 0)}")
+        uy = int(c.get("urun_yok", 0))
+        self.lbl_counter_missing.setText(f"Yanlış çekim (ürün yok): {uy}")
+        self.lbl_counter_missing.setStyleSheet("color:#ffb454; font-weight:bold;" if uy else "color:#9aa0ab;")
         p_ok, p_esik = int(c.get("paket_ok", 0)), int(c.get("paket_esik", self._paket_adedi()))
         if p_ok >= p_esik:
             self.lbl_paket.setText(f"PAKET DOLDU: {p_ok} / {p_esik}")
@@ -2346,10 +2506,12 @@ class MainWindow(QMainWindow):
         self._save_counters()
         self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), "-", "-", "SIFIRLA", "",
                                "", f"önceki parti: toplam {eski.get('toplam', 0)}, OK {eski.get('ok', 0)}, "
-                                   f"NOK {eski.get('nok', 0)}, hata {eski.get('hata', 0)}", ""])
+                                   f"NOK {eski.get('nok', 0)}, hata {eski.get('hata', 0)}, "
+                                   f"yanlış çekim {eski.get('urun_yok', 0)}", ""])
         self._refresh_counter_panel()
         self._append_log(f"[Sayaç] Sıfırlandı (önceki parti: toplam {eski.get('toplam', 0)}, "
-                         f"OK {eski.get('ok', 0)}, NOK {eski.get('nok', 0)}, hata {eski.get('hata', 0)}).")
+                         f"OK {eski.get('ok', 0)}, NOK {eski.get('nok', 0)}, hata {eski.get('hata', 0)}, "
+                         f"yanlış çekim {eski.get('urun_yok', 0)}).")
 
     # ---- PAKET ADEDI / UYARI (kullanici istegi 2026-09-23) --------------------------
     def _on_paket_adedi_changed(self, value):
@@ -2466,11 +2628,16 @@ class MainWindow(QMainWindow):
                  f"PLC: {_h.escape(str(plc.get('host', '-')))} &nbsp;|&nbsp; {cams} &nbsp;|&nbsp; "
                  f"Çekim gecikmesi: {int(self.config.get('inspection', {}).get('trigger_delay_ms', 0))} ms</div>")
         H.append("<h2>Özet</h2><table>")
-        H.append("<tr><th>Geçen parça</th><th>OK</th><th>NOK</th><th>Sistem hatası</th></tr>")
+        uy = int(c.get("urun_yok", 0))
+        H.append("<tr><th>Geçen parça</th><th>OK</th><th>NOK</th><th>Sistem hatası</th>"
+                 "<th>Yanlış çekim (ürün yok)</th></tr>")
         H.append(f"<tr><td><b>{t}</b></td><td class='ok'>{ok} ({yuzde(ok)})</td>"
-                 f"<td class='nok'>{nok} ({yuzde(nok)})</td><td>{err} ({yuzde(err)})</td></tr></table>")
+                 f"<td class='nok'>{nok} ({yuzde(nok)})</td><td>{err} ({yuzde(err)})</td>"
+                 f"<td>{uy} ({yuzde(uy)})</td></tr></table>")
         H.append("<div class='kucuk'>Sistem hatası = parça denetlenemedi (kamera görüntüsü yok, kontrol noktası yok, "
-                 "ürün çerçevesi bulunamadı vb.); PLC'ye NOK (1) yazılır.</div>")
+                 "ürün çerçevesi bulunamadı vb.); PLC'ye NOK (1) yazılır. "
+                 "Yanlış çekim = tetik geldi ama karede ürün yoktu (bulunan çerçeve referansa uymadı); "
+                 "NOK sayılmaz, PLC'ye yine 1 yazılır, operatör uyarılır.</div>")
         H.append("<h2>Hata dağılımı (kontrol noktası / sebep)</h2>")
         noktalar = sorted(c.get("noktalar", {}).items(), key=lambda kv: -sum(kv[1].values()))
         if noktalar:

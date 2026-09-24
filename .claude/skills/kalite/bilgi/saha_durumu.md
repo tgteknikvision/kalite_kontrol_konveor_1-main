@@ -94,5 +94,10 @@
   anahtarı henüz yok → varsayılan 100).
 
 ## Üretim durumu
+**2026-09-24 10:30 — ÜRÜN VAR/YOK KAPISI kodda (restart bekliyor):** boş kare artık NOK değil,
+"yanlış çekim" (sayaç `urun_yok`, operatör uyarısı, PLC'ye yine 1). Bugün 09:47-09:50 (gecikme 300):
+21 tetik, 17 OK, NOK'lar çoğunlukla önceki tetikten 1-2 s sonra → sensör çift tetik şüphesi.
+Kullanıcı 09:52'de gecikmeyi 10 ms yaptı. Delik 1 eşiği 13 sınırda (OK 12.8-14.5) → 11 önerildi.
+
 Kamera 1 kalibre, parçalar OK geçiyor (13:19). Tek açık risk cam0 kablo/konnektör takılması
 (yukarıdaki 00. madde): tekrarlarsa uygulama restart'a kadar her tetiğe NOK yazar.

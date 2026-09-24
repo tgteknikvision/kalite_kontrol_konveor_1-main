@@ -17,6 +17,7 @@ python3 tests/test_paket.py             # tek dosya
 | `test_sayac.py` | sayaç, sebep kategorileri, CSV, kalıcılık, iki kamera etiketi, PDF üretimi, sıfırlama, uçtan uca çekim→sayaç |
 | `test_paket.py` | paket adedi kutusu, 100'de uyarı (modal değil), Devam et/Sıfırla/X, adet değişimi, kalıcılık |
 | `test_stil.py` | seçenek kutuları görünür (Fusion + koyu palet ile render, piksel sayımı): boş/işaretli/pasif, Ayarlar kamera grubu kutuları, tik resmi, resimsiz yedek |
+| `test_urun_yok.py` | ürün var/yok kapısı: saf `product_present`, uçtan uca boş kare → URUN_YOK (PLC 1, NOK sayılmaz, panel/durum/uyarı penceresi, son geçerli kare korunur), kapı kapalı/tolerans/referanssız, önizleme, PDF, kalıcılık, sıfırlama, tetik aralığı logu, iki kamera |
 
 NEDEN burada: testler önce `/tmp` altındaki oturum klasöründeydi; Pi yeniden başlayınca
 `/tmp` temizlendi ve sabahki takım kayboldu (2026-09-23). Testler artık repoda yaşar.

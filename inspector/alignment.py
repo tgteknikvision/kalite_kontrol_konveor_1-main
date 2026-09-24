@@ -159,3 +159,33 @@ def draw_product_box(frame: np.ndarray, box: list, label: str = "URUN"):
     cv2.rectangle(display, (x, y), (x2, y2), (0, 255, 255), 3)
     cv2.putText(display, label, (x, max(20, y - 8)), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2, cv2.LINE_AA)
     return display
+
+
+def box_size_deviation(box, ref_box):
+    """Bulunan urun kutusunun referans kutuya (roi.reference_box) gore EN/BOY sapmasi.
+    Doner: (dw, dh) kesir (+0.10 = %10 buyuk, -0.60 = %60 kucuk); referans yoksa None."""
+    if not box or len(box) != 4 or not ref_box or len(ref_box) != 2:
+        return None
+    try:
+        rw, rh = float(ref_box[0]), float(ref_box[1])
+        bw, bh = float(box[2]), float(box[3])
+    except (TypeError, ValueError):
+        return None
+    if rw <= 0 or rh <= 0:
+        return None
+    return (bw / rw - 1.0, bh / rh - 1.0)
+
+
+def product_present(box, ref_box, tolerance=0.25):
+    """URUN VAR/YOK KAPISI (2026-09-24, saha: "bazen bos kareyi yakaliyor, hepsi NOK").
+    Tetik geldiginde urun karede yoksa find_product_box "yok" DEMEZ: metal maskesi bos
+    kalinca Otsu yedegi en parlak bloba (ray kenari / metal serit) kutu cizer (sahada
+    286x1088, referans 708x542) -> noktalar boslugu olcer -> hepsi NOK + yon NOK.
+    Kutu en/boy'u referansa gore toleranstan fazla sapiyorsa urun YOK sayilir.
+    Sahada OK cerceveler referansa +-%8 icinde; bos kare %-60 / %+100 sapiyor.
+    Doner: (var_mi, sapma); referans yoksa (True, None) = kapi devre disi."""
+    dev = box_size_deviation(box, ref_box)
+    if dev is None:
+        return True, None
+    tol = max(0.0, float(tolerance))
+    return (abs(dev[0]) <= tol and abs(dev[1]) <= tol), dev

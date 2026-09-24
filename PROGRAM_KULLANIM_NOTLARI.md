@@ -69,6 +69,23 @@ uygulama kapansa da kaybolmaz.
 - Sebep adları: "kapalı / eksik / tıkalı" (delikte koyu alan az), "şekil uygun değil" (koyu blob
   yuvarlak değil), "derinlik yetersiz", "oluk yok (oran bant dışı / şekil yok)", "ayna / ters parça".
 
+## 3d. "Ürün algılanamadı" uyarısı (yanlış çekim)
+Tetik gelir ama kamera karede ürün bulamazsa (örn. sensör boş banda tetik verdi, parça
+kameranın altından geçmişti) program bunu **NOK saymaz**; ekranda **"ÜRÜN ALGILANAMADI"**
+penceresi çıkar (bip sesiyle), durum satırı turuncu **ÜRÜN YOK** olur, son resimde bulunan
+yanlış çerçeve turuncu gösterilir.
+- **PLC'ye yine NOK (1) gider** → hat NOK'taki gibi davranır (durur/ayırır). PLC programı değişmedi.
+- **Ne yapmalı:** banda ve parçaya bakın — parça gerçekten geçti mi, sensör boşa mı tetikledi?
+  Sonra **"Kontrol ettim"** ile pencereyi kapatın. Pencere açıkken denetim ve PLC durmaz;
+  yeni yanlış çekimler aynı pencerede sayılır.
+- Sol panelde **"Yanlış çekim (ürün yok): N"** satırı ve PDF raporunda ayrı sütun.
+- **Sık oluyorsa:** loglarda `[Tetik] ... önceki tetikten X s sonra` değerine bakın; yanlış çekimler
+  hep 1-2 s aralıkla geliyorsa sensör aynı parçaya iki tetik veriyor (PLC'ci ile bakılmalı).
+  Çekim gecikmesi de yanlış olabilir (§3).
+- Ölçüt: bulunan ürün çerçevesi, kontrol noktaları çizilirken kaydedilen referans kutudan
+  en ya da boyda %25'ten fazla sapıyorsa "ürün yok" sayılır (config: `inspection.product_box_tolerance`;
+  `inspection.product_presence_check: false` kapatır).
+
 ## 4. Ayarlar (⚙)
 PLC (tip, IP, port, unit id, poll) · **Kamera 1 / Kamera 2** (grup başlığındaki kutu = kamerayı
 kullan) · çözünürlük (imx477 doğal modları: 4056x3040 ağır, 2028x1520, 2028x1080, 1332x990) ·
