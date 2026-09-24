@@ -76,7 +76,7 @@ dynamic_rois_2:
   - 747
   - 133
 inspection:
-  trigger_delay_ms: 100
+  trigger_delay_ms: 50
 plc:
   host: 192.168.10.10
   poll_ms: 20

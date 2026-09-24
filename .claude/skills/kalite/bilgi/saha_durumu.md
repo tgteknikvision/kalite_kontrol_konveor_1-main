@@ -94,6 +94,10 @@
   anahtarı henüz yok → varsayılan 100).
 
 ## Üretim durumu
+**2026-09-24 11:20 — REFERANS ESKİ:** 10:45'ten beri ürün karede ~%20 büyük (OK çerçeveleri 830×655,
+referans 708×542) ve netlik 163→19: kamera/lens oynamış olabilir. Sınırdaki kareler sahte "yanlış çekim"
+veriyor. Yapılacak: odak → Kontrol Noktaları yeniden çiz (referans güncellenir) → gecikme (şu an 50 ms,
+ürün karenin altında).
 **2026-09-24 10:30 — ÜRÜN VAR/YOK KAPISI kodda (restart bekliyor):** boş kare artık NOK değil,
 "yanlış çekim" (sayaç `urun_yok`, operatör uyarısı, PLC'ye yine 1). Bugün 09:47-09:50 (gecikme 300):
 21 tetik, 17 OK, NOK'lar çoğunlukla önceki tetikten 1-2 s sonra → sensör çift tetik şüphesi.

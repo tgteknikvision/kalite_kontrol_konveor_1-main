@@ -3,6 +3,19 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~11:20 — "Burada ürünü niye yakalayamıyor?" → ürün büyüdü, referans eski (teşhis, kod değişmedi)
+
+Ekran görüntüsü 11:12:10: ürün karede tam, çerçeve 839×680 ama referans 708×542 → boy %+25.5 →
+tolerans ±%25'i 0.5 puanla aştı → "yanlış çekim". **Veri:** 09:47-10:00 OK çerçeveleri 670-720 ×
+530-560; **10:45'ten itibaren OK çerçeveleri 812-848 × 603-675** (11:09-11:12'de 62 OK, hepsi bu
+boyda) → ürün karede ~%18-21 daha büyük görünüyor. Netlik 163 → 19 (%12). Kamera/lens 10:40-10:45
+arasında oynamış/yaklaşmış ya da odak bozulmuş (10:51:42 Ayarlar kaydı sıçramadan SONRA; config'te
+zoom 1.0, 1456×1088 değişmemiş). Sınır vakaları: 11:09:49 837×682, 11:11:46 841×691, 11:12:10 839×680
+(ürün vardı, sahte "ürün yok"). Bugünkü diğer "yanlış çekim"ler gerçek bozuk kare (288×1088 boş,
+848×337 / 438×153 ürün yarım, 852×1088 tam boy birleşme) — gecikme 50 ms ile ürün karenin altında.
+**Öneri (kullanıcıya):** odağı düzelt → Kontrol Noktaları'nı güncel kareyle yeniden çiz (referans
+830×655 olur, kapı ortalanır) → gecikmeyi ürünü ortalayacak değere çek. Teklif: editör açılırken
+mevcut noktaları yeni çerçeve boyutuna otomatik ölçekle (aç → Kaydet ile yeniden kalibrasyon).
 ## 2026-09-24 ~11:15 — Elle Çekim Modu komple kaldırıldı (kullanıcı isteği)
 
 Kullanıcı (ekran görüntüsüyle): "elle çekim modu varya onu kaldıralım komple programdan, bide onun
