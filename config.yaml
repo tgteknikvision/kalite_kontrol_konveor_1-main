@@ -125,7 +125,7 @@ roi:
   hole_shape_check: true
   hole_use_circle_check: false
   notch_dark_max: 95.0
-  notch_dark_min: 50.0
+  notch_dark_min: 25.0
   point_overrides:
     '1':
       hole_core_ratio_min: 19.0
