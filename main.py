@@ -1664,8 +1664,10 @@ class MainWindow(QMainWindow):
         try:
             from inspector.alignment import draw_product_box
             disp = draw_product_box(frames[n], exc.box, label="BULUNAN CERCEVE (URUN DEGIL)")
-            cv2.putText(disp, "URUN ALGILANAMADI - YANLIS CEKIM", (16, 56),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 165, 255), 3, cv2.LINE_AA)
+            # Yazi kare genisligiyle olceklenir (1456 px karede ~55 px; panelde kucultulunce okunur).
+            olcek = max(1.0, disp.shape[1] / 600.0)
+            cv2.putText(disp, "URUN ALGILANAMADI - YANLIS CEKIM", (16, int(44 * olcek)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.3 * olcek, (0, 165, 255), max(3, int(2.5 * olcek)), cv2.LINE_AA)
             self._stamp_capture_note(disp)
             self._display_snapshot(disp, n)
         except Exception as e:
