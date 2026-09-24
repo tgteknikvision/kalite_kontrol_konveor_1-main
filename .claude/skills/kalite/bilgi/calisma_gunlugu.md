@@ -3,6 +3,18 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~14:25 — "Ekran görüntüsü alamıyorum, Ctrl+V yapıştırmıyor" → Print tuşu düz grim'di
+
+Kullanıcı Print tuşuna basıyordu: Pi OS labwc'de Print = `grim` (tüm ekran, ~/Pictures'a
+`YYYYMMDD_HHhMMmSSs_grim.png`, panoya HİÇBİR ŞEY koymaz) → sohbete Ctrl+V boş. Pi'de `wl-copy`
+de yoktu. **Yapılan (kişisel makine ayarı, repoda değil):** `apt install wl-clipboard`;
+`~/.local/bin/ekran-kes.sh` → `wl-copy --type image/png` + "PANOYA KOPYALANDI → Ctrl+V" mesajı;
+`~/.config/labwc/rc.xml` (sistem rc.xml kopyası) Print → ekran-kes.sh (slurp ile bölge seç → kaydet +
+pano), Shift+Print → eski tam ekran grim; `labwc --reconfigure`. Flameshot.ini: savePath yeniden
+`~/Pictures/kesitler`, `copyPathAfterSave=false` (kaydedince panoya dosya YOLU metni geliyordu, resim
+değil), `copyOnDoubleClick=true`. Pano testi: grim → wl-copy → wl-paste `image/png` ✓.
+Kullanıcıya: Print → bölge seç → sohbette Ctrl+V; Flameshot'ta seçtikten sonra Ctrl+C (Ctrl+V değil).
+
 ## 2026-09-24 ~14:05 — "Şekil uygun değil" nedir? → 3. kapı; yuvarlaklık/dolgu eşikleri nokta başına yapıldı
 
 Ekran görüntüsü: nokta 1 açıklık %9 (≥8), derinlik %7.3 (≥6) ama "delik YOK (sekil uygun degil: yuvarlak
