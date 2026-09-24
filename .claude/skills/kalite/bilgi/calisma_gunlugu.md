@@ -3,6 +3,18 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~14:30 — "Doğru parçayı hatalı gösteriyor" (5 ekran görüntüsü, 14:17-14:20) → nokta 1 yuvarlaklık kapısı
+
+5 sağlam parçada nokta 1 (havşalı delik) hep NOK: açıklık 15.1-17.4 (eşik 14, geçti), derinlik 12.9-15.2
+(eşik 11, geçti), **yuvarlak 0.25 / 0.29 / 0.39 / 0.50 / 0.52 < 0.55 → kaldı**, dolgu 0.70-0.86 (geçti),
+kenar 0-1. Sebep: havşa konisi kubbe ışığını deliğin içine parlak hilal olarak yansıtıyor; koyu bölgenin
+dış sınırı içbükey/pürüzlü → çevre uzuyor → 4πA/P² düşüyor; dolgu ise deliğin açık olduğunu gösteriyor.
+Sayaç 13:43'ten beri: nokta 1'de 36 NOK (şekil 25, derinlik 6, açıklık 5) = toplam 42 NOK'un çoğu.
+Yeni kod (14:05 sonrası restart edilmiş, mesajda "sag tik > Ayarlar" var) nokta başına yuvarlaklık/dolgu
+eşiğini destekliyor. **Öneri (kullanıcıya):** Kontrol Noktaları → 1 → sağ tık → Ayarlar → Yuvarlaklık
+0.20 (dolgu 0.50 kalsın, yarı kapalı delik ~0.5 ile yine yakalanır); açıklık 14 → 10, derinlik 11 → 8
+(sağlam 15-17 / 13-15 okuyor, pay yok; kapalı delik ~0-5). Kod değişmedi.
+
 ## 2026-09-24 ~14:25 — "Ekran görüntüsü alamıyorum, Ctrl+V yapıştırmıyor" → Print tuşu düz grim'di
 
 Kullanıcı Print tuşuna basıyordu: Pi OS labwc'de Print = `grim` (tüm ekran, ~/Pictures'a
