@@ -538,6 +538,80 @@ def build_stylesheet() -> str:
     return (STYLESHEET.replace("__UP__", icons["ok_yukari"]).replace("__DOWN__", icons["ok_asagi"])
             .replace("__TICK__", icons["tik"]))
 
+class OperatorReviewDialog(QDialog):
+    """OPERATOR KONTROLU (kullanici istegi 2026-09-24): program bir parcaya NOK deyince PLC'ye
+    yine 1 gider (konveyor durur) ve Pi ekraninda BU pencere acilir: o anki resim ekranin ~%80'i,
+    altinda programin gerekcesi ve iki buton — DOGRU (OK say) / HATALI (NOK kalsin). Modal
+    DEGIL (PLC yoklamasi ve yeni tetikler durmaz). Cevap `answer`: "dogru" | "hatali" | None
+    (pencere kapatildi -> NOK kalir)."""
+
+    def __init__(self, parent, part_id: int, pixmap, sebepler, cam_no: int = 0):
+        super().__init__(parent)
+        self.part_id = int(part_id)
+        self.answer = None
+        self._pm = pixmap if (pixmap is not None and not pixmap.isNull()) else None
+        kam = f" — Kamera {cam_no}" if cam_no else ""
+        self.setWindowTitle(f"Operatör kontrolü — Resim #{self.part_id}{kam}")
+        self.setWindowModality(Qt.NonModal)
+        scr = QApplication.primaryScreen()
+        geo = scr.availableGeometry() if scr is not None else None
+        if geo is not None:
+            self.resize(int(geo.width() * 0.8), int(geo.height() * 0.8))
+        else:
+            self.resize(1400, 820)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 10, 12, 10)
+        lay.setSpacing(8)
+        lbl_t = QLabel(f"Program bu parçaya NOK dedi (Resim #{self.part_id}{kam}).  Parçaya bakın: DOĞRU mu, HATALI mı?")
+        lbl_t.setFont(QFont("Arial", 15, QFont.Bold))
+        lbl_t.setStyleSheet("color:#ff9b9b;")
+        lbl_t.setWordWrap(True)
+        lay.addWidget(lbl_t)
+        self.lbl_img = QLabel("(resim yok)")
+        self.lbl_img.setAlignment(Qt.AlignCenter)
+        self.lbl_img.setMinimumSize(200, 150)
+        self.lbl_img.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.lbl_img.setStyleSheet("background-color:#0f1115; border:1px solid #2c313b; border-radius:6px;")
+        lay.addWidget(self.lbl_img, stretch=1)
+        self.lbl_reasons = QLabel("Programın gerekçesi: " + ("; ".join(sebepler) if sebepler else "-"))
+        self.lbl_reasons.setWordWrap(True)
+        self.lbl_reasons.setFont(QFont("Arial", 12))
+        self.lbl_reasons.setStyleSheet("color:#d7dae0;")
+        lay.addWidget(self.lbl_reasons)
+        row = QHBoxLayout()
+        self.btn_ok = QPushButton("✔  DOĞRU — parçayı OK say")
+        self.btn_ok.setProperty("accent", "success")
+        self.btn_nok = QPushButton("✘  HATALI — NOK kalsın")
+        self.btn_nok.setProperty("accent", "danger")
+        for b in (self.btn_ok, self.btn_nok):
+            b.setMinimumHeight(64)
+            b.setFont(QFont("Arial", 16, QFont.Bold))
+            row.addWidget(b)
+        lay.addLayout(row)
+        self.btn_ok.clicked.connect(lambda: self._cevapla("dogru"))
+        self.btn_nok.clicked.connect(lambda: self._cevapla("hatali"))
+        self._rescale()
+
+    def _cevapla(self, cevap):
+        self.answer = cevap
+        self.accept()
+
+    def _rescale(self):
+        if self._pm is None:
+            return
+        cr = self.lbl_img.contentsRect()
+        tw, th = max(1, cr.width() - 2), max(1, cr.height() - 2)
+        hedef = self._pm.size().scaled(tw, th, Qt.KeepAspectRatio)
+        mevcut = self.lbl_img.pixmap()
+        if mevcut is not None and not mevcut.isNull() and mevcut.size() == hedef:
+            return
+        self.lbl_img.setPixmap(self._pm.scaled(tw, th, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        QTimer.singleShot(0, self._rescale)
+
+
 class SettingsDialog(QDialog):
     """PLC + kamera + çekim ayarları tek pencerede (sol panelden taşındı).
 
@@ -678,6 +752,15 @@ class SettingsDialog(QDialog):
             "Gri/beyaz metal S≈5-40; artırmak daha çok rengi 'metal' sayar. Normalde dokunma.")
         insp_form.addRow("Ürün bulma: metal parlaklık eşiği (V):", self.spin_metal_v)
         insp_form.addRow("Ürün bulma: doygunluk üst sınırı (S):", self.spin_metal_s)
+        # OPERATOR KONTROLU (2026-09-24): NOK'ta resimli Dogru/Hatali penceresi. Kalibrasyon/esik
+        # ayari sirasinda cok NOK cikinca rahatsiz ederse buradan kapatilir.
+        self.chk_operator_review = QCheckBox("NOK'ta operatör kontrol penceresi (resim + DOĞRU / HATALI)")
+        self.chk_operator_review.setChecked(bool(cfg_insp.get("operator_review", True)))
+        self.chk_operator_review.setToolTip(
+            "Program bir parçaya NOK deyince PLC'ye yine NOK gider (konveyör durur) ve ekranda o anki resimle\n"
+            "büyük bir pencere açılır. Operatör DOĞRU derse parça OK sayılır (sayaç ve paket düzeltilir),\n"
+            "HATALI derse NOK kalır. PLC'ye ek bir şey yazılmaz. Ayar sırasında kapatılabilir.")
+        insp_form.addRow("", self.chk_operator_review)
         layout.addWidget(insp_group)
         layout.addStretch()
 
@@ -803,6 +886,7 @@ class SettingsDialog(QDialog):
             "trigger_delay_ms": int(self.spin_trigger_delay.value()),
             "metal_v_min": int(self.spin_metal_v.value()),
             "metal_s_max": int(self.spin_metal_s.value()),
+            "operator_review": bool(self.chk_operator_review.isChecked()),
         }
         # Kamera 1 anahtarlari ESKI adlariyla duz sozlukte (geriye uyum).
         vals.update(self._camera_values(self._cam1_w))
@@ -958,6 +1042,11 @@ class MainWindow(QMainWindow):
         self.lbl_counter_err = QLabel("Sistem hatası: 0")
         self.lbl_counter_err.setStyleSheet("color:#d8a657;")
         # URUN YOK / YANLIS CEKIM (2026-09-24): NOK'tan AYRI sayilir (bkz. _on_product_missing).
+        # OPERATOR DUZELTMESI (2026-09-24): NOK penceresinde "DOGRU" denen parcalar OK'a tasinir.
+        self.lbl_counter_operator = QLabel("Operatör: 0 doğru / 0 hatalı")
+        self.lbl_counter_operator.setStyleSheet("color:#9aa0ab;")
+        self.lbl_counter_operator.setToolTip("NOK penceresinde operatörün verdiği cevaplar: DOĞRU → parça OK sayıldı "
+                                             "(sayaç/paket düzeltildi); HATALI → NOK onaylandı.")
         self.lbl_counter_missing = QLabel("Yanlış çekim (ürün yok): 0")
         self.lbl_counter_missing.setStyleSheet("color:#9aa0ab;")
         self.lbl_counter_missing.setToolTip(
@@ -1002,7 +1091,7 @@ class MainWindow(QMainWindow):
                     self.lbl_counter_nok):
             counter_layout.addWidget(wdg)
         counter_layout.addLayout(paket_row)
-        for wdg in (self.lbl_paket, self.lbl_counter_err, self.lbl_counter_missing, self.lbl_counter_breakdown):
+        for wdg in (self.lbl_paket, self.lbl_counter_err, self.lbl_counter_missing, self.lbl_counter_operator, self.lbl_counter_breakdown):
             counter_layout.addWidget(wdg)
         counter_btns = QHBoxLayout()
         self.btn_pdf = QPushButton("PDF Rapor")
@@ -1287,6 +1376,7 @@ class MainWindow(QMainWindow):
             self._stop_written = None
 
         self.config.setdefault("inspection", {})["trigger_delay_ms"] = v["trigger_delay_ms"]
+        self.config["inspection"]["operator_review"] = bool(v.get("operator_review", True))
         # Urun bulma esikleri: restart gerekmez, bir sonraki "Urun Cercevesi Bul"/cekimde gecerli.
         al = self.config.setdefault("alignment", {})
         yeni_al = (int(v.get("metal_v_min", al.get("metal_v_min", 110))), int(v.get("metal_s_max", al.get("metal_s_max", 85))))
@@ -2028,9 +2118,10 @@ class MainWindow(QMainWindow):
             # IKI YUZ DENETIMI: her kamera KENDI ROI/esikleriyle analiz edilir, kararlar
             # VE'lenir (ikisi de OK ise parca OK) ve PLC'ye TEK sonuc yazilir.
             # Kisa-devre YOK: operator her iki yuzun sonucunu da gorsun diye hepsi analiz edilir.
-            is_ok = True
+            ok_cam = {}
             for n in cams:
-                is_ok = self._handle_snapshot(self._capture_counter, frames[n], n) and is_ok
+                ok_cam[n] = bool(self._handle_snapshot(self._capture_counter, frames[n], n))
+            is_ok = all(ok_cam.values())
             if len(cams) > 1:
                 self._append_log(f"[Sonuç] Birleşik karar (tüm kameralar OK olmalı): "
                                  f"{'OK' if is_ok else 'NOK'}")
@@ -2045,6 +2136,11 @@ class MainWindow(QMainWindow):
                 # Baglanti geri gelince _update_plc_connection_status ERROR->READY toparlar.
                 self._append_log("[HATA] PLC sonucu yazılamadı; durum ERROR.")
                 self._set_inspection_state(InspectionState.ERROR)
+            if not is_ok and self._operator_review_on():
+                # PLC sonucu yazildiktan SONRA (ertelenmis) operator penceresi: konveyor NOK ile
+                # durur, operator resme bakip DOGRU/HATALI der (bkz. _operator_review).
+                nok_cams = [n for n in cams if not ok_cam.get(n, True)]
+                QTimer.singleShot(0, lambda pid=self._capture_counter, nc=nok_cams: self._operator_review(pid, nc))
         except ProductMissing as exc:
             self._on_product_missing(exc, frames, source)     # NOK degil: ayri kayit + uyari + PLC 1
         except Exception as exc:
@@ -2362,7 +2458,7 @@ class MainWindow(QMainWindow):
         n = self._paket_adedi()
         return {"baslangic": time.strftime("%Y-%m-%d %H:%M:%S"), "toplam": 0, "ok": 0, "nok": 0,
                 "hata": 0, "urun_yok": 0, "noktalar": {}, "hata_sebepleri": {}, "son_nok": [],
-                "paket_ok": 0, "paket_esik": n}
+                "paket_ok": 0, "paket_esik": n, "operator_dogru": 0, "operator_hatali": 0}
 
     def _load_counters(self):
         try:
@@ -2439,6 +2535,7 @@ class MainWindow(QMainWindow):
             sonuc, failed, olcum = "HATA", [kisa], []
         else:
             sonuc, failed, olcum = ("OK" if is_ok else "NOK"), [], []
+            pairs = []                                # (etiket, kategori) — operator DOGRU derse geri alinir
             if is_ok:
                 c["ok"] += 1
                 c["paket_ok"] = int(c.get("paket_ok", 0)) + 1
@@ -2467,9 +2564,11 @@ class MainWindow(QMainWindow):
                         nk = c["noktalar"].setdefault(etiket, {})
                         nk[kat] = nk.get(kat, 0) + 1
                         failed.append(f"{etiket} = {kat}")
+                        pairs.append((etiket, kat))
             if not is_ok:
                 c["son_nok"].append({"zaman": zaman, "resim": part_id, "sebep": "; ".join(failed) or "-"})
                 del c["son_nok"][:-500]           # PDF listesi icin son 500 NOK yeter
+                self._last_nok_record = {"part_id": part_id, "pairs": pairs, "zaman": zaman}
         delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
         self._append_part_csv([zaman, part_id if part_id is not None else "-",
                                source, sonuc, delay_ms,
@@ -2492,6 +2591,9 @@ class MainWindow(QMainWindow):
         uy = int(c.get("urun_yok", 0))
         self.lbl_counter_missing.setText(f"Yanlış çekim (ürün yok): {uy}")
         self.lbl_counter_missing.setStyleSheet("color:#ffb454; font-weight:bold;" if uy else "color:#9aa0ab;")
+        od, oh = int(c.get("operator_dogru", 0)), int(c.get("operator_hatali", 0))
+        self.lbl_counter_operator.setText(f"Operatör: {od} doğru / {oh} hatalı")
+        self.lbl_counter_operator.setStyleSheet("color:#7cc4e8;" if (od or oh) else "color:#9aa0ab;")
         p_ok, p_esik = int(c.get("paket_ok", 0)), int(c.get("paket_esik", self._paket_adedi()))
         if p_ok >= p_esik:
             self.lbl_paket.setText(f"PAKET DOLDU: {p_ok} / {p_esik}" + (" — konveyör durdu" if self._stop_feature_on() else ""))
@@ -2522,6 +2624,8 @@ class MainWindow(QMainWindow):
             return
         eski = dict(self._counters)
         self._paket_penceresini_kapat()
+        self._review_penceresini_kapat()
+        self._last_nok_record = None
         self._set_conveyor_stop(False, "parti sıfırlandı")
         self._counters = self._bos_sayac()
         self._save_counters()
@@ -2638,6 +2742,99 @@ class MainWindow(QMainWindow):
         self._refresh_counter_panel()
         self._append_log(f"[Paket] Devam edildi; bir sonraki uyarı {esik} adette.")
 
+    # ---- OPERATOR KONTROLU (kullanici istegi 2026-09-24: "hata verince konveyor dursun, ekranda %80
+    #      resim + 'dogru mu hatali mi' sorusu; dogru derse OK'a saysin") -------------------------
+    def _operator_review_on(self) -> bool:
+        return bool((self.config.get("inspection", {}) or {}).get("operator_review", True))
+
+    def _operator_review(self, part_id: int, nok_cams=None):
+        """NOK sonrasi (PLC'ye 1 yazildiktan sonra, ertelenmis) operator penceresini acar.
+        Acik bir pencere varken yeni NOK gelirse eski cevapsiz kapanir (NOK kalir, loglanir)."""
+        if not self._operator_review_on():
+            return
+        old = getattr(self, "_review_dlg", None)
+        if old is not None:
+            self._review_dlg = None
+            try:
+                old.blockSignals(True); old.close()
+            except Exception:
+                pass
+            self._append_log(f"[Operatör] Resim #{old.part_id} kontrol edilmeden yeni NOK geldi → NOK kaldı.")
+        cams = self._active_cameras()
+        cam = (nok_cams or cams or [1])[0]
+        pm = self._snapshot_full_pixmap_2 if cam == 2 else self._snapshot_full_pixmap
+        sebepler = [f"{name}: {res.get('msg', '')}" for name, res in (self._last_results.get(cam) or {}).items()
+                    if not res.get("ok", True)]
+        dlg = OperatorReviewDialog(self, part_id, pm, sebepler, cam if len(cams) > 1 else 0)
+        dlg.finished.connect(lambda _r, d=dlg: self._review_finished(d))
+        self._review_dlg = dlg
+        self._append_log(f"[Operatör] Resim #{part_id} NOK → kontrol penceresi açıldı (DOĞRU / HATALI).")
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+
+    def _review_finished(self, dlg):
+        if getattr(self, "_review_dlg", None) is not dlg:
+            return
+        self._review_dlg = None
+        if dlg.answer == "dogru":
+            self._operator_dogru(dlg.part_id)
+        elif dlg.answer == "hatali":
+            self._operator_hatali(dlg.part_id)
+        else:
+            self._append_log(f"[Operatör] Resim #{dlg.part_id}: pencere cevapsız kapatıldı → NOK kaldı.")
+
+    def _review_penceresini_kapat(self):
+        dlg = getattr(self, "_review_dlg", None)
+        if dlg is None:
+            return
+        self._review_dlg = None
+        try:
+            dlg.blockSignals(True); dlg.close()
+        except Exception:
+            pass
+
+    def _operator_dogru(self, part_id: int):
+        """Operator 'DOGRU' dedi: son NOK kaydi geri alinir (NOK-1, OK+1, paket+1, nokta/sebep
+        dagilimi ve NOK listesi duzeltilir), CSV'ye OPERATOR_DOGRU satiri. PLC'ye yazilmaz."""
+        c = self._counters
+        rec = getattr(self, "_last_nok_record", None)
+        if not rec or rec.get("part_id") != part_id:
+            self._append_log(f"[Operatör] Resim #{part_id}: DOĞRU dendi ama NOK kaydı bulunamadı (sayaç sıfırlanmış olabilir); sayaç değişmedi.")
+            return
+        c["nok"] = max(0, int(c.get("nok", 0)) - 1)
+        c["ok"] = int(c.get("ok", 0)) + 1
+        c["paket_ok"] = int(c.get("paket_ok", 0)) + 1
+        for etiket, kat in rec.get("pairs", []):
+            nk = c.get("noktalar", {}).get(etiket)
+            if nk and kat in nk:
+                nk[kat] -= 1
+                if nk[kat] <= 0:
+                    del nk[kat]
+                if not nk:
+                    del c["noktalar"][etiket]
+        c["son_nok"] = [e for e in c.get("son_nok", []) if not (e.get("resim") == part_id and e.get("zaman") == rec.get("zaman"))]
+        c["operator_dogru"] = int(c.get("operator_dogru", 0)) + 1
+        self._last_nok_record = None
+        delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
+        self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), part_id, "operator", "OPERATOR_DOGRU", delay_ms,
+                               "", "operatör: parça DOĞRU → OK sayıldı (önceki NOK satırı geçersiz)", ""])
+        self._save_counters()
+        self._refresh_counter_panel()
+        self._append_log(f"[Operatör] Resim #{part_id}: DOĞRU → OK sayıldı (NOK {c['nok']}, OK {c['ok']}, paket {c['paket_ok']}).")
+        if c["paket_ok"] >= int(c.get("paket_esik", self._paket_adedi())):
+            QTimer.singleShot(0, self._paket_uyarisi)
+
+    def _operator_hatali(self, part_id: int):
+        c = self._counters
+        c["operator_hatali"] = int(c.get("operator_hatali", 0)) + 1
+        delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
+        self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), part_id, "operator", "OPERATOR_HATALI", delay_ms,
+                               "", "operatör: parça HATALI → NOK onaylandı", ""])
+        self._save_counters()
+        self._refresh_counter_panel()
+        self._append_log(f"[Operatör] Resim #{part_id}: HATALI onaylandı (NOK kaldı).")
+
     # ---- KONVEYOR DUR BAYRAGI (kullanici istegi 2026-09-24: "100 adete ulasinca PLC'yi durdur
     #      desin, konveyor dursun") ---------------------------------------------------------
     def _stop_feature_on(self) -> bool:
@@ -2709,6 +2906,10 @@ class MainWindow(QMainWindow):
                  "ürün çerçevesi bulunamadı vb.); PLC'ye NOK (1) yazılır. "
                  "Yanlış çekim = tetik geldi ama karede ürün yoktu (bulunan çerçeve referansa uymadı); "
                  "NOK sayılmaz, PLC'ye yine 1 yazılır, operatör uyarılır.</div>")
+        od, oh = int(c.get("operator_dogru", 0)), int(c.get("operator_hatali", 0))
+        if od or oh:
+            H.append(f"<div class='kucuk'>Operatör kontrolü (NOK penceresi): <b>{od}</b> parça DOĞRU denip OK sayıldı, "
+                     f"<b>{oh}</b> parça HATALI onaylandı. (OK/NOK sayıları düzeltilmiş hâlidir.)</div>")
         H.append("<h2>Hata dağılımı (kontrol noktası / sebep)</h2>")
         noktalar = sorted(c.get("noktalar", {}).items(), key=lambda kv: -sum(kv[1].values()))
         if noktalar:

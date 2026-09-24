@@ -942,6 +942,20 @@ karşılığı — elle senkron tutulur.
 - **TUZAK (test):** `MainWindow.LOG_DIR` sınıf niteliği → ekransız testte `_append_log` GERÇEK saha
   loguna yazar; testte `main.MainWindow.LOG_DIR = <geçici>` yap (2026-09-23'te 24 satır sızdı, silindi).
 
+### NOK'ta operatör kontrol penceresi (2026-09-24, kullanıcı isteği)
+- `OperatorReviewDialog(parent, part_id, pixmap, sebepler, cam_no)`: NonModal, ekranın %80'i, `lbl_img`
+  orana göre ölçek (`_rescale`, resizeEvent), `lbl_reasons`, `btn_ok`/`btn_nok` → `answer`.
+- `_capture_full_frame`: `ok_cam{n: bool}`; PLC sonucundan sonra `singleShot(0, _operator_review)`.
+- `_operator_review(part_id, nok_cams)`: eski açık pencere cevapsız kapanır (log); pixmap = NOK kameranın
+  `_snapshot_full_pixmap(_2)`; gerekçe = `_last_results[cam]` NOK noktaları; `finished` → `_review_finished`
+  → `_operator_dogru` / `_operator_hatali` / cevapsız log.
+- `_record_part` NOK'ta `_last_nok_record` (part_id, pairs, zaman); `_operator_dogru` sayaçları geri alır
+  (nok−1, ok+1, paket+1 + paket uyarısı, noktalar/son_nok düzeltme), CSV `OPERATOR_DOGRU`;
+  `_operator_hatali` CSV `OPERATOR_HATALI`; `_bos_sayac` `operator_dogru/operator_hatali`;
+  `_reset_counters` pencereyi kapatır; panel `lbl_counter_operator`; PDF satırı.
+- Config `inspection.operator_review` (vars. true), Ayarlar `chk_operator_review`. PLC'ye yazım yok.
+- Test: `tests/test_operator.py` (30).
+
 ### Şekil kapısı eşikleri nokta başına — yuvarlaklık / dolgu (2026-09-24)
 - `features._evaluate_holes`: `eff_min_circ = ov.get('hole_min_circularity', min_circ)`, `eff_min_fill =
   ov.get('hole_min_fill', min_fill)`; şekil dalı bunları kullanır; NOK mesajı `yuvarlak x < e, dolgu y < e,

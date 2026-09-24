@@ -77,7 +77,7 @@ dynamic_rois_2:
   - 133
 inspection:
   paket_adedi: 1000
-  trigger_delay_ms: 1
+  trigger_delay_ms: 40
 plc:
   host: 192.168.10.10
   paket_dolu_durdur: true

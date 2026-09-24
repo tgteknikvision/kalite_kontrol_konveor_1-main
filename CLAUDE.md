@@ -85,7 +85,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (230 test, 10 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (260 test, 11 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -295,6 +295,8 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   yapılmaz, NOK SAYILMAZ (sayaç `urun_yok`, CSV `URUN_YOK`), PLC'ye yine 1, modal olmayan operatör
   uyarısı. Referans yoksa / hizalama kapalıysa kapı devre dışı. Sahada OK çerçeveler ±%8, boş kare
   %-60/%+100 (§12). Config'te anahtar yoksa varsayılanlar geçerli (setdefault yazılmaz).
+- **`inspection.operator_review`** (bool, vars. **true**, Ayarlar'da kutu): NOK'ta OPERATÖR KONTROL PENCERESİ
+  (2026-09-24) — resim ekranın %80'i + gerekçe + DOĞRU (OK say) / HATALI (NOK kalsın); PLC'ye ek yazım yok (§12).
 - `inspection.paket_adedi` (vars. 100): bir pakete konacak OK parça sayısı (sol panel "Paket
   adedi" kutusu). Sayaç `sayac.json`'da `paket_ok`/`paket_esik`; hedefe ulaşınca uyarı (§12).
 - `inspection.trigger_delay_ms`: tetikten sonra çekime kadar bekleme (ürün ortalansın diye).
@@ -346,6 +348,21 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-24 ~15:25 — NOK'TA OPERATÖR KONTROL PENCERESİ (kullanıcı: "hata verince konveyör yine dursun ama
+  Pi ekranında %80 resim + 'ürün doğru mu hatalı mı' sorusu; doğru derse doğruya saysın, demezse hatalıya"):**
+  `OperatorReviewDialog` (main.py, SettingsDialog'dan önce): modal DEĞİL, ekranın %80'i (`primaryScreen().
+  availableGeometry()`), `lbl_img` resmi orana göre ölçekler (resizeEvent), gerekçe = o kameranın NOK noktaları
+  (`_last_results[cam]`), butonlar `btn_ok` "✔ DOĞRU — parçayı OK say" (success) / `btn_nok` "✘ HATALI — NOK
+  kalsın" (danger), `answer` dogru|hatali|None. Akış: `_capture_full_frame` per-kamera `ok_cam` → PLC sonucu
+  yazıldıktan SONRA `QTimer.singleShot(0, _operator_review(pid, nok_cams))`; **PLC'ye ek yazım YOK** (HR100=1
+  zaten gitti, konveyör PLC mantığıyla durur). `_record_part` NOK'ta `_last_nok_record={part_id, pairs[(etiket,kat)],
+  zaman}` saklar. `_operator_dogru`: NOK−1, OK+1, paket+1 (hedefte paket uyarısı), nokta/sebep dağılımı ve `son_nok`
+  düzeltilir, `operator_dogru+1`, CSV `OPERATOR_DOGRU` (kaynak `operator`); kayıt eşleşmezse (sıfırlanmış) sayaç
+  değişmez + log. `_operator_hatali`: `operator_hatali+1`, CSV `OPERATOR_HATALI`. Pencere açıkken yeni NOK → eski
+  cevapsız kapanır (NOK kalır, log); X ile kapatma → NOK kalır. Parti Sıfırla pencereyi kapatır. Sol panel
+  "Operatör: N doğru / M hatalı", PDF satırı. Ayarlar: "NOK'ta operatör kontrol penceresi" kutusu
+  (`inspection.operator_review`; eşik ayarı sırasında kapatılabilir). 30 test (`tests/test_operator.py`);
+  takım 260/260; pencere ekransız render edildi. Çalışan uygulama eski kodda → restart.
 - **✅ 2026-09-24 ~14:05 — ŞEKİL KAPISI EŞİKLERİ (YUVARLAKLIK / DOLGU) NOKTA BAŞINA (kullanıcı: "açıklık ve
   derinlik eşiklerin üstünde ama 'delik YOK (sekil uygun degil: yuvarlak 0.48, dolgu 0.49, kenar 0)' — bu ne,
   başka bir kontrol var mı?"):** Evet, delikte ÜÇÜNCÜ kapı: `_hole_shape` (yuvarlaklık 4πA/P², dolgu =

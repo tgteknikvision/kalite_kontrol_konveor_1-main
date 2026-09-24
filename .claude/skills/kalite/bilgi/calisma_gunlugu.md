@@ -3,6 +3,18 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~15:25 — NOK'ta operatör kontrol penceresi (DOĞRU / HATALI) eklendi
+
+Kullanıcı: gecikmeyi 40 ms yaptı. İstek: "hata verince konveyör yine dursun ama Pi ekranında %80 resim +
+'ürün doğru mu hatalı mı'; doğru derse doğruya saysın, demezse hatalıya". **Yapılan:** `OperatorReviewDialog`
+(modal değil, ekranın %80'i, resim orana göre, gerekçe, DOĞRU/HATALI butonları); `_capture_full_frame`
+PLC sonucundan sonra ertelenmiş `_operator_review`; DOĞRU → NOK−1/OK+1/paket+1 (hedefte paket uyarısı),
+nokta-sebep dağılımı ve NOK listesi düzeltilir, CSV OPERATOR_DOGRU; HATALI → CSV OPERATOR_HATALI; cevapsız /
+yeni NOK gelince → NOK kalır (log); parti Sıfırla pencereyi kapatır; sol panel "Operatör: N doğru / M hatalı";
+PDF satırı; Ayarlar kutusu `inspection.operator_review` (vars. açık). **PLC'ye ek yazım yok** (HR100=1 zaten
+gitti; konveyörü PLC/operatör çalıştırır). 30 test (`test_operator.py`), takım 260/260, pencere render edildi.
+Uygulama eski kodda → restart.
+
 ## 2026-09-24 ~14:55 — "Ürünü doğru çerçeveye alamıyor galiba" (kesitler 14:40-14:46) → çerçeve doğru, ürün üstten kesik
 
 5 kesit: nokta 1-2 OK, **nokta 3 (oluk) NOK** (koyu %20-24, eşik 25/30; bir kez "şekil yok blob %12.7").

@@ -91,6 +91,17 @@ yanlış çerçeve turuncu gösterilir.
   en ya da boyda %25'ten fazla sapıyorsa "ürün yok" sayılır (config: `inspection.product_box_tolerance`;
   `inspection.product_presence_check: false` kapatır).
 
+## 3e. NOK'ta operatör kontrolü (DOĞRU / HATALI)
+Program bir parçaya NOK deyince PLC'ye NOK gider (konveyör durur) ve ekranda büyük bir pencere açılır:
+o anki resim (kontrol noktaları işaretli), altında programın gerekçesi ve iki buton.
+- **✔ DOĞRU — parçayı OK say:** parça sağlamsa. NOK sayısı bir azalır, OK ve paket bir artar; hata
+  dağılımı düzeltilir; CSV'ye `OPERATOR_DOGRU` satırı düşer.
+- **✘ HATALI — NOK kalsın:** NOK onaylanır (`OPERATOR_HATALI`).
+- Pencereyi cevapsız kapatırsanız ya da cevaplamadan yeni bir NOK gelirse parça NOK kalır.
+- PLC'ye ek bir şey yazılmaz; konveyörü her zamanki gibi siz çalıştırırsınız.
+- Sol panelde "Operatör: N doğru / M hatalı" satırı, PDF raporunda özet.
+- Eşik ayarı sırasında çok NOK çıkıyorsa Ayarlar → "NOK'ta operatör kontrol penceresi" kutusunu kapatın.
+
 ## 4. Ayarlar (⚙)
 PLC (tip, IP, port, unit id, poll) · **Kamera 1 / Kamera 2** (grup başlığındaki kutu = kamerayı
 kullan) · çözünürlük (imx477 doğal modları: 4056x3040 ağır, 2028x1520, 2028x1080, 1332x990) ·
