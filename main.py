@@ -166,13 +166,15 @@ class ROIResultPanel(QGroupBox):
         lbl_name.setFont(QFont("Arial", 11, QFont.Bold))
         lbl_name.setMinimumWidth(38)
         lbl_name.setStyleSheet("color:#d7dae0;")
-        self._grid.addWidget(lbl_name, grid_row, 0, lines, 1)
+        # Iki satirlik delik satirinda ad/rozet BUYUMESIN: hucre icinde dikey ortala (hizalama
+        # verilince widget kendi boyunda kalir, rowSpan ile uzamaz).
+        self._grid.addWidget(lbl_name, grid_row, 0, lines, 1, Qt.AlignVCenter | Qt.AlignLeft)
 
         lbl_state = QLabel("—")
         lbl_state.setAlignment(Qt.AlignCenter)
         lbl_state.setFixedWidth(56)
         lbl_state.setFont(QFont("Arial", 11, QFont.Bold))
-        self._grid.addWidget(lbl_state, grid_row, 1, lines, 1)
+        self._grid.addWidget(lbl_state, grid_row, 1, lines, 1, Qt.AlignVCenter)
 
         # Her esik icin 3 sutun: "olcum" | "en az" | kutu ; i. esik -> satir i//MAX, sutun i%MAX
         for i, (key, baslik, _olcum, _deger, bicim) in enumerate(esikler):
@@ -210,7 +212,7 @@ class ROIResultPanel(QGroupBox):
         lbl_note.setWordWrap(True)
         note_col = 2 + self.MAX_ESIK * 3
         if n_esik:
-            self._grid.addWidget(lbl_note, grid_row, note_col, lines, 1)
+            self._grid.addWidget(lbl_note, grid_row, note_col, lines, 1, Qt.AlignVCenter | Qt.AlignLeft)
         else:
             # Esik sutunu yoksa yazi rozetin yanindan baslasin: kalan sutunlari kapla.
             self._grid.addWidget(lbl_note, grid_row, 2, 1, self.MAX_ESIK * 3 + 1)
