@@ -3,6 +3,18 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-24 ~14:05 — "Şekil uygun değil" nedir? → 3. kapı; yuvarlaklık/dolgu eşikleri nokta başına yapıldı
+
+Ekran görüntüsü: nokta 1 açıklık %9 (≥8), derinlik %7.3 (≥6) ama "delik YOK (sekil uygun degil: yuvarlak
+0.48, dolgu 0.49, kenar 0)". Delikte üçüncü kapı = şekil (`_hole_shape`): yuvarlaklık ≥0.55, dolgu ≥0.50,
+en/boy, kenar, blob — yalnız config'teydi. Karede deliğin üst yarısı açık (havşa yansıması / gri leke) →
+hilal → 0.48/0.49. **Yapılan:** `hole_min_circularity`/`hole_min_fill` nokta başına override (editör sağ
+tık → Ayarlar, 0-1, 2 ondalık); mesaj kalan ölçütü `<` ile işaretler ve eşiğin yerini yazar;
+`roi_defaults` + 2 anahtar; liste etiketi. Panele sütun eklenmedi (4×3 sütun 1015 px'e sığmıyor).
+`tests/test_sekil_esik.py` 11/11; takım 222/222. Kullanıcı restart sonrası nokta 1'de 0.40 deneyebilir;
+parça gerçekten yarı kapalıysa NOK doğru. Not: config'teki `notch_dark_min` çalışan uygulama yüzünden
+yine 50 olabilir (roi_defaults testi 50 gösterdi) — restart sonrası bakılmalı.
+
 ## 2026-09-24 ~13:50 — "Tıkalı/dolu olabilir" mesajının eşiği var mı? → var: paneldeki "derinlik"
 
 Ekran görüntüsü: nokta 1 "delik YOK (cekirdek %4.9 < %5.0, tikali/dolu olabilir)", panelde derinlik

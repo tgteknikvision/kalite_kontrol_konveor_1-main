@@ -942,6 +942,16 @@ karşılığı — elle senkron tutulur.
 - **TUZAK (test):** `MainWindow.LOG_DIR` sınıf niteliği → ekransız testte `_append_log` GERÇEK saha
   loguna yazar; testte `main.MainWindow.LOG_DIR = <geçici>` yap (2026-09-23'te 24 satır sızdı, silindi).
 
+### Şekil kapısı eşikleri nokta başına — yuvarlaklık / dolgu (2026-09-24)
+- `features._evaluate_holes`: `eff_min_circ = ov.get('hole_min_circularity', min_circ)`, `eff_min_fill =
+  ov.get('hole_min_fill', min_fill)`; şekil dalı bunları kullanır; NOK mesajı `yuvarlak x < e, dolgu y < e,
+  kenar n [> m], (en/boy, blob)` + "yuvarlak/dolgu esigi: Kontrol Noktalari > sag tik > Ayarlar".
+- `roi_editor.ROIDialog.POINT_SETTINGS['hole']`: 4 alan (açıklık %, derinlik %, yuvarlaklık 0-1, dolgu 0-1);
+  `_spin_decimals(rng)` (0-1 → 2 ondalık); genel değere eşit override yazılmaz; liste etiketi
+  `[eşik %X, derinlik %Y, yuvarlak 0.40, dolgu 0.40]`.
+- `main._open_roi_manager` `roi_defaults` + `hole_min_circularity`/`hole_min_fill` (config `roi`, vars. 0.55/0.50).
+- Panelde sütun yok (genişlik); mesaj ve editör yeterli. Test: `tests/test_sekil_esik.py` (11).
+
 ### Bant parlaklığı tuzağı — ürün çerçevesi bantla birleşti (2026-09-24 13:06)
 - Belirti: `Ürün Çerçevesi Bul` 760×1025 (tam boy), tetiklerde 808×1088 / 1092×788; ürün karenin üstünde.
 - Ölçüm (ekran görüntüsü): bant V 72-125 (S 11-14), ürün V 184-238 (S 4-7), ray metal kenarı V 166-180

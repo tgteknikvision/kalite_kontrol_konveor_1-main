@@ -270,6 +270,14 @@ class ROILabel(QLabel):
         return None, None
 
 
+def _spin_decimals(rng) -> int:
+    """Nokta ayar kutusu ondalik sayisi: 0-1 oranlari (yuvarlaklik/dolgu) 2, yuzdeler 1."""
+    try:
+        return 2 if float(rng[1]) <= 1.0 else 1
+    except (TypeError, ValueError, IndexError):
+        return 1
+
+
 class ROIDialog(QDialog):
     def __init__(
         self,
@@ -526,6 +534,14 @@ class ROIDialog(QDialog):
             ("hole_core_ratio_min", "Derinlik Eşiği (çekirdek koyu%)", (0.0, 30.0), 0.5,
              "Deliğin çekirdeğinde en az bu kadar siyaha-yakın piksel olmalı;\n"
              "altı 'tıkalı/dolu' NOK. 0 = derinlik kapısı kapalı."),
+            # SEKIL KAPISI (2026-09-24): "sekil uygun degil" mesajinin esikleri. 0-1 araligi, 2 ondalik.
+            ("hole_min_circularity", "Yuvarlaklık Eşiği (0-1)", (0.0, 1.0), 0.05,
+             "Koyu bölge en az bu kadar yuvarlak olmalı (4πA/P²). Gerçek delik ~0.85-0.95;\n"
+             "çentik/hilal ~0.3-0.5. Havşa yansıması deliğin yarısını açık bırakıyorsa düşür (ör. 0.40).\n"
+             "Mesajdaki 'yuvarlak 0.48 < 0.55' bu eşiktir."),
+            ("hole_min_fill", "Dolgu Eşiği (0-1)", (0.0, 1.0), 0.05,
+             "Koyu bölge, çevreleyen dairenin en az bu kadarını doldurmalı. Tam delik ~0.9;\n"
+             "yarısı kapalı/bantlı delik ~0.5. Mesajdaki 'dolgu 0.49 < 0.50' bu eşiktir."),
         ],
         "notch": [
             ("notch_dark_min", "Oluk Eşiği (koyu%)", (0.0, 90.0), 1.0,
@@ -555,7 +571,8 @@ class ROIDialog(QDialog):
         spins = {}
         for key, label, rng, step, desc in fields:
             global_val = float(self.roi_defaults.get(key, rng[0]))
-            info = QLabel(desc + f"  (genel değer: %{global_val:g})")
+            birim = "" if rng[1] <= 1.0 else "%"          # 0-1 oranlarinda % yok
+            info = QLabel(desc + f"  (genel değer: {birim}{global_val:g})")
             info.setWordWrap(True)
             info.setStyleSheet("color:#a6adc8; font-size:11px;")
             lay.addWidget(info)
@@ -574,7 +591,7 @@ class ROIDialog(QDialog):
                 def valueFromText(self, text):
                     return super().valueFromText(self._ayirac_duzelt(text))
             spin = _NoWheelSpin()
-            spin.setDecimals(1)
+            spin.setDecimals(_spin_decimals(rng))
             spin.setRange(*rng)
             spin.setSingleStep(step)
             spin.setValue(float(ov_now.get(key, global_val)))
@@ -604,7 +621,7 @@ class ROIDialog(QDialog):
                     ov.pop(key, None)
                 else:
                     ov[key] = val
-                    texts.append(f"{label} = %{val:g}")
+                    texts.append(f"{label} = {'' if _rng[1] <= 1.0 else '%'}{val:g}")
             if not ov:
                 self.point_overrides.pop(name, None)
             self.lbl_hint.setText(
@@ -698,6 +715,10 @@ class ROIDialog(QDialog):
                 parts.append(f"eşik %{float(val):.0f}")
             if tip == "delik" and ov.get("hole_core_ratio_min") is not None:
                 parts.append(f"derinlik %{float(ov['hole_core_ratio_min']):g}")
+            if tip == "delik" and ov.get("hole_min_circularity") is not None:
+                parts.append(f"yuvarlak {float(ov['hole_min_circularity']):.2f}")
+            if tip == "delik" and ov.get("hole_min_fill") is not None:
+                parts.append(f"dolgu {float(ov['hole_min_fill']):.2f}")
             if parts:
                 suffix += "  [" + ", ".join(parts) + "]"
             self.list_rois.addItem(f"{name}  ({tip}){suffix}")

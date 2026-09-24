@@ -188,6 +188,11 @@ def _evaluate_holes(snapshot: np.ndarray, config: dict) -> tuple:
             eff_notch_min = float(ov.get("notch_dark_min", notch_dark_min))
             eff_hole_min = float(ov.get("hole_dark_ratio_min", dark_ratio_min))
             eff_core_min = float(ov.get("hole_core_ratio_min", core_ratio_min))
+            # Sekil kapisi esikleri de NOKTA BASINA (2026-09-24, kullanici: "acik/derin gecti ama
+            # 'sekil uygun degil' dedi, o ne?"): havsa yansimasi ya da kismen kapali delik yarim
+            # daire birakinca operator o noktada yuvarlaklik/dolguyu gevsetebilsin.
+            eff_min_circ = float(ov.get("hole_min_circularity", min_circ))
+            eff_min_fill = float(ov.get("hole_min_fill", min_fill))
             if roi_type == "notch":
                 # Oluk/centik: yuvarlak delik aranmaz. Once koyu-oran bandi (kaba kapi),
                 # sonra SEKIL kapisi: koyu bolge GERCEK oluk mu (tek/buyuk/yatay-uzun
@@ -241,7 +246,7 @@ def _evaluate_holes(snapshot: np.ndarray, config: dict) -> tuple:
                 #    Centik/golge -> dusuk yuvarlaklik; kismen bantli delik -> dusuk
                 #    dolgu (fill = blob/cember, hilal olur ~0.5) -> NOK.
                 shp = _hole_shape(gray, dark_value)
-                ok = (shp["circ"] >= min_circ and shp["fill"] >= min_fill
+                ok = (shp["circ"] >= eff_min_circ and shp["fill"] >= eff_min_fill
                       and shp["aspect"] >= min_aspect and shp["edge"] <= max_edge
                       and shp["blob"] >= min_blob)
                 metrics["circularity"] = shp["circ"]
@@ -250,8 +255,18 @@ def _evaluate_holes(snapshot: np.ndarray, config: dict) -> tuple:
                     msg = (f"delik VAR (acik %{dark_ratio:.1f}, yuvarlak {shp['circ']:.2f}, "
                            f"dolgu {shp['fill']:.2f})")
                 else:
-                    msg = (f"delik YOK (sekil uygun degil: yuvarlak {shp['circ']:.2f}, "
-                           f"dolgu {shp['fill']:.2f}, kenar {shp['edge']})")
+                    # Hangi olcut kaldi? Kalanlar '<'/'>' ile isaretli, esigin yeri mesajda.
+                    parca = [
+                        f"yuvarlak {shp['circ']:.2f}" + (f" < {eff_min_circ:.2f}" if shp["circ"] < eff_min_circ else ""),
+                        f"dolgu {shp['fill']:.2f}" + (f" < {eff_min_fill:.2f}" if shp["fill"] < eff_min_fill else ""),
+                        f"kenar {shp['edge']}" + (f" > {max_edge}" if shp["edge"] > max_edge else ""),
+                    ]
+                    if shp["aspect"] < min_aspect:
+                        parca.append(f"en/boy {shp['aspect']:.2f} < {min_aspect:.2f}")
+                    if shp["blob"] < min_blob:
+                        parca.append(f"blob %{shp['blob']:.1f} < %{min_blob:.0f}")
+                    msg = ("delik YOK (sekil uygun degil: " + ", ".join(parca)
+                           + "; yuvarlak/dolgu esigi: Kontrol Noktalari > sag tik > Ayarlar)")
             else:
                 ok = True
                 msg = f"delik VAR (acik %{dark_ratio:.1f}, bant %{dark_ratio_min:.0f}-%{dark_ratio_max:.0f})"

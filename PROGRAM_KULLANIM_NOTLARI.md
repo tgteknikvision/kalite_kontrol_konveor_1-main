@@ -120,6 +120,10 @@ eşikleri** (metal parlaklık V, doygunluk S — bkz. §5 madde 2).
   parlaklaşmış ve ürünle birleşmiştir. Ayarlar → **"Ürün bulma: metal parlaklık eşiği (V)"** değerini
   artır (sahada 160; bant ~100-125, ürün ~180-240), Kaydet, tekrar **Ürün Çerçevesi Bul**. Logda
   `[Ürün Bulma] ... (metal eşiği V≥160 ...)` görünür. Sonra kontrol noktalarını yeniden çiz.
+- **"Şekil uygun değil" (örn. `yuvarlak 0.48 < 0.55, dolgu 0.49 < 0.50`):** delikteki koyu bölge tam
+  daire değil (havşa yansıması ya da kısmen kapalı delik). Parça sağlamsa Kontrol Noktaları → noktaya sağ
+  tık → Ayarlar → **Yuvarlaklık Eşiği / Dolgu Eşiği** değerlerini ölçülenin altına çek (ör. 0,40) → Kaydet
+  ve Kapat. Mesajda `<` işaretli ölçüt hangisiyse onu düşür. Parça gerçekten kısmen kapalıysa NOK doğrudur.
 
 ## 6. Üretim
 - PLC bağlı, her açık kamerada en az bir delik/çentik noktası.

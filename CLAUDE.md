@@ -85,7 +85,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (211 test, 9 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (222 test, 10 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -139,7 +139,11 @@ açık, `video_label` gibi) + `installEventFilter` (etiket kendi başına boyut 
   - **`hole` (delik):** koyu blob **GERÇEK yuvarlak delikse** OK — yuvarlaklık ≥
     `hole_min_circularity`, dolgu ≥ `hole_min_fill`, en/boy ≥ `hole_min_aspect`, ROI
     kenarına değme ≤ `hole_max_edge_touch`, blob ≥ `hole_min_blob_ratio`%. Çentik/gölge/bant
-    elenir (yanlış-OK önlenir). `hole_shape_check: false` ile kapatılabilir.
+    elenir (yanlış-OK önlenir). `hole_shape_check: false` ile kapatılabilir. **Yuvarlaklık ve dolgu
+    eşikleri NOKTA BAŞINA da (2026-09-24): editörde sağ tık → Ayarlar → "Yuvarlaklık Eşiği (0-1)" /
+    "Dolgu Eşiği (0-1)" (`point_overrides[ad].hole_min_circularity / hole_min_fill`); NOK mesajı kalan
+    ölçütü `<` ile işaretler (`yuvarlak 0.48 < 0.55, dolgu 0.49 < 0.50`) ve eşiğin yerini söyler.
+    Havşalı delikte kubbe yansıması deliğin yarısını açık bırakırsa dolgu ~0.5 okur → o noktada gevşet.**
     **TIKANMAYA KARŞI (KISMEN bantlı/pullu delik):** ÖNEMLİ — saha gözlemi: gerçek açık
     delikler **siyah DEĞİL gri** okur (~40-70), bu yüzden `<40` tabanlı "çekirdek/derinlik"
     ölçüleri açık deliği yanlış elemişti. Doğru ayrım **AÇIK ALAN miktarı**: tam açık delik
@@ -239,7 +243,8 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
 ## 8. Konfigürasyon — önemli anahtarlar (`config.yaml`)
 - `roi.decision_method`: `hole` | `template`. **`hole_dark_ratio_min`** = asıl kapı (min
   açık-alan/koyu%; tıkanma+kısmen-bantlı deliği yakalar; saha ~%20). **`roi.point_overrides`**
-  = `{ad: {hole_dark_ratio_min|notch_dark_min: X}}` — NOKTA BAŞINA eşik (editörde sağ tık →
+  = `{ad: {hole_dark_ratio_min|hole_core_ratio_min|hole_min_circularity|hole_min_fill|notch_dark_min: X}}`
+  — NOKTA BAŞINA eşik (editörde sağ tık →
   Ayarlar; yoksa global değer; eski sol-panel slider'ları KALDIRILDI).
   `hole_dark_value` (~70 gri eşik), `hole_dark_ratio_max` (~85, üst).
   `hole_core_value`/`hole_core_ratio_min` (~%2) sadece düşük zemin. Şekil:
@@ -340,6 +345,18 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-23 itibarıyla)
+- **✅ 2026-09-24 ~14:05 — ŞEKİL KAPISI EŞİKLERİ (YUVARLAKLIK / DOLGU) NOKTA BAŞINA (kullanıcı: "açıklık ve
+  derinlik eşiklerin üstünde ama 'delik YOK (sekil uygun degil: yuvarlak 0.48, dolgu 0.49, kenar 0)' — bu ne,
+  başka bir kontrol var mı?"):** Evet, delikte ÜÇÜNCÜ kapı: `_hole_shape` (yuvarlaklık 4πA/P², dolgu =
+  blob/çevreleyen daire, en/boy, kenar teması, blob%). Bugünkü karede deliğin üst yarısı açık (havşa yansıması
+  / gri leke) → hilal → yuvarlak 0.48 < 0.55, dolgu 0.49 < 0.50 → NOK; eşikler yalnız config'teydi.
+  **Kod:** `features._evaluate_holes` `eff_min_circ`/`eff_min_fill` = `point_overrides[ad]` yoksa global;
+  NOK mesajı kalan ölçütleri `<` ile işaretler + "yuvarlak/dolgu esigi: Kontrol Noktalari > sag tik > Ayarlar"
+  ("sekil uygun degil" anahtarı korunur → sayaç kategorisi aynı). `roi_editor.POINT_SETTINGS['hole']` +2 alan
+  (0-1, adım 0.05, `_spin_decimals` → 2 ondalık, % yok); liste etiketinde `yuvarlak 0.40`; `_open_roi_manager`
+  `roi_defaults` +2 anahtar. Panelde sütun EKLENMEDİ (4 eşik × 3 sütun sığmıyor, 1015 px). 11 test
+  (`tests/test_sekil_esik.py`: hilal sentetik ROI → NOK/işaret, override → OK, başka nokta etkilemez, editör
+  alanları, roi_defaults); takım 222/222. Kullanıcı restart sonrası nokta 1'de yuvarlak/dolgu 0.40'a çekebilir.
 - **✅ 2026-09-24 ~13:50 — "TIKALI/DOLU" MESAJI = DERİNLİK EŞİĞİ (kullanıcı: "delik yok, tıkalı/dolu
   olabilir diyor; bunun eşiği var mı, ayarlanabilir yap"):** Eşik ZATEN VARDI ve paneldeydi: `hole_core_ratio_min`
   = Kontrol Merkezi'ndeki **"derinlik"** kutusu (nokta 1'de 5.0; ölçülen 4.9 → NOK). Mesaj "cekirdek %4.9 < %5.0"

@@ -2268,6 +2268,9 @@ class MainWindow(QMainWindow):
                 "hole_dark_ratio_min": float(defaults_src.get("hole_dark_ratio_min", 20.0)),
                 "hole_core_ratio_min": float(defaults_src.get("hole_core_ratio_min", 2.0)),
                 "notch_dark_min": float(defaults_src.get("notch_dark_min", 25.0)),
+                # Sekil kapisi (2026-09-24): editorde sag tik -> Ayarlar'da yuvarlaklik/dolgu.
+                "hole_min_circularity": float(defaults_src.get("hole_min_circularity", 0.55)),
+                "hole_min_fill": float(defaults_src.get("hole_min_fill", 0.50)),
             },
         )
         # Editordeyken PLC tetigi cekim baslatmasin (duzenleme ortasinda analiz olmaz).
