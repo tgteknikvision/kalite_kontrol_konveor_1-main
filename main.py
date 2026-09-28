@@ -2876,10 +2876,9 @@ class MainWindow(QMainWindow):
         pad = max(6, px // 3)
         satirlar = []                                       # (metin, renk, kalin) — sarmalanmis
         for text, color, bold in lines:
-            if bold:
-                satirlar.append((text, color, True))
-            else:
-                satirlar += [(p, color, False) for p in self._wrap_text(text, fm_small, w - 2 * pad, 3)]
+            # Baslik da sarilir (dar resimde uzun CEVAPSIZ basligi sagdan kesilmesin): en fazla 2 satir.
+            fm, n = (fm_big, 2) if bold else (fm_small, 3)
+            satirlar += [(p, color, bold) for p in self._wrap_text(text, fm, w - 2 * pad, n)]
         h_band = 6 + pad + sum((fm_big if b else fm_small).height() + 2 for _t, _c, b in satirlar) + pad
         out = QPixmap(w, pm.height() + h_band)
         out.fill(QColor("#15171c"))

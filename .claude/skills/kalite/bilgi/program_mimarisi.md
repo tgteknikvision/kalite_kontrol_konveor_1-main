@@ -968,7 +968,7 @@ karşılığı — elle senkron tutulur.
   → `_apply_settings`. **Testte `main.MainWindow.OPERATOR_DIR = <geçici>` şart** (aksi halde proje köküne yazar).
 - **Karar bandı (2026-09-28):** `OPERATOR_KARAR_METNI` (sınıf sözlüğü: karar → (başlık, renk)); `_operator_banner_lines(dlg,
   karar, zaman)` → `[(metin, renk, kalın)]` (karar / tarih-resim-kamera-program / gerekçe); `_wrap_text(text, fm, max_w,
-  max_lines=3)` (staticmethod, kelime sınırı + `elidedText`); `_operator_kayit_resmi(pm, karar, dlg, zaman)` → yeni QPixmap
+  max_lines=3)` (staticmethod, kelime sınırı + `elidedText`; başlık 2, gerekçe 3 satır); `_operator_kayit_resmi(pm, karar, dlg, zaman)` → yeni QPixmap
   (üstte 6 px renkli şerit + satırlar + renkli ayırıcı çizgi + orijinal resim; yazı px = max(16, min(48, w//26)), küçük
   satır 0.62×). `_operator_kaydet` bunu `save(..., "JPG", 85)` eder; çizim hatasında bantsız resim + `[Uyarı]`.
   `closeEvent` başında `_review_penceresini_kapat()` (açık pencere → CEVAPSIZ kaydı). `QFontMetrics` import edildi.

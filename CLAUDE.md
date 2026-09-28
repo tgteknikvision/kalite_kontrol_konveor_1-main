@@ -364,7 +364,8 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   sayıldı` / `HATALI — NOK onaylandı` / `CEVAPSIZ — NOK kaldı (pencere cevaplanmadı)` (`OPERATOR_KARAR_METNI`:
   yeşil #2ecc71 / kırmızı #ff4d4d / turuncu #ffb454) + `tarih saat | Resim #NNNN | Kamera N | Program kararı: NOK`
   + `Gerekçe: …` (`_wrap_text`: kelime sınırından sarar, en fazla 3 satır, sonu `…`). QPainter ile çizilir
-  (cv2 Türkçe harf çizemez); yazı boyutu genişliğe göre (728 px → 28 px, 1456 → 48 px); bant çizilemezse resim bantsız
+  (cv2 Türkçe harf çizemez); yazı boyutu genişliğe göre (728 px → 28 px, 1456 → 48 px); başlık da en fazla 2 satıra
+  sarılır (dar resimde uzun CEVAPSIZ başlığı kesilmesin); bant çizilemezse resim bantsız
   kaydedilir (`[Uyarı] Karar bandı çizilemedi`). `_operator_banner_lines` satırları döndürür (test edilebilir).
   **Ek:** `closeEvent` başında `_review_penceresini_kapat()` → uygulama açık pencereyle kapanırsa kayıt CEVAPSIZ olarak
   yazılır (eskiden kayboluyordu). Gerçek 28 Eylül kaydıyla üç renk ekransız render edilip gözle doğrulandı. 11 yeni
