@@ -595,7 +595,7 @@ VE argümanlardan birinin basename'i `main.py` VE argümanlarda ` -c ` yok → "
 `import picamera2, PyQt5, cv2, yaml, pymodbus` başarısızsa zenity error + exit 1; (3) `git log -1` ile revizyon,
 kirli ağaçta `+yerel değişiklik`; log dosyasına `[baslat.sh] Başlatılıyor: … (revizyon …)`; `KONVEYOR_BASLAT_DENEME=1`
 ise burada `[DENEME] <py> <main.py> (revizyon …)` yazıp çıkar; (4) `"$PY" main.py >> LOG 2>&1`; rc≠0 ve süre <30 s ise
-son 12 log satırıyla zenity error. `mesaj()` GUI yoksa stderr'e yazar. Test: `tests/test_baslat.py` (14).
+son 12 log satırıyla zenity error. `mesaj()` GUI yoksa stderr'e yazar. Test: `tests/test_baslat.py` (15).
 **main.py `program_revision(proje_dir=None, with_status=False)`:** `git -C d log -1 --format='%h %cd'`
 (3 s timeout) → with_status'ta `git status --porcelain` dolu ise `+yerel değişiklik`; git yoksa `.git/HEAD` →
 `refs/heads/<dal>` ya da `packed-refs` → ilk 7 hex; hiçbiri yoksa `?`. `MainWindow.__init__`: `self._revizyon`,
@@ -614,9 +614,9 @@ hataları ("Camera frontend has timed out" = kablo) terminalde canlı görünür
 
 #### `tests/` — ekransız regresyon testleri (2026-09-23)
 `bash tests/calistir_testler.sh` (QT offscreen, her dosyanın TOPLAM satırı; çıkış = hatalı dosya
-sayısı). 12 dosya / 294 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
+sayısı). 12 dosya / 295 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
 `test_paket` 24, `test_stil` 16, `test_urun_yok` 40, `test_snapshot_olcek` 9, `test_paket_dur` 37,
-`test_urun_bulma` 17, `test_sekil_esik` 19, `test_operator` 50, `test_baslat` 14 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
+`test_urun_bulma` 17, `test_sekil_esik` 19, `test_operator` 50, `test_baslat` 15 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
 config (`main.load_config` yaması), `MainWindow.LOG_DIR` **ve `OPERATOR_DIR`** geçici, `_start_worker` no-op,
 `QMessageBox` susturma, sahte worker/picamera2 modülleri, `plc.type: null`.
 

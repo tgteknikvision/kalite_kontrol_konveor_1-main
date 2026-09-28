@@ -88,7 +88,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (294 test, 12 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (295 test, 12 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 operator_kontrol/       (git DIŞI, .gitignore) operatör kontrol kayıtları: GÜN/tarih-saat_resimNNNN_KARAR.jpg
                         (resmin ÜSTÜNDE renkli karar bandı, 2026-09-28) + operator_kayit.csv (§8 `inspection.operator_kayit`).
@@ -376,9 +376,9 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   (`b2f5c8a 2026-09-28 13:09`; `with_status` kirli ağaçta `+yerel değişiklik` — config.yaml GUI'de değiştiği için sık
   görünür, normaldir), git yoksa `.git/HEAD`/`packed-refs`, o da yoksa `?`; pencere başlığı `[sürüm …]`, açılışta
   `[Sürüm] Program revizyonu: … (klasör: …)` logu. Bu Pi'de `install_pi.sh` çalıştırıldı: `~/Desktop/konveyor-denetim.desktop`
-  (+x, trusted) ve menü girdisi güncel. 14 test (`tests/test_baslat.py`: revizyon/HEAD/packed-refs/?, başlık+log, deneme
+  (+x, trusted) ve menü girdisi güncel. 15 test (`tests/test_baslat.py`: revizyon/HEAD/packed-refs/?, başlık+log, deneme
   modu, kukla `python3 …/main.py` → ZATEN AÇIK, `-c` kuklası sayılmaz, sahte python → kütüphane hatası, install_pi.sh
-  metni, +x/LF); takım 294/294. Uygulama kapalı; simgeye tıklanınca yeni kod (karar bandı dahil) açılır.
+  metni, +x/LF); takım 295/295. Uygulama kapalı; simgeye tıklanınca yeni kod (karar bandı dahil) açılır.
 - **✅ 2026-09-28 ~13:20 — KAYIT RESMİNİN ÜSTÜNDE OPERATÖR KARAR BANDI (kullanıcı: "hata bulunan resim kaydedilsin,
   operatör hatalı mı doğru mu demiş resimle aynı dosyada olsun, resme baktığımda görebileyim"):** Kayıt zaten vardı
   (dosya adı + CSV); şimdi `_operator_kaydet` resmi `_operator_kayit_resmi(pm, karar, dlg, zaman)` ile kaydeder:

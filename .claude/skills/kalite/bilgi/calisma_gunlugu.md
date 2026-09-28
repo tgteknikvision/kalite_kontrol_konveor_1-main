@@ -13,7 +13,7 @@ kopya engeli + zenity bilgi; import hatası / 30 sn içinde çökme → zenity e
 `program_revision()` → başlık `[sürüm b2f5c8a 2026-09-28 13:09]` + `[Sürüm]` logu (git yoksa .git/HEAD, yoksa `?`).
 **Tuzak:** ilk guard `*python*main.py*` desenini ajanın kendi `bash -c "... main.py ..."` kabuğuyla eşleştirip "zaten
 açık" dedi (4 test kırmızı) → sıkı eşleşme: ilk kelime `python*`, argümanda basename `main.py`, ` -c ` yok.
-14 test (`test_baslat.py`), takım **294/294**. Not: revizyon BAŞKA makinede (Windows) yapılırsa simge önce `git pull`
+15 test (`test_baslat.py`), takım **295/295**. Not: revizyon BAŞKA makinede (Windows) yapılırsa simge önce `git pull`
 ister — simge git çekmez (config.yaml çakışması riski; istenirse eklenir). Uygulama kapalı; sıradaki açılış simgeden.
 
 ## 2026-09-28 ~13:20 — Kayıt resminin üstünde operatör karar bandı (kullanıcı isteği)
