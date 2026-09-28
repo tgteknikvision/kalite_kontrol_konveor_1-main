@@ -13,7 +13,8 @@ sys.path.insert(0, PROJ); os.chdir(PROJ)
 import numpy as np
 from PyQt5.QtWidgets import QApplication, QMessageBox, QDialog
 from PyQt5.QtGui import QPixmap, QColor, QImage, QCloseEvent, QFont, QFontMetrics
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QEvent
+from PyQt5 import sip
 import main
 from inspector.plc import NullPLCAdapter, InspectionState
 
@@ -156,6 +157,8 @@ class _FakeDlg: part_id = 7; cam_no = 2; gerekce = uzun; _pm = pm
 buyuk = w._operator_kayit_resmi(pm, "HATALI", _FakeDlg(), "2026-09-28 13:00:00")
 kisa = w._operator_kayit_resmi(pm, "HATALI", dlg4, "2026-09-28 13:00:00")
 check("uzun gerekçede bant büyür ama sınırlı (≤ 2 ek satır)", buyuk.height() > kisa.height() and buyuk.height() - kisa.height() <= 2 * (QFontMetrics(QFont("Arial")).height() + 14) and buyuk.width() == 400, f"{kisa.height()} → {buyuk.height()}")
+app.sendPostedEvents(None, QEvent.DeferredDelete); pump()
+check("kapanan pencereler bellekten silindi (deleteLater; her biri tam çözünürlük resim taşıyordu)", sip.isdeleted(dlg3) and sip.isdeleted(dlg4) and not w.findChildren(main.OperatorReviewDialog))
 
 print("\n[OK çekimde pencere yok / özellik kapalı]")
 w._handle_snapshot = lambda *a, **k: True

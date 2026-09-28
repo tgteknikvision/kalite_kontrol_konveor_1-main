@@ -132,6 +132,10 @@ Canlı görüntünün üstündeki sonuç tablosu; her kontrol noktası bir satı
   `update_results` (213 — dışa dönük API).
 - **TUZAK (253-256):** spinbox programatik doldurulurken `blockSignals(True)` şart —
   yoksa güncelleme config'e geri yazar (sonsuz döngü; testte korunuyor).
+- **`_clear()` (2026-09-28 saha):** widget'ları asla `setParent(None)` ile koparıp bırakma — odaklı kutu focusOut →
+  editingFinished → eşik yazımı → önizleme → `update_results` yeniden giriş → koparılmış kutulara `setVisible(True)` →
+  başlıksız toplevel pencereler (görev çubuğunda Python simgeleri). Şimdi: zamanlayıcılar durur, `blockSignals(True)`,
+  `_rows={}`, `hide()+setParent(None)+deleteLater()`, `_clearing` bayrağı (`update_results`/`_emit_change` erken döner).
 - Tüm eşikler **ALT SINIRDIR** (ölçülen ≥ eşik); `≥`/`<` sembolleri kaldırıldı, "en az"
   yazısı kullanılır. Alt sınırı geçtiği hâlde NOK olan noktada satır sonunda SEBEP yazar.
 
@@ -614,9 +618,9 @@ hataları ("Camera frontend has timed out" = kablo) terminalde canlı görünür
 
 #### `tests/` — ekransız regresyon testleri (2026-09-23)
 `bash tests/calistir_testler.sh` (QT offscreen, her dosyanın TOPLAM satırı; çıkış = hatalı dosya
-sayısı). 12 dosya / 312 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
+sayısı). 12 dosya / 318 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
 `test_paket` 24, `test_stil` 16, `test_urun_yok` 40, `test_snapshot_olcek` 9, `test_paket_dur` 37,
-`test_urun_bulma` 17, `test_sekil_esik` 19, `test_operator` 67, `test_baslat` 15 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
+`test_urun_bulma` 17, `test_sekil_esik` 24, `test_operator` 68, `test_baslat` 15 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
 config (`main.load_config` yaması), `MainWindow.LOG_DIR` **ve `OPERATOR_DIR`** geçici, `_start_worker` no-op,
 `QMessageBox` susturma, sahte worker/picamera2 modülleri, `plc.type: null`.
 
@@ -997,7 +1001,8 @@ karşılığı — elle senkron tutulur.
   kapalıysa eski `_urun_yok_uyarisi`. `_review_finished` answer→karar eşlemesine `yanlis→YANLIS_CEKIM`; cevapsız log türe göre
   (`_kayit_turu_adi`). Panel/PDF `operator_yanlis`; `OPERATOR_KARAR_METNI` YANLIS_CEKIM turuncu, CEVAPSIZ gri; bant
   "Program kararı: NOK | ÜRÜN YOK (yanlış çekim)".
-- Test: `tests/test_operator.py` (67); `test_urun_yok.py` eski kutu yolunu `operator_review: False` ile test eder.
+- Kapanan pencereler `deleteLater()` (tam çözünürlük pixmap taşırlar; 2026-09-28).
+- Test: `tests/test_operator.py` (68); `test_urun_yok.py` eski kutu yolunu `operator_review: False` ile test eder.
 
 ### Şekil kapısı eşikleri nokta başına — yuvarlaklık / dolgu (2026-09-24)
 - `features._evaluate_holes`: `eff_min_circ = ov.get('hole_min_circularity', min_circ)`, `eff_min_fill =

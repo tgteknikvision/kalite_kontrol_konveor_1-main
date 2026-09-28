@@ -16,8 +16,12 @@ def check(ad, kosul, ek=""):
 
 tmpdir = tempfile.mkdtemp()
 BASLAT = os.path.join(PROJ, "tools", "baslat.sh")
+# Üretimdeki gerçek uygulama (ya da başka bir main.py) açıkken de test koşabilsin: testin başında var olan pid'ler yok sayılır
+# (test kukla süreçleri sonradan açılır, listede olmaz → guard onları görür).
+MEVCUT_PIDLER = subprocess.run(["pgrep", "-f", "main\\.py"], capture_output=True, text=True).stdout.split()
 def calistir(env_ek=None, timeout=30):
-    env = dict(os.environ); env.update({"KONVEYOR_BASLAT_DENEME": "1", "KONVEYOR_BASLAT_LOG": os.path.join(tmpdir, "stdout.log")})
+    env = dict(os.environ); env.update({"KONVEYOR_BASLAT_DENEME": "1", "KONVEYOR_BASLAT_LOG": os.path.join(tmpdir, "stdout.log"),
+                                       "KONVEYOR_BASLAT_YOKSAY": " ".join(MEVCUT_PIDLER)})
     env.update(env_ek or {})
     r = subprocess.run(["bash", BASLAT], capture_output=True, text=True, env=env, timeout=timeout)
     return r.returncode, r.stdout + r.stderr

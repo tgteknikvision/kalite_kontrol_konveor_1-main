@@ -108,6 +108,24 @@ check("kutu → override 0.20 + log (2 ondalık) + önizleme", w.config["roi"]["
 w._update_live_errors(True, res_p, 1)
 check("aynı nokta kümesinde tablo yeniden kurulmaz (kutular aynı nesne)", panel._rows["1"]["cells"][2]["spin"] is yc["spin"])
 
+print("\n[Kontrol Merkezi: odaklı kutu varken tablo yenilenince pencere SIZINTISI olmamalı (2026-09-28 saha)]")
+# Saha: eşik kutusu odaktayken 'ürün yok' geldi -> show_notice -> _clear -> koparılan kutu focusOut -> editingFinished
+# -> [Eşik] yazımı + önizleme -> update_results (yeniden giriş) -> koparılmış kutulara setVisible(True) -> her biri
+# başlıksız TOPLEVEL pencere (görev çubuğunda onlarca Python simgesi). Düzeltme: sinyaller kapatılıp widget'lar silinir.
+app.setActiveWindow(w); w.activateWindow(); pump()
+kutu = panel._rows["1"]["cells"][0]["spin"]; kutu.setFocus(); pump()
+check("eşik kutusu odak aldı (senaryo ön koşulu)", kutu.hasFocus())
+n0 = len(app.topLevelWidgets()); loglar.clear()
+panel.show_notice("ÜRÜN ALGILANAMADI — yanlış çekim"); pump()
+w._update_live_errors(False, res_p, 1); pump(); pump()
+app.sendPostedEvents(None, main.QEvent.DeferredDelete); pump()      # deleteLater ile silinenler gitsin (exec_ döngüsü yokken elle)
+oksuz = [x for x in app.topLevelWidgets() if x is not w and not isinstance(x, main.QDialog)]
+check("yenileme sonrası öksüz / görünür top-level widget YOK (pencere sızıntısı yok)", not [x for x in oksuz if x.isVisible()] and len(app.topLevelWidgets()) <= n0, str([(type(x).__name__, x.isVisible()) for x in oksuz][:8]))
+check("yenileme sırasında config'e [Eşik] yazılmadı, önizleme koşmadı", not any("[Eşik]" in l or "[Önizleme]" in l for l in loglar), str([l[:60] for l in loglar if "[Eşik]" in l or "[Önizleme]" in l][:3]))
+check("tablo yeniden kuruldu, kutular görünür ve çalışıyor", "1" in panel._rows and panel._rows["1"]["cells"][0]["spin"].isVisible() and panel._rows["1"]["state"].text() == "NOK" and panel._rows["1"]["cells"][0]["spin"].parent() is not None)
+yc2 = panel._rows["1"]["cells"][2]; loglar.clear(); yc2["spin"].setValue(0.30); yc2["timer"].stop(); panel._emit_change("1", yc2); pump()
+check("yeni kutu hâlâ eşik yazıyor", w.config["roi"]["point_overrides"].get("1", {}).get("hole_min_circularity") == 0.30 and any("hole_min_circularity = 0.30" in l for l in loglar))
+
 w.worker = None; w.worker2 = None; w.close()
 
 basarisiz = [ad for ad, k in sonuc if not k]

@@ -119,6 +119,7 @@ class ROIResultPanel(QGroupBox):
     def __init__(self, parent=None):
         super().__init__("Kontrol Merkezi", parent)
         self._rows = {}
+        self._clearing = False
         outer = QVBoxLayout(self)
         outer.setContentsMargins(8, 4, 8, 6)
         outer.setSpacing(4)
@@ -230,23 +231,49 @@ class ROIResultPanel(QGroupBox):
         return cizgi
 
     def _emit_change(self, name, hucre):
-        hucre["timer"].stop()
-        if hucre["key"]:
-            self.threshold_changed.emit(str(name), hucre["key"], float(hucre["spin"].value()))
+        try:
+            hucre["timer"].stop()
+            if hucre["key"] and not getattr(self, "_clearing", False):
+                self.threshold_changed.emit(str(name), hucre["key"], float(hucre["spin"].value()))
+        except RuntimeError:
+            pass                                   # kutu silinmis (tablo yenilendi): gec kalan zamanlayici
 
     def _clear(self):
-        while self._grid.count():
-            item = self._grid.takeAt(0)
-            w = item.widget()
-            if w is not None:
-                w.setParent(None)
-        self._rows = {}
+        """Tum satirlari SILER (2026-09-28 saha duzeltmesi). Eskiden widget'lar setParent(None) ile koparilip
+        birakiliyordu: esik kutusu ODAKTAYKEN tablo yenilenince (orn. urun yok -> show_notice) koparilan kutu
+        focusOut -> editingFinished -> _on_panel_threshold_changed (config'e gereksiz [Esik] yazimi + onizleme)
+        -> update_results YENIDEN GIRIS -> koparilmis kutulara setVisible(True) -> her biri BASLIKSIZ TOPLEVEL
+        PENCERE oldu (gorev cubugunda onlarca 'main.py' Python simgesi; Wayland'da dogrulandi). Simdi: once tum
+        hucre sinyalleri/zamanlayicilari kapatilir, widget'lar gizlenip deleteLater ile yok edilir; _clearing
+        bayragi yeniden girisi keser."""
+        self._clearing = True
+        try:
+            for info in self._rows.values():
+                for hucre in info["cells"]:
+                    try:
+                        hucre["timer"].stop()
+                        hucre["spin"].blockSignals(True)
+                    except RuntimeError:
+                        pass
+            self._rows = {}
+            while self._grid.count():
+                item = self._grid.takeAt(0)
+                w = item.widget()
+                if w is not None:
+                    w.blockSignals(True)
+                    w.hide()
+                    w.setParent(None)
+                    w.deleteLater()
+        finally:
+            self._clearing = False
 
     # ---- disa donuk API --------------------------------------------------
     def update_results(self, is_ok, results, thresholds, types):
         """results: evaluate_with_profile sonucu.
         thresholds: {ad: [(anahtar, baslik, olcum_anahtari, deger), ...]}
         types: {ad: 'hole'|'notch'|'yon'}"""
+        if getattr(self, "_clearing", False):
+            return                                 # tablo silinirken yeniden giris (bkz. _clear)
         self._set_header(is_ok)
         # Nokta kumesi ya da bir noktanin esik SAYISI degistiyse tabloyu yeniden kur.
         if (set(results) != set(self._rows)
@@ -2874,6 +2901,7 @@ class MainWindow(QMainWindow):
             self._append_log(f"[Operatör] Resim #{old.part_id} kontrol edilmeden yeni çekim geldi → "
                              f"{self._kayit_turu_adi(getattr(old, 'kind', 'nok'))} olarak kaldı.")
             self._operator_kaydet(old, "CEVAPSIZ")
+            old.deleteLater()                      # bellek: her pencere tam cozunurluk resim tasir
         cams = self._active_cameras()
         cam = (nok_cams or cams or [1])[0]
         pm = self._snapshot_full_pixmap_2 if cam == 2 else self._snapshot_full_pixmap
@@ -2907,6 +2935,7 @@ class MainWindow(QMainWindow):
             self._append_log(f"[Operatör] Resim #{dlg.part_id}: pencere cevapsız kapatıldı → "
                              f"{self._kayit_turu_adi(getattr(dlg, 'kind', 'nok'))} olarak kaldı.")
         self._operator_kaydet(dlg, {"dogru": "DOGRU", "hatali": "HATALI", "yanlis": "YANLIS_CEKIM"}.get(dlg.answer, "CEVAPSIZ"))
+        dlg.deleteLater()                          # kapanan pencere bellekten silinsin (tam cozunurluk resim)
 
     def _review_penceresini_kapat(self):
         dlg = getattr(self, "_review_dlg", None)
@@ -2918,6 +2947,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         self._operator_kaydet(dlg, "CEVAPSIZ")
+        dlg.deleteLater()
 
     # ---- OPERATOR KONTROL KAYDI (kullanici istegi 2026-09-24) -------------------------------
     def _operator_kayit_on(self) -> bool:

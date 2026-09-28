@@ -88,7 +88,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (312 test, 12 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (318 test, 12 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 operator_kontrol/       (git DIŞI, .gitignore) operatör kontrol kayıtları: GÜN/tarih-saat_resimNNNN_KARAR.jpg
                         (resmin ÜSTÜNDE renkli karar bandı, 2026-09-28) + operator_kayit.csv (§8 `inspection.operator_kayit`).
@@ -364,6 +364,24 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-28 itibarıyla)
+- **✅ 2026-09-28 ~14:30 — GÖREV ÇUBUĞUNDA ONLARCA PYTHON SİMGESİ = KONTROL MERKEZİ PENCERE SIZINTISI (kullanıcı,
+  ekran görüntüsüyle: "bu üsttekiler ne, neden çıkıyor, çıkmasın"):** Kompozitörden (labwc, wlr-foreign-toplevel; saf soket
+  istemcisi scratchpad `toplevel_listesi.py`) okundu: uygulamanın `main.py` başlıklı (başlıksız → Qt argv[0]'ı yazar)
+  6+ ekstra toplevel penceresi vardı. **Kök sebep (Wayland'da yeniden üretildi):** `ROIResultPanel._clear()` widget'ları
+  `setParent(None)` ile koparıp bırakıyordu; bir eşik kutusu ODAKTAYKEN tablo yenilenince (örn. ürün yok → `show_notice`,
+  ya da nokta kümesi değişince) koparılan kutu focusOut → `editingFinished` → `_emit_change` → `_on_panel_threshold_changed`
+  (config'e gereksiz `[Eşik]` yazımları — kullanıcı logunda 14:01:37'de 4 tane) → önizleme → `update_results` YENİDEN
+  GİRİŞ → `_rows` hâlâ eski olduğu için koparılmış hücrelere `setVisible(True)` → her biri BAŞLIKSIZ TOPLEVEL pencere
+  (görev çubuğunda "…" etiketli Python simgeleri; Qt sırayla odağı sonraki kutuya verdiği için zincir). **Düzeltme:**
+  `_clear()` önce tüm hücre zamanlayıcılarını durdurup kutuların sinyallerini kapatır, `_rows`'u sıfırlar, widget'ları
+  `hide()+setParent(None)+deleteLater()` ile siler; `_clearing` bayrağı `update_results`/`_emit_change` yeniden girişini
+  keser; `_emit_change` silinmiş kutuya karşı `RuntimeError` yakalar. **Ek:** kapanan `OperatorReviewDialog`'lar
+  `deleteLater()` (her biri tam çözünürlük pixmap taşıyordu → saatte ~100 MB büyüme riski). `baslat.sh` test kancası
+  `KONVEYOR_BASLAT_YOKSAY="<pid>"` (üretim açıkken test koşabilsin). Regresyon testi `test_sekil_esik.py` (+5: odaklı kutu →
+  show_notice → öksüz/görünür widget yok, [Eşik] yazılmadı, tablo çalışıyor — eski kodda 2 kırmızı, yeni kodda yeşil) +
+  `test_operator.py` (+1 silinme); takım 318/318; Wayland senaryosu yeniden koşuldu: görünür pencere hep 1-2. **Çalışan
+  uygulama (13:51, VS Code'dan) eski kodda; yeniden başlatılınca düzelir.** **TUZAK (test):** `processEvents()` exec_
+  döngüsü yokken `deleteLater`'ları işlemez → `app.sendPostedEvents(None, QEvent.DeferredDelete)` gerekir.
 - **✅ 2026-09-28 ~14:00 — OPERATÖR PENCERESİNE 3. SEÇENEK: YANLIŞ ÇEKİM + "ÜRÜN ALGILANAMADI" AYNI PENCEREDE
   (kullanıcı, ürün-yok kutusunun ekran görüntüsüyle: "bu hatayı da doğru/hatalı sayfasına 3. şık olarak ekleyelim;
   resim kaydedilsin, yanlış çekime kaydedilsin, sayısı OK'a da NOK'a da sayılmasın"):** `OperatorReviewDialog(...,

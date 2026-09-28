@@ -18,6 +18,8 @@
    2 tetik (#1 OK, #2 NOK nokta 1 açıklık %14.0 < 14 → operatör HATALI → ilk gerçek operatör kaydı
    `operator_kontrol/2026-09-28/` yazıldı), 12:48:33 parti Sıfırla (önceki parti 24 Eylül: 527 parça, 426 OK,
    87 NOK, 1 hata, 13 yanlış çekim), 12:48:35 kapattı. Sayaç 0, paket hedefi 1000.
+   **14:30: görev çubuğundaki onlarca Python simgesi = Kontrol Merkezi pencere sızıntısı (düzeltildi; 13:51'de VS
+   Code'dan açılan örnek eski kodda, restart gerekir).** 13:51-14:03 arası 111 analiz, 14 operatör penceresi, 4 ürün yok.
    **13:32: masaüstüne "Konveyör Denetim Sistemi" simgesi kuruldu** (`~/Desktop/konveyor-denetim.desktop` →
    `tools/baslat.sh`; her zaman güncel kod, ikinci kopya engeli). Sonraki açılış bu simgeden: karar bandı +
    başlıkta sürüm görünecek.

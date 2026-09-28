@@ -3,6 +3,20 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-28 ~14:30 — Görev çubuğunda onlarca Python simgesi → Kontrol Merkezi pencere sızıntısı (düzeltildi)
+**Kullanıcı (ekran görüntüsü):** üst çubukta 20+ Python simgesi, "bunlar ne, neden çıkıyor, çıkmasın". **Teşhis:**
+xwininfo/xdotool/lswt yok → wlr-foreign-toplevel protokolüyle saf soket istemcisi yazıldı (`toplevel_listesi.py`):
+kompozitörde uygulamanın `main.py` başlıklı 6 ekstra toplevel'ı vardı (başlıksız pencere → Qt argv[0]'ı yazar).
+Wayland'da gerçek senaryo yeniden üretildi (`tani_senaryo.py`): pencereler/ipuçları/kutu düzenleme temiz; **eşik kutusu
+odaktayken "ürün yok" (show_notice → `_clear`) → 11 görünür başlıksız pencere**. Mekanizma: `setParent(None)` ile
+koparılan odaklı kutu → focusOut → editingFinished → `_on_panel_threshold_changed` (logda 14:01:37'de 4 `[Eşik]`) →
+önizleme → `update_results` yeniden giriş → koparılmış hücrelere `setVisible(True)` → toplevel. **Düzeltme:** `_clear`
+zamanlayıcı/sinyal kapatma + `hide/setParent(None)/deleteLater` + `_clearing` bayrağı; `_emit_change` RuntimeError
+koruması; operatör pencereleri kapanınca `deleteLater` (tam çözünürlük pixmap). Regresyon testi önce eski kodla kırmızı
+(2), sonra yeşil; Wayland senaryosu görünür 1-2. `baslat.sh` `KONVEYOR_BASLAT_YOKSAY` (üretim açıkken test). Takım
+**318/318**. Not: uygulama 13:51'de VS Code'dan açılmış (`/usr/bin/python …/main.py`, masaüstü simgesi kullanılmamış),
+eski kodda → restart gerekli; stray pencereler restart'ta gider.
+
 ## 2026-09-28 ~14:00 — Operatör penceresine 3. seçenek YANLIŞ ÇEKİM; "ürün algılanamadı" da aynı pencerede
 **Kullanıcı (ürün-yok kutusunun ekran görüntüsüyle):** "bu hatayı da doğru/hatalı sayfasına 3. şık olarak ekleyelim;
 resim kaydedilsin, yanlış çekime kaydedilsin, sayısı OK'a da NOK'a da sayılmasın". **Yapılan:** `OperatorReviewDialog`

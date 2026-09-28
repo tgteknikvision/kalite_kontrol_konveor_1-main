@@ -14,6 +14,7 @@
 #   KONVEYOR_BASLAT_DENEME=1   -> programı AÇMAZ, ne yapacağını yazar (exit 0)
 #   KONVEYOR_BASLAT_PY=<yol>   -> python yerine bu komut (kütüphane hatası senaryosu)
 #   KONVEYOR_BASLAT_LOG=<yol>  -> stdout log dosyası
+#   KONVEYOR_BASLAT_YOKSAY="<pid> <pid>" -> 'zaten açık' kontrolünde bu pid'ler sayılmaz (test, üretim açıkken)
 # Kurulum: bash tools/install_pi.sh  (menü + masaüstü simgesi bu betiğe bağlanır)
 # =============================================================================
 set -u
@@ -39,6 +40,7 @@ zaten_acik_pid() {
   local p a ilk t
   for p in $(pgrep -f 'main\.py' 2>/dev/null || true); do
     [ "$p" = "$$" ] && continue
+    case " ${KONVEYOR_BASLAT_YOKSAY:-} " in *" $p "*) continue ;; esac
     a="$(ps -o args= -p "$p" 2>/dev/null || true)"
     [ -n "$a" ] || continue
     # shellcheck disable=SC2086
