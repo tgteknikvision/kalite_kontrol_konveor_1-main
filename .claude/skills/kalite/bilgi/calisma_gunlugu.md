@@ -3,6 +3,20 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-28 ~14:00 — Operatör penceresine 3. seçenek YANLIŞ ÇEKİM; "ürün algılanamadı" da aynı pencerede
+**Kullanıcı (ürün-yok kutusunun ekran görüntüsüyle):** "bu hatayı da doğru/hatalı sayfasına 3. şık olarak ekleyelim;
+resim kaydedilsin, yanlış çekime kaydedilsin, sayısı OK'a da NOK'a da sayılmasın". **Yapılan:** `OperatorReviewDialog`
+3 buton (DOĞRU / HATALI / ⚠ YANLIŞ ÇEKİM, turuncu `accent=warning`) + açıklama satırı; `kind="urun_yok"` türü (başlık
+ÜRÜN YOK, "ürünü karede BULAMADI", butonlar "NOK say" / "evet, ürün yoktu"). Sayaç: `_last_nok_record.kind`,
+`_kaydi_geri_al`; DOĞRU → OK; HATALI → NOK (ürün-yok kaydı NOK'a taşınır, NOK listesine "operatör: HATALI");
+YANLIŞ ÇEKİM → `_operator_yanlis_cekim`: NOK kaydı geri alınıp `urun_yok`+1, ürün-yok kaydı olduğu gibi; `operator_yanlis`,
+CSV `OPERATOR_YANLIS_CEKIM`, panel "N doğru / M hatalı / K yanlış çekim", PDF. `_on_product_missing` artık
+`operator_review` açıkken eski "Kontrol ettim" kutusu yerine bu pencereyi açar (kapalıysa eski kutu). Karar bandı:
+YANLIS_CEKIM turuncu, CEVAPSIZ gri, "Program kararı: ÜRÜN YOK (yanlış çekim)". 17 yeni test (`test_operator` 67),
+`test_urun_yok` eski kutu yolunu `operator_review: False` ile koşuyor; takım **312/312**. Üç butonlu pencere iki türde
+ekransız render edildi. **Tuzak:** testte `gri` adı hem kare hem renk yüklemi oldu → `FakeWorker(gri)` lambda aldı,
+`.copy()` çöktü; ad ayrıldı. Uygulama kapalı; simgeden açılınca devrede.
+
 ## 2026-09-28 ~13:35 — Masaüstü simgesi: her zaman güncel revizyonu açan başlatıcı (kullanıcı isteği)
 **Kullanıcı:** "masaüstüne bir simge koy, programı açmak için kullanalım; her revizyon yapıldığında simgeden açılan
 program revizyonlu olsun". Durum: menüde Ağustos'tan kalma girdi (`python3 …/main.py`) vardı, masaüstünde simge YOKTU.

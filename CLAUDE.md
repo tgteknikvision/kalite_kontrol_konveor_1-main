@@ -88,7 +88,7 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (295 test, 12 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (312 test, 12 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 operator_kontrol/       (git DIŞI, .gitignore) operatör kontrol kayıtları: GÜN/tarih-saat_resimNNNN_KARAR.jpg
                         (resmin ÜSTÜNDE renkli karar bandı, 2026-09-28) + operator_kayit.csv (§8 `inspection.operator_kayit`).
@@ -301,8 +301,11 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   yapılmaz, NOK SAYILMAZ (sayaç `urun_yok`, CSV `URUN_YOK`), PLC'ye yine 1, modal olmayan operatör
   uyarısı. Referans yoksa / hizalama kapalıysa kapı devre dışı. Sahada OK çerçeveler ±%8, boş kare
   %-60/%+100 (§12). Config'te anahtar yoksa varsayılanlar geçerli (setdefault yazılmaz).
-- **`inspection.operator_review`** (bool, vars. **true**, Ayarlar'da kutu): NOK'ta OPERATÖR KONTROL PENCERESİ
-  (2026-09-24) — resim ekranın %80'i + gerekçe + DOĞRU (OK say) / HATALI (NOK kalsın); PLC'ye ek yazım yok (§12).
+- **`inspection.operator_review`** (bool, vars. **true**, Ayarlar'da kutu): NOK'ta VE ÜRÜN YOK'ta OPERATÖR KONTROL
+  PENCERESİ (2026-09-24/28) — resim ekranın %80'i + gerekçe + **ÜÇ seçenek:** DOĞRU (OK sayılır) / HATALI (NOK sayılır)
+  / **YANLIŞ ÇEKİM** (OK'a da NOK'a da sayılmaz, `urun_yok` sayacına gider; 2026-09-28). Program "ürün algılanamadı"
+  dediğinde de aynı pencere açılır (kapatılırsa yanlış çekim kalır); kutu kapalıysa eski "Kontrol ettim" uyarısı.
+  PLC'ye ek yazım yok (§12).
 - **`inspection.operator_kayit`** (bool, vars. **true**) + **`inspection.operator_kayit_gun`** (int, vars. **30**,
   0 = hiç silme): operatör kararı + kontrol edilen İŞARETLİ resim `<proje>/operator_kontrol/YYYY-AA-GG/
   YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg` (JPEG q85) ve `operator_kontrol/operator_kayit.csv`'ye yazılır
@@ -361,6 +364,27 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-28 itibarıyla)
+- **✅ 2026-09-28 ~14:00 — OPERATÖR PENCERESİNE 3. SEÇENEK: YANLIŞ ÇEKİM + "ÜRÜN ALGILANAMADI" AYNI PENCEREDE
+  (kullanıcı, ürün-yok kutusunun ekran görüntüsüyle: "bu hatayı da doğru/hatalı sayfasına 3. şık olarak ekleyelim;
+  resim kaydedilsin, yanlış çekime kaydedilsin, sayısı OK'a da NOK'a da sayılmasın"):** `OperatorReviewDialog(...,
+  kind="nok"|"urun_yok")`: üç buton `btn_ok` "✔ DOĞRU — OK say" (success) / `btn_nok` "✘ HATALI — NOK kalsın|say"
+  (danger) / **`btn_yanlis` "⚠ YANLIŞ ÇEKİM — ürün yok / kadraj bozuk (sayma)"** (yeni `accent="warning"` turuncu stil);
+  açıklama satırı; `answer` dogru|hatali|yanlis|None. **Sayaç mantığı** (`_last_nok_record` artık `kind` taşır: `_record_part`
+  NOK'ta "nok", ürün yokta "urun_yok"; `_kaydi_geri_al(rec)` ortak): DOĞRU → önceki kayıt (NOK ya da ürün yok) geri alınır,
+  OK+1, paket+1; HATALI → NOK kaydı NOK kalır, ürün-yok kaydı NOK'a taşınır (urun_yok−1, nok+1, NOK listesine "operatör:
+  HATALI (program ürünü karede bulamamıştı)"); **YANLIŞ ÇEKİM** (`_operator_yanlis_cekim`) → NOK kaydı geri alınır ve
+  `urun_yok`+1, ürün-yok kaydı olduğu gibi kalır; `operator_yanlis`+1, CSV `OPERATOR_YANLIS_CEKIM`; cevapsız → kayıt olduğu
+  gibi kalır. **Ürün yok akışı:** `_on_product_missing` artık `operator_review` açıkken eski "Kontrol ettim" kutusu YERİNE
+  `_operator_review(pid, [cam], kind="urun_yok", gerekce=[ÜRÜN ALGILANAMADI — detay, partideki sayı])` açar (bip; resim =
+  tam kare + bulunan çerçeve + damga; başlık "ÜRÜN YOK — Resim #N", istem "Program ürünü karede BULAMADI…"); kutu kapalıysa
+  eski `_urun_yok_uyarisi` (geriye uyum). Panel "Operatör: N doğru / M hatalı / K yanlış çekim", PDF satırı, sayaç anahtarı
+  `operator_yanlis`. Karar bandı: `YANLIS_CEKIM` turuncu "OPERATÖR: YANLIŞ ÇEKİM — … (OK'a da NOK'a da sayılmadı)", `HATALI`
+  "NOK sayıldı", `CEVAPSIZ` artık GRİ "#b0b7c3" (turuncu yanlış çekime ayrıldı); bantta "Program kararı: NOK | ÜRÜN YOK
+  (yanlış çekim)". Dosya adı `…_YANLIS_CEKIM.jpg`. PLC'ye ek yazım yok (HR100=1 zaten gitti). **Testler:** `test_operator.py`
+  67 (YANLIŞ ÇEKİM: NOK−1/urun_yok+1/dağılım geri/dosya+bant+CSV; ürün yok → pencere, DOĞRU/HATALI/YANLIŞ/X akışları, kutu
+  kapalıyken eski kutu), `test_urun_yok.py` `operator_review: False` ile eski kutu yolunu test eder; takım 312/312. Üç
+  butonlu pencere ekransız render edildi. Uygulama kapalı → simgeden açılınca devrede. **TUZAK (test):** test dosyasında
+  `gri` hem kare dizisi hem renk yüklemi olarak kullanılınca `FakeWorker(gri)` lambda aldı → `.copy()` çöktü; ad ayrıldı.
 - **✅ 2026-09-28 ~13:35 — MASAÜSTÜ SİMGESİ + HER ZAMAN GÜNCEL REVİZYON (kullanıcı: "masaüstüne bir simge koy,
   programı açmak için kullanalım; her revizyonda simgeden açılan program revizyonlu olsun"):** Menüde Ağustos'tan
   kalma girdi vardı (`Exec=/usr/bin/python3 …/main.py`), masaüstünde simge YOKTU. Yeni **`tools/baslat.sh`**

@@ -80,15 +80,17 @@ uygulama kapansa da kaybolmaz.
 - Sebep adları: "kapalı / eksik / tıkalı" (delikte koyu alan az), "şekil uygun değil" (koyu blob
   yuvarlak değil), "derinlik yetersiz", "oluk yok (oran bant dışı / şekil yok)", "ayna / ters parça".
 
-## 3d. "Ürün algılanamadı" uyarısı (yanlış çekim)
+## 3d. "Ürün algılanamadı" (yanlış çekim)
 Tetik gelir ama kamera karede ürün bulamazsa (örn. sensör boş banda tetik verdi, parça
-kameranın altından geçmişti) program bunu **NOK saymaz**; ekranda **"ÜRÜN ALGILANAMADI"**
-penceresi çıkar (bip sesiyle), durum satırı turuncu **ÜRÜN YOK** olur, son resimde bulunan
-yanlış çerçeve turuncu gösterilir.
+kameranın altından geçmişti) program bunu **NOK saymaz**, yanlış çekim sayar; durum satırı turuncu
+**ÜRÜN YOK** olur, son resimde bulunan yanlış çerçeve turuncu gösterilir ve bip sesiyle **operatör kontrol
+penceresi** açılır (§3e'deki pencerenin aynısı, başlığı "ÜRÜN YOK"): **DOĞRU** = parça sağlamdı, OK
+sayılır · **HATALI** = parça hatalıydı, NOK sayılır · **YANLIŞ ÇEKİM** = evet ürün yoktu, sayım dışı kalır.
+Pencereyi cevapsız kapatırsanız da yanlış çekim olarak kalır. (Ayarlar'da operatör penceresi kapalıysa eski
+"ÜRÜN ALGILANAMADI — Kontrol ettim" kutusu çıkar.)
 - **PLC'ye yine NOK (1) gider** → hat NOK'taki gibi davranır (durur/ayırır). PLC programı değişmedi.
 - **Ne yapmalı:** banda ve parçaya bakın — parça gerçekten geçti mi, sensör boşa mı tetikledi?
-  Sonra **"Kontrol ettim"** ile pencereyi kapatın. Pencere açıkken denetim ve PLC durmaz;
-  yeni yanlış çekimler aynı pencerede sayılır.
+  Pencere açıkken denetim ve PLC durmaz; yeni bir çekim gelirse açık pencere cevapsız kapanır.
 - Sol panelde **"Yanlış çekim (ürün yok): N"** satırı ve PDF raporunda ayrı sütun.
 - **Sık oluyorsa:** loglarda `[Tetik] ... önceki tetikten X s sonra` değerine bakın; yanlış çekimler
   hep 1-2 s aralıkla geliyorsa sensör aynı parçaya iki tetik veriyor (PLC'ci ile bakılmalı).
@@ -97,25 +99,31 @@ yanlış çerçeve turuncu gösterilir.
   en ya da boyda %25'ten fazla sapıyorsa "ürün yok" sayılır (config: `inspection.product_box_tolerance`;
   `inspection.product_presence_check: false` kapatır).
 
-## 3e. NOK'ta operatör kontrolü (DOĞRU / HATALI)
+## 3e. NOK'ta operatör kontrolü (DOĞRU / HATALI / YANLIŞ ÇEKİM)
 Program bir parçaya NOK deyince PLC'ye NOK gider (konveyör durur) ve ekranda büyük bir pencere açılır:
-o anki resim (kontrol noktaları işaretli), altında programın gerekçesi ve iki buton.
-- **✔ DOĞRU — parçayı OK say:** parça sağlamsa. NOK sayısı bir azalır, OK ve paket bir artar; hata
+o anki resim (kontrol noktaları işaretli), altında programın gerekçesi ve üç buton.
+- **✔ DOĞRU — OK say:** parça sağlamsa. NOK sayısı bir azalır, OK ve paket bir artar; hata
   dağılımı düzeltilir; CSV'ye `OPERATOR_DOGRU` satırı düşer.
 - **✘ HATALI — NOK kalsın:** NOK onaylanır (`OPERATOR_HATALI`).
-- Pencereyi cevapsız kapatırsanız ya da cevaplamadan yeni bir NOK gelirse parça NOK kalır.
+- **⚠ YANLIŞ ÇEKİM — sayma (2026-09-28):** ürün karede yok ya da kadraj bozuk (parça yarım, boş bant). Parça
+  **OK'a da NOK'a da sayılmaz**; NOK sayısı bir azalır, "Yanlış çekim (ürün yok)" sayacı bir artar; hata dağılımı
+  düzeltilir; CSV'ye `OPERATOR_YANLIS_CEKIM` satırı düşer. Resim yine kaydedilir (turuncu "YANLIŞ ÇEKİM" bandıyla).
+- Pencereyi cevapsız kapatırsanız ya da cevaplamadan yeni bir çekim gelirse programın kararı olduğu gibi kalır
+  (NOK ise NOK, ürün yok ise yanlış çekim).
 - PLC'ye ek bir şey yazılmaz; konveyörü her zamanki gibi siz çalıştırırsınız.
-- Sol panelde "Operatör: N doğru / M hatalı" satırı, PDF raporunda özet.
+- Sol panelde "Operatör: N doğru / M hatalı / K yanlış çekim" satırı, PDF raporunda özet.
+- Aynı pencere "ürün algılanamadı" durumunda da açılır (§3d); orada HATALI parçayı NOK'a taşır, DOĞRU OK'a.
 - Eşik ayarı sırasında çok NOK çıkıyorsa Ayarlar → "NOK'ta operatör kontrol penceresi" kutusunu kapatın.
 - **Kayıt:** her kontrolde operatörün gördüğü resim ve kararı program klasöründeki `operator_kontrol/` altına
   yazılır: `operator_kontrol/2026-09-24/2026-09-24_15-42-07_resim0012_DOGRU.jpg` (gün klasörü; ad = tarih_saat_
-  resim no_karar; karar DOGRU / HATALI / CEVAPSIZ) + özet tablo `operator_kontrol/operator_kayit.csv`
+  resim no_karar; karar DOGRU / HATALI / YANLIS_CEKIM / CEVAPSIZ) + özet tablo `operator_kontrol/operator_kayit.csv`
   (tarih;saat;resim;karar;kamera;gerekce;dosya — Excel/LibreOffice ile açılır). Resim ≈ 200-300 KB.
   Ayarlar → "Operatör kontrollerini kaydet" kapatılabilir; "Operatör kayıtlarını sakla (gün)" (varsayılan 30,
   0 = hiç silme) günden eski gün klasörleri kendiliğinden silinir.
 - **Resmin üstünde karar bandı (2026-09-28):** kaydedilen resmi açınca en üstte büyük ve renkli yazıyla operatörün
-  kararı görünür — **yeşil "OPERATÖR: DOĞRU — parça OK sayıldı"**, **kırmızı "OPERATÖR: HATALI — NOK onaylandı"**,
-  turuncu "CEVAPSIZ — NOK kaldı"; altında tarih-saat, resim numarası, kamera ve programın gerekçesi. Ürün resmi
+  kararı görünür — **yeşil "OPERATÖR: DOĞRU — parça OK sayıldı"**, **kırmızı "OPERATÖR: HATALI — NOK sayıldı"**,
+  **turuncu "OPERATÖR: YANLIŞ ÇEKİM — … (OK'a da NOK'a da sayılmadı)"**, gri "CEVAPSIZ"; altında tarih-saat, resim
+  numarası, kamera, programın kararı (NOK / ÜRÜN YOK) ve gerekçesi. Ürün resmi
   bandın altında olduğu gibi durur. Uygulama, pencere açıkken kapatılırsa o kontrol CEVAPSIZ olarak kaydedilir.
 
 ## 4. Ayarlar (⚙)

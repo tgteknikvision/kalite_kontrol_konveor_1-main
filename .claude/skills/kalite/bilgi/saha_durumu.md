@@ -87,7 +87,9 @@
   (yalnız NOK'lar → günde en fazla birkaç yüz KB × NOK sayısı; 30 gün saklanır, Ayarlar'dan değişir).
   **2026-09-28 13:20:** resmin ÜSTÜNDE renkli karar bandı (DOĞRU yeşil / HATALI kırmızı / CEVAPSIZ turuncu +
   tarih-saat, resim no, kamera, gerekçe); uygulama kapanırken açık pencere CEVAPSIZ yazılır. Restart bekliyor
-  (bugünkü 12:48 kaydı eski kodla bantsız).
+  (bugünkü 12:48 kaydı eski kodla bantsız). **14:00: pencerede 3. seçenek YANLIŞ ÇEKİM** (OK'a da NOK'a da sayılmaz,
+  yanlış çekim sayacına gider) ve "ürün algılanamadı" olayı da aynı pencereye gidiyor (DOĞRU=OK, HATALI=NOK,
+  YANLIŞ ÇEKİM/kapatma=yanlış çekim kalır).
 - **Paket adedi (13:45):** `inspection.paket_adedi` = 100 (varsayılan); paket sayacı OK parçaları
   sayar, hedefte modal olmayan uyarı (Sıfırla/Devam et). Spinbox okları artık görünür.
 

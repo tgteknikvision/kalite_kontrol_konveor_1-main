@@ -427,9 +427,13 @@ QPushButton[accent="success"]:pressed { background-color: #285f44; }
 QPushButton[accent="danger"] { background-color: #8f3f43; color: #f7eded; border: 1px solid #a44a4e; }
 QPushButton[accent="danger"]:hover { background-color: #a3494d; border-color: #b85458; }
 QPushButton[accent="danger"]:pressed { background-color: #7a363a; }
+QPushButton[accent="warning"] { background-color: #8a5a12; color: #fff3e0; border: 1px solid #b3761a; }
+QPushButton[accent="warning"]:hover { background-color: #a06a17; border-color: #c9861f; }
+QPushButton[accent="warning"]:pressed { background-color: #734a0e; }
 QPushButton[accent="primary"]:disabled,
 QPushButton[accent="success"]:disabled,
-QPushButton[accent="danger"]:disabled { background-color: #1d2026; color: #5a606b; border: 1px solid #262a31; }
+QPushButton[accent="danger"]:disabled,
+QPushButton[accent="warning"]:disabled { background-color: #1d2026; color: #5a606b; border: 1px solid #262a31; }
 
 QCheckBox { color: #c4c9d2; font-size: 13px; background: transparent; spacing: 8px; }
 QCheckBox:disabled { color: #5a606b; }
@@ -589,13 +593,16 @@ class OperatorReviewDialog(QDialog):
     DEGIL (PLC yoklamasi ve yeni tetikler durmaz). Cevap `answer`: "dogru" | "hatali" | None
     (pencere kapatildi -> NOK kalir)."""
 
-    def __init__(self, parent, part_id: int, pixmap, sebepler, cam_no: int = 0):
+    def __init__(self, parent, part_id: int, pixmap, sebepler, cam_no: int = 0, kind: str = "nok"):
+        """kind: 'nok' = program NOK dedi; 'urun_yok' = program urunu karede bulamadi (yanlis cekim, 2026-09-28)."""
         super().__init__(parent)
         self.part_id = int(part_id)
         self.answer = None
+        self.kind = str(kind or "nok")
         self._pm = pixmap if (pixmap is not None and not pixmap.isNull()) else None
         kam = f" — Kamera {cam_no}" if cam_no else ""
-        self.setWindowTitle(f"Operatör kontrolü — Resim #{self.part_id}{kam}")
+        urun_yok = (self.kind == "urun_yok")
+        self.setWindowTitle(f"Operatör kontrolü — {'ÜRÜN YOK — ' if urun_yok else ''}Resim #{self.part_id}{kam}")
         self.setWindowModality(Qt.NonModal)
         scr = QApplication.primaryScreen()
         geo = scr.availableGeometry() if scr is not None else None
@@ -606,9 +613,15 @@ class OperatorReviewDialog(QDialog):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 10, 12, 10)
         lay.setSpacing(8)
-        lbl_t = QLabel(f"Program bu parçaya NOK dedi (Resim #{self.part_id}{kam}).  Parçaya bakın: DOĞRU mu, HATALI mı?")
+        if urun_yok:
+            baslik = (f"Program ürünü karede BULAMADI — yanlış çekim (Resim #{self.part_id}{kam}).  "
+                      "Parçaya bakın: DOĞRU mu, HATALI mı, yoksa gerçekten YANLIŞ ÇEKİM mi?")
+        else:
+            baslik = (f"Program bu parçaya NOK dedi (Resim #{self.part_id}{kam}).  "
+                      "Parçaya bakın: DOĞRU mu, HATALI mı, yoksa YANLIŞ ÇEKİM mi?")
+        lbl_t = QLabel(baslik)
         lbl_t.setFont(QFont("Arial", 15, QFont.Bold))
-        lbl_t.setStyleSheet("color:#ff9b9b;")
+        lbl_t.setStyleSheet("color:#ffb454;" if urun_yok else "color:#ff9b9b;")
         lbl_t.setWordWrap(True)
         lay.addWidget(lbl_t)
         self.lbl_img = QLabel("(resim yok)")
@@ -622,18 +635,30 @@ class OperatorReviewDialog(QDialog):
         self.lbl_reasons.setFont(QFont("Arial", 12))
         self.lbl_reasons.setStyleSheet("color:#d7dae0;")
         lay.addWidget(self.lbl_reasons)
+        # 3 SECENEK (2026-09-28, kullanici: "yanlis cekimi 3. sik olarak ekleyelim; resim kaydedilsin, OK'a da NOK'a da
+        # sayilmasin"): DOGRU = OK sayilir, HATALI = NOK sayilir, YANLIS CEKIM = yanlis cekim sayacina gider.
+        lbl_a = QLabel("DOĞRU = parça sağlam, OK sayılır   ·   HATALI = NOK sayılır   ·   "
+                       "YANLIŞ ÇEKİM = ürün yok / kadraj bozuk: OK'a da NOK'a da sayılmaz, yanlış çekim sayacına gider.   "
+                       "Her cevapta resim ve karar kaydedilir.")
+        lbl_a.setWordWrap(True)
+        lbl_a.setStyleSheet("color:#9aa0ab;")
+        lay.addWidget(lbl_a)
         row = QHBoxLayout()
-        self.btn_ok = QPushButton("✔  DOĞRU — parçayı OK say")
+        self.btn_ok = QPushButton("✔  DOĞRU — OK say")
         self.btn_ok.setProperty("accent", "success")
-        self.btn_nok = QPushButton("✘  HATALI — NOK kalsın")
+        self.btn_nok = QPushButton("✘  HATALI — NOK say" if urun_yok else "✘  HATALI — NOK kalsın")
         self.btn_nok.setProperty("accent", "danger")
-        for b in (self.btn_ok, self.btn_nok):
+        self.btn_yanlis = QPushButton("⚠  YANLIŞ ÇEKİM — evet, ürün yoktu (sayma)" if urun_yok
+                                      else "⚠  YANLIŞ ÇEKİM — ürün yok / kadraj bozuk (sayma)")
+        self.btn_yanlis.setProperty("accent", "warning")
+        for b in (self.btn_ok, self.btn_nok, self.btn_yanlis):
             b.setMinimumHeight(64)
-            b.setFont(QFont("Arial", 16, QFont.Bold))
+            b.setFont(QFont("Arial", 15, QFont.Bold))
             row.addWidget(b)
         lay.addLayout(row)
         self.btn_ok.clicked.connect(lambda: self._cevapla("dogru"))
         self.btn_nok.clicked.connect(lambda: self._cevapla("hatali"))
+        self.btn_yanlis.clicked.connect(lambda: self._cevapla("yanlis"))
         self._rescale()
 
     def _cevapla(self, cevap):
@@ -1106,10 +1131,11 @@ class MainWindow(QMainWindow):
         self.lbl_counter_err.setStyleSheet("color:#d8a657;")
         # URUN YOK / YANLIS CEKIM (2026-09-24): NOK'tan AYRI sayilir (bkz. _on_product_missing).
         # OPERATOR DUZELTMESI (2026-09-24): NOK penceresinde "DOGRU" denen parcalar OK'a tasinir.
-        self.lbl_counter_operator = QLabel("Operatör: 0 doğru / 0 hatalı")
+        self.lbl_counter_operator = QLabel("Operatör: 0 doğru / 0 hatalı / 0 yanlış çekim")
         self.lbl_counter_operator.setStyleSheet("color:#9aa0ab;")
-        self.lbl_counter_operator.setToolTip("NOK penceresinde operatörün verdiği cevaplar: DOĞRU → parça OK sayıldı "
-                                             "(sayaç/paket düzeltildi); HATALI → NOK onaylandı.")
+        self.lbl_counter_operator.setToolTip("Kontrol penceresinde operatörün verdiği cevaplar: DOĞRU → parça OK sayıldı "
+                                             "(sayaç/paket düzeltildi); HATALI → NOK sayıldı; YANLIŞ ÇEKİM → OK'a da NOK'a da "
+                                             "sayılmadı, 'Yanlış çekim (ürün yok)' sayacına gitti.")
         self.lbl_counter_missing = QLabel("Yanlış çekim (ürün yok): 0")
         self.lbl_counter_missing.setStyleSheet("color:#9aa0ab;")
         self.lbl_counter_missing.setToolTip(
@@ -1824,7 +1850,16 @@ class MainWindow(QMainWindow):
         self._record_part(self._capture_counter, False, {}, source, product_missing=detay)
         self._publish_plc_error(f"ürün algılanamadı: {detay}")
         self._set_inspection_state(InspectionState.ERROR, label="ÜRÜN YOK", color="#ffb454")
-        QTimer.singleShot(0, self._urun_yok_uyarisi)      # PLC yazimini geciktirmesin
+        if self._operator_review_on():
+            # 2026-09-28 (kullanici istegi): eski "Kontrol ettim" kutusu yerine NOK'takiyle AYNI operator penceresi,
+            # 3 secenek: DOGRU (OK say) / HATALI (NOK say) / YANLIS CEKIM (sayilmaz — kapatilinca da bu kalir).
+            QApplication.beep()
+            gerekce = [f"ÜRÜN ALGILANAMADI — {self._cam_prefix(n)}{detay}",
+                       f"Bu partide yanlış çekim: {int(self._counters.get('urun_yok', 0))}"]
+            QTimer.singleShot(0, lambda pid=self._capture_counter, cam=n, g=gerekce:
+                              self._operator_review(pid, [cam], kind="urun_yok", gerekce=g))
+        else:
+            QTimer.singleShot(0, self._urun_yok_uyarisi)      # PLC yazimini geciktirmesin
 
     def _urun_yok_metni(self) -> str:
         import html as _h
@@ -2528,7 +2563,7 @@ class MainWindow(QMainWindow):
         n = self._paket_adedi()
         return {"baslangic": time.strftime("%Y-%m-%d %H:%M:%S"), "toplam": 0, "ok": 0, "nok": 0,
                 "hata": 0, "urun_yok": 0, "noktalar": {}, "hata_sebepleri": {}, "son_nok": [],
-                "paket_ok": 0, "paket_esik": n, "operator_dogru": 0, "operator_hatali": 0}
+                "paket_ok": 0, "paket_esik": n, "operator_dogru": 0, "operator_hatali": 0, "operator_yanlis": 0}
 
     def _load_counters(self):
         try:
@@ -2598,6 +2633,8 @@ class MainWindow(QMainWindow):
         if product_missing:
             c["urun_yok"] = int(c.get("urun_yok", 0)) + 1
             sonuc, failed, olcum = "URUN_YOK", [f"ürün algılanamadı = {product_missing}"], []
+            # Operator penceresi DOGRU/HATALI derse bu kayit geri alinir (kind = 'urun_yok').
+            self._last_nok_record = {"part_id": part_id, "pairs": [], "zaman": zaman, "kind": "urun_yok"}
         elif error:
             c["hata"] += 1
             kisa = str(error).split(".")[0].strip()[:60]
@@ -2638,7 +2675,7 @@ class MainWindow(QMainWindow):
             if not is_ok:
                 c["son_nok"].append({"zaman": zaman, "resim": part_id, "sebep": "; ".join(failed) or "-"})
                 del c["son_nok"][:-500]           # PDF listesi icin son 500 NOK yeter
-                self._last_nok_record = {"part_id": part_id, "pairs": pairs, "zaman": zaman}
+                self._last_nok_record = {"part_id": part_id, "pairs": pairs, "zaman": zaman, "kind": "nok"}
         delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
         self._append_part_csv([zaman, part_id if part_id is not None else "-",
                                source, sonuc, delay_ms,
@@ -2661,9 +2698,9 @@ class MainWindow(QMainWindow):
         uy = int(c.get("urun_yok", 0))
         self.lbl_counter_missing.setText(f"Yanlış çekim (ürün yok): {uy}")
         self.lbl_counter_missing.setStyleSheet("color:#ffb454; font-weight:bold;" if uy else "color:#9aa0ab;")
-        od, oh = int(c.get("operator_dogru", 0)), int(c.get("operator_hatali", 0))
-        self.lbl_counter_operator.setText(f"Operatör: {od} doğru / {oh} hatalı")
-        self.lbl_counter_operator.setStyleSheet("color:#7cc4e8;" if (od or oh) else "color:#9aa0ab;")
+        od, oh, oy = int(c.get("operator_dogru", 0)), int(c.get("operator_hatali", 0)), int(c.get("operator_yanlis", 0))
+        self.lbl_counter_operator.setText(f"Operatör: {od} doğru / {oh} hatalı / {oy} yanlış çekim")
+        self.lbl_counter_operator.setStyleSheet("color:#7cc4e8;" if (od or oh or oy) else "color:#9aa0ab;")
         p_ok, p_esik = int(c.get("paket_ok", 0)), int(c.get("paket_esik", self._paket_adedi()))
         if p_ok >= p_esik:
             self.lbl_paket.setText(f"PAKET DOLDU: {p_ok} / {p_esik}" + (" — konveyör durdu" if self._stop_feature_on() else ""))
@@ -2817,9 +2854,14 @@ class MainWindow(QMainWindow):
     def _operator_review_on(self) -> bool:
         return bool((self.config.get("inspection", {}) or {}).get("operator_review", True))
 
-    def _operator_review(self, part_id: int, nok_cams=None):
-        """NOK sonrasi (PLC'ye 1 yazildiktan sonra, ertelenmis) operator penceresini acar.
-        Acik bir pencere varken yeni NOK gelirse eski cevapsiz kapanir (NOK kalir, loglanir)."""
+    @staticmethod
+    def _kayit_turu_adi(kind: str) -> str:
+        return "yanlış çekim" if kind == "urun_yok" else "NOK"
+
+    def _operator_review(self, part_id: int, nok_cams=None, kind: str = "nok", gerekce=None):
+        """NOK ya da URUN YOK sonrasi (PLC'ye 1 yazildiktan sonra, ertelenmis) operator penceresini acar:
+        DOGRU / HATALI / YANLIS CEKIM. kind='urun_yok' iken gerekce disaridan verilir (analiz sonucu yok).
+        Acik bir pencere varken yeni cekim gelirse eski cevapsiz kapanir (kaydi oldugu gibi kalir, loglanir)."""
         if not self._operator_review_on():
             return
         old = getattr(self, "_review_dlg", None)
@@ -2829,19 +2871,24 @@ class MainWindow(QMainWindow):
                 old.blockSignals(True); old.close()
             except Exception:
                 pass
-            self._append_log(f"[Operatör] Resim #{old.part_id} kontrol edilmeden yeni NOK geldi → NOK kaldı.")
+            self._append_log(f"[Operatör] Resim #{old.part_id} kontrol edilmeden yeni çekim geldi → "
+                             f"{self._kayit_turu_adi(getattr(old, 'kind', 'nok'))} olarak kaldı.")
             self._operator_kaydet(old, "CEVAPSIZ")
         cams = self._active_cameras()
         cam = (nok_cams or cams or [1])[0]
         pm = self._snapshot_full_pixmap_2 if cam == 2 else self._snapshot_full_pixmap
-        sebepler = [f"{name}: {res.get('msg', '')}" for name, res in (self._last_results.get(cam) or {}).items()
-                    if not res.get("ok", True)]
-        dlg = OperatorReviewDialog(self, part_id, pm, sebepler, cam if len(cams) > 1 else 0)
+        if gerekce is not None:
+            sebepler = list(gerekce)
+        else:
+            sebepler = [f"{name}: {res.get('msg', '')}" for name, res in (self._last_results.get(cam) or {}).items()
+                        if not res.get("ok", True)]
+        dlg = OperatorReviewDialog(self, part_id, pm, sebepler, cam if len(cams) > 1 else 0, kind=kind)
         dlg.cam_no = cam
         dlg.gerekce = "; ".join(sebepler) if sebepler else "-"
         dlg.finished.connect(lambda _r, d=dlg: self._review_finished(d))
         self._review_dlg = dlg
-        self._append_log(f"[Operatör] Resim #{part_id} NOK → kontrol penceresi açıldı (DOĞRU / HATALI).")
+        self._append_log(f"[Operatör] Resim #{part_id} {'ÜRÜN YOK' if kind == 'urun_yok' else 'NOK'} → kontrol "
+                         "penceresi açıldı (DOĞRU / HATALI / YANLIŞ ÇEKİM).")
         dlg.show()
         dlg.raise_()
         dlg.activateWindow()
@@ -2854,9 +2901,12 @@ class MainWindow(QMainWindow):
             self._operator_dogru(dlg.part_id)
         elif dlg.answer == "hatali":
             self._operator_hatali(dlg.part_id)
+        elif dlg.answer == "yanlis":
+            self._operator_yanlis_cekim(dlg.part_id)
         else:
-            self._append_log(f"[Operatör] Resim #{dlg.part_id}: pencere cevapsız kapatıldı → NOK kaldı.")
-        self._operator_kaydet(dlg, {"dogru": "DOGRU", "hatali": "HATALI"}.get(dlg.answer, "CEVAPSIZ"))
+            self._append_log(f"[Operatör] Resim #{dlg.part_id}: pencere cevapsız kapatıldı → "
+                             f"{self._kayit_turu_adi(getattr(dlg, 'kind', 'nok'))} olarak kaldı.")
+        self._operator_kaydet(dlg, {"dogru": "DOGRU", "hatali": "HATALI", "yanlis": "YANLIS_CEKIM"}.get(dlg.answer, "CEVAPSIZ"))
 
     def _review_penceresini_kapat(self):
         dlg = getattr(self, "_review_dlg", None)
@@ -2879,8 +2929,9 @@ class MainWindow(QMainWindow):
     # cv2.putText Turkce harf cizemez. Karar rengi: DOGRU yesil, HATALI kirmizi, CEVAPSIZ turuncu.
     OPERATOR_KARAR_METNI = {
         "DOGRU": ("OPERATÖR: DOĞRU  —  parça OK sayıldı", "#2ecc71"),
-        "HATALI": ("OPERATÖR: HATALI  —  NOK onaylandı", "#ff4d4d"),
-        "CEVAPSIZ": ("OPERATÖR: CEVAPSIZ  —  NOK kaldı (pencere cevaplanmadı)", "#ffb454"),
+        "HATALI": ("OPERATÖR: HATALI  —  NOK sayıldı", "#ff4d4d"),
+        "YANLIS_CEKIM": ("OPERATÖR: YANLIŞ ÇEKİM  —  ürün yok / kadraj bozuk (OK'a da NOK'a da sayılmadı)", "#ffb454"),
+        "CEVAPSIZ": ("OPERATÖR: CEVAPSIZ  —  pencere cevaplanmadı, program kararı olduğu gibi kaldı", "#b0b7c3"),
     }
 
     def _operator_banner_lines(self, dlg, karar: str, zaman: str) -> list:
@@ -2889,8 +2940,9 @@ class MainWindow(QMainWindow):
         baslik, renk = self.OPERATOR_KARAR_METNI.get(karar, (f"OPERATÖR: {karar}", "#d6dae2"))
         cam = int(getattr(dlg, "cam_no", 1) or 1)
         gerekce = str(getattr(dlg, "gerekce", "") or "-")
+        program = "ÜRÜN YOK (yanlış çekim)" if getattr(dlg, "kind", "nok") == "urun_yok" else "NOK"
         return [(baslik, renk, True),
-                (f"{zaman}   |   Resim #{int(dlg.part_id):04d}   |   Kamera {cam}   |   Program kararı: NOK",
+                (f"{zaman}   |   Resim #{int(dlg.part_id):04d}   |   Kamera {cam}   |   Program kararı: {program}",
                  "#d6dae2", False),
                 ("Gerekçe: " + gerekce, "#c4c9d2", False)]
 
@@ -3008,17 +3060,14 @@ class MainWindow(QMainWindow):
                 shutil.rmtree(yol, ignore_errors=True)
                 self._append_log(f"[Operatör] Eski kayıt klasörü silindi: operator_kontrol/{ad} ({gun_sayisi} günden eski).")
 
-    def _operator_dogru(self, part_id: int):
-        """Operator 'DOGRU' dedi: son NOK kaydi geri alinir (NOK-1, OK+1, paket+1, nokta/sebep
-        dagilimi ve NOK listesi duzeltilir), CSV'ye OPERATOR_DOGRU satiri. PLC'ye yazilmaz."""
+    def _kaydi_geri_al(self, rec):
+        """Son NOK / URUN YOK kaydinin sayac izini siler: NOK ise nok-1 + nokta/sebep dagilimi + NOK listesi;
+        urun yok ise urun_yok-1. Operator DOGRU / HATALI / YANLIS CEKIM dediginde cagrilir."""
         c = self._counters
-        rec = getattr(self, "_last_nok_record", None)
-        if not rec or rec.get("part_id") != part_id:
-            self._append_log(f"[Operatör] Resim #{part_id}: DOĞRU dendi ama NOK kaydı bulunamadı (sayaç sıfırlanmış olabilir); sayaç değişmedi.")
+        if rec.get("kind", "nok") == "urun_yok":
+            c["urun_yok"] = max(0, int(c.get("urun_yok", 0)) - 1)
             return
         c["nok"] = max(0, int(c.get("nok", 0)) - 1)
-        c["ok"] = int(c.get("ok", 0)) + 1
-        c["paket_ok"] = int(c.get("paket_ok", 0)) + 1
         for etiket, kat in rec.get("pairs", []):
             nk = c.get("noktalar", {}).get(etiket)
             if nk and kat in nk:
@@ -3027,27 +3076,77 @@ class MainWindow(QMainWindow):
                     del nk[kat]
                 if not nk:
                     del c["noktalar"][etiket]
-        c["son_nok"] = [e for e in c.get("son_nok", []) if not (e.get("resim") == part_id and e.get("zaman") == rec.get("zaman"))]
+        c["son_nok"] = [e for e in c.get("son_nok", []) if not (e.get("resim") == rec.get("part_id") and e.get("zaman") == rec.get("zaman"))]
+
+    def _operator_dogru(self, part_id: int):
+        """Operator 'DOGRU' dedi: son NOK / URUN YOK kaydi geri alinir (NOK-1 ya da urun_yok-1, OK+1, paket+1,
+        nokta/sebep dagilimi ve NOK listesi duzeltilir), CSV'ye OPERATOR_DOGRU satiri. PLC'ye yazilmaz."""
+        c = self._counters
+        rec = getattr(self, "_last_nok_record", None)
+        if not rec or rec.get("part_id") != part_id:
+            self._append_log(f"[Operatör] Resim #{part_id}: DOĞRU dendi ama NOK kaydı bulunamadı (sayaç sıfırlanmış olabilir); sayaç değişmedi.")
+            return
+        onceki = self._kayit_turu_adi(rec.get("kind", "nok"))
+        self._kaydi_geri_al(rec)
+        c["ok"] = int(c.get("ok", 0)) + 1
+        c["paket_ok"] = int(c.get("paket_ok", 0)) + 1
         c["operator_dogru"] = int(c.get("operator_dogru", 0)) + 1
         self._last_nok_record = None
         delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
         self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), part_id, "operator", "OPERATOR_DOGRU", delay_ms,
-                               "", "operatör: parça DOĞRU → OK sayıldı (önceki NOK satırı geçersiz)", ""])
+                               "", f"operatör: parça DOĞRU → OK sayıldı (önceki {onceki} satırı geçersiz)", ""])
         self._save_counters()
         self._refresh_counter_panel()
-        self._append_log(f"[Operatör] Resim #{part_id}: DOĞRU → OK sayıldı (NOK {c['nok']}, OK {c['ok']}, paket {c['paket_ok']}).")
+        self._append_log(f"[Operatör] Resim #{part_id}: DOĞRU → OK sayıldı (önceki {onceki} geri alındı; NOK {c['nok']}, "
+                         f"OK {c['ok']}, yanlış çekim {c.get('urun_yok', 0)}, paket {c['paket_ok']}).")
         if c["paket_ok"] >= int(c.get("paket_esik", self._paket_adedi())):
             QTimer.singleShot(0, self._paket_uyarisi)
 
     def _operator_hatali(self, part_id: int):
+        """Operator 'HATALI' dedi: NOK kaydiysa NOK kalir; URUN YOK kaydiysa yanlis cekimden NOK'a tasinir
+        (urun_yok-1, nok+1, NOK listesine 'operatör: HATALI' satiri). CSV OPERATOR_HATALI. PLC'ye yazilmaz."""
         c = self._counters
+        rec = getattr(self, "_last_nok_record", None)
+        not_ek = ""
+        if rec and rec.get("part_id") == part_id and rec.get("kind", "nok") == "urun_yok":
+            self._kaydi_geri_al(rec)
+            c["nok"] = int(c.get("nok", 0)) + 1
+            c["son_nok"].append({"zaman": rec.get("zaman", time.strftime("%Y-%m-%d %H:%M:%S")), "resim": part_id,
+                                 "sebep": "operatör: HATALI (program ürünü karede bulamamıştı)"})
+            del c["son_nok"][:-500]
+            self._last_nok_record = None
+            not_ek = " (ürün yok kaydı NOK'a taşındı)"
         c["operator_hatali"] = int(c.get("operator_hatali", 0)) + 1
         delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
         self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), part_id, "operator", "OPERATOR_HATALI", delay_ms,
-                               "", "operatör: parça HATALI → NOK onaylandı", ""])
+                               "", "operatör: parça HATALI → NOK sayıldı" + not_ek, ""])
         self._save_counters()
         self._refresh_counter_panel()
-        self._append_log(f"[Operatör] Resim #{part_id}: HATALI onaylandı (NOK kaldı).")
+        self._append_log(f"[Operatör] Resim #{part_id}: HATALI onaylandı (NOK {c['nok']}){not_ek}.")
+
+    def _operator_yanlis_cekim(self, part_id: int):
+        """Operator 'YANLIS CEKIM' dedi (2026-09-28): parca OK da NOK da SAYILMAZ. NOK kaydiysa geri alinir
+        (NOK-1, dagilim/NOK listesi duzeltilir) ve yanlis cekim (urun_yok) sayacina eklenir; program zaten
+        'urun yok' demisse sayac degismez. CSV OPERATOR_YANLIS_CEKIM; resim yine kaydedilir; PLC'ye yazilmaz."""
+        c = self._counters
+        rec = getattr(self, "_last_nok_record", None)
+        not_ek = ""
+        if rec and rec.get("part_id") == part_id:
+            if rec.get("kind", "nok") == "nok":
+                self._kaydi_geri_al(rec)
+                c["urun_yok"] = int(c.get("urun_yok", 0)) + 1
+                not_ek = " (NOK kaydı yanlış çekime taşındı)"
+            self._last_nok_record = None
+        else:
+            not_ek = " (kayıt bulunamadı; sayaç değişmedi)"
+        c["operator_yanlis"] = int(c.get("operator_yanlis", 0)) + 1
+        delay_ms = int(self.config.get("inspection", {}).get("trigger_delay_ms", 0))
+        self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), part_id, "operator", "OPERATOR_YANLIS_CEKIM", delay_ms,
+                               "", "operatör: YANLIŞ ÇEKİM → OK'a da NOK'a da sayılmadı, yanlış çekim sayıldı" + not_ek, ""])
+        self._save_counters()
+        self._refresh_counter_panel()
+        self._append_log(f"[Operatör] Resim #{part_id}: YANLIŞ ÇEKİM → sayım dışı (NOK {c['nok']}, OK {c['ok']}, "
+                         f"yanlış çekim {c.get('urun_yok', 0)}){not_ek}.")
 
     # ---- KONVEYOR DUR BAYRAGI (kullanici istegi 2026-09-24: "100 adete ulasinca PLC'yi durdur
     #      desin, konveyor dursun") ---------------------------------------------------------
@@ -3120,10 +3219,11 @@ class MainWindow(QMainWindow):
                  "ürün çerçevesi bulunamadı vb.); PLC'ye NOK (1) yazılır. "
                  "Yanlış çekim = tetik geldi ama karede ürün yoktu (bulunan çerçeve referansa uymadı); "
                  "NOK sayılmaz, PLC'ye yine 1 yazılır, operatör uyarılır.</div>")
-        od, oh = int(c.get("operator_dogru", 0)), int(c.get("operator_hatali", 0))
-        if od or oh:
-            H.append(f"<div class='kucuk'>Operatör kontrolü (NOK penceresi): <b>{od}</b> parça DOĞRU denip OK sayıldı, "
-                     f"<b>{oh}</b> parça HATALI onaylandı. (OK/NOK sayıları düzeltilmiş hâlidir.)</div>")
+        od, oh, oy = int(c.get("operator_dogru", 0)), int(c.get("operator_hatali", 0)), int(c.get("operator_yanlis", 0))
+        if od or oh or oy:
+            H.append(f"<div class='kucuk'>Operatör kontrolü (NOK / ürün yok penceresi): <b>{od}</b> parça DOĞRU denip OK sayıldı, "
+                     f"<b>{oh}</b> parça HATALI onaylandı, <b>{oy}</b> parça YANLIŞ ÇEKİM denip sayım dışı bırakıldı "
+                     "(yanlış çekim sütununda). (OK/NOK sayıları düzeltilmiş hâlidir.)</div>")
         H.append("<h2>Hata dağılımı (kontrol noktası / sebep)</h2>")
         noktalar = sorted(c.get("noktalar", {}).items(), key=lambda kv: -sum(kv[1].values()))
         if noktalar:

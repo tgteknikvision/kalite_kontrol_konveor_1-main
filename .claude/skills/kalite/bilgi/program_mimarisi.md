@@ -614,9 +614,9 @@ hataları ("Camera frontend has timed out" = kablo) terminalde canlı görünür
 
 #### `tests/` — ekransız regresyon testleri (2026-09-23)
 `bash tests/calistir_testler.sh` (QT offscreen, her dosyanın TOPLAM satırı; çıkış = hatalı dosya
-sayısı). 12 dosya / 295 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
+sayısı). 12 dosya / 312 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
 `test_paket` 24, `test_stil` 16, `test_urun_yok` 40, `test_snapshot_olcek` 9, `test_paket_dur` 37,
-`test_urun_bulma` 17, `test_sekil_esik` 19, `test_operator` 50, `test_baslat` 15 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
+`test_urun_bulma` 17, `test_sekil_esik` 19, `test_operator` 67, `test_baslat` 15 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
 config (`main.load_config` yaması), `MainWindow.LOG_DIR` **ve `OPERATOR_DIR`** geçici, `_start_worker` no-op,
 `QMessageBox` susturma, sahte worker/picamera2 modülleri, `plc.type: null`.
 
@@ -987,7 +987,17 @@ karşılığı — elle senkron tutulur.
   (üstte 6 px renkli şerit + satırlar + renkli ayırıcı çizgi + orijinal resim; yazı px = max(16, min(48, w//26)), küçük
   satır 0.62×). `_operator_kaydet` bunu `save(..., "JPG", 85)` eder; çizim hatasında bantsız resim + `[Uyarı]`.
   `closeEvent` başında `_review_penceresini_kapat()` (açık pencere → CEVAPSIZ kaydı). `QFontMetrics` import edildi.
-- Test: `tests/test_operator.py` (50).
+- **3. seçenek YANLIŞ ÇEKİM + ürün yok yönlendirmesi (2026-09-28 ~14:00):** `OperatorReviewDialog(..., kind)`: `btn_yanlis`
+  (`accent="warning"`, STYLESHEET'e eklendi) → `answer="yanlis"`; kind `urun_yok` → başlık "ÜRÜN YOK", istem "ürünü karede
+  BULAMADI", buton "HATALI — NOK say" / "YANLIŞ ÇEKİM — evet, ürün yoktu". `_record_part`: `_last_nok_record["kind"]` =
+  "nok" | "urun_yok" (ürün yokta da yazılır). `_kaydi_geri_al(rec)` (nok−1 + dağılım + son_nok, ya da urun_yok−1);
+  `_operator_dogru` her iki türü geri alır; `_operator_hatali` ürün-yok kaydını NOK'a taşır (son_nok "operatör: HATALI…");
+  `_operator_yanlis_cekim` NOK kaydını geri alıp `urun_yok`+1, `operator_yanlis`+1, CSV `OPERATOR_YANLIS_CEKIM`.
+  `_on_product_missing`: `operator_review` açıksa beep + `_operator_review(pid, [cam], kind="urun_yok", gerekce=[...])`,
+  kapalıysa eski `_urun_yok_uyarisi`. `_review_finished` answer→karar eşlemesine `yanlis→YANLIS_CEKIM`; cevapsız log türe göre
+  (`_kayit_turu_adi`). Panel/PDF `operator_yanlis`; `OPERATOR_KARAR_METNI` YANLIS_CEKIM turuncu, CEVAPSIZ gri; bant
+  "Program kararı: NOK | ÜRÜN YOK (yanlış çekim)".
+- Test: `tests/test_operator.py` (67); `test_urun_yok.py` eski kutu yolunu `operator_review: False` ile test eder.
 
 ### Şekil kapısı eşikleri nokta başına — yuvarlaklık / dolgu (2026-09-24)
 - `features._evaluate_holes`: `eff_min_circ = ov.get('hole_min_circularity', min_circ)`, `eff_min_fill =
@@ -1070,7 +1080,8 @@ karşılığı — elle senkron tutulur.
   CSV sonuc `URUN_YOK`, hatalı nokta "ürün algılanamadı", sebep = detay; NOK/noktalar/paket DEĞİŞMEZ.
   Panel `lbl_counter_missing` ("Yanlış çekim (ürün yok): N", >0 turuncu); PDF özet sütunu; Sıfırla
   CSV/log metninde "yanlış çekim N". Eski sayac.json (anahtar yok) → 0.
-- **Uyarı:** `_urun_yok_uyarisi` — `QApplication.beep()`, `QMessageBox` NonModal, RichText
+- **Uyarı:** (2026-09-28'den beri `operator_review` açıkken 3 seçenekli operatör penceresi — yukarıdaki operatör bölümü.)
+  Kutu kapalıysa: `_urun_yok_uyarisi` — `QApplication.beep()`, `QMessageBox` NonModal, RichText
   `_urun_yok_metni()` (son detay `_last_missing_detail`, parti sayısı), tek buton "Kontrol ettim";
   açıkken tekrar → `setText` + `raise_()`; `finished` → `_urun_yok_pencere_kapandi` (`_urun_yok_dlg=None`, log).
 - **Önizleme:** `_on_panel_threshold_changed` (except Exception → "[Uyarı] Önizleme yenilenemedi") ve

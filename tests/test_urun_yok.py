@@ -52,7 +52,7 @@ cfg["cameras"] = {"camera1_enabled": True, "camera2_enabled": False}
 cfg["alignment"] = {"mode": "contour", "foreground": "bright", "min_area_ratio": 0.02, "padding_px": 20}
 cfg["dynamic_rois"] = {"1": [10, 10, 50, 50]}; cfg["disabled_rois"] = []
 cfg["roi"]["roi_types"] = {"1": "hole"}; cfg["roi"]["reference_box"] = [440, 340]; cfg["roi"]["handedness_check"] = False
-cfg["inspection"] = {"trigger_delay_ms": 0}
+cfg["inspection"] = {"trigger_delay_ms": 0, "operator_review": False}   # eski "Kontrol ettim" kutusu yolu (operatör penceresi test_operator'da)
 yaml.safe_dump(cfg, open(tmp_cfg, "w", encoding="utf-8"))
 main.CONFIG_PATH = tmp_cfg
 main.load_config = lambda path=None: yaml.safe_load(open(tmp_cfg, encoding="utf-8"))
