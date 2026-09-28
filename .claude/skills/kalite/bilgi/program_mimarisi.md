@@ -618,9 +618,9 @@ hataları ("Camera frontend has timed out" = kablo) terminalde canlı görünür
 
 #### `tests/` — ekransız regresyon testleri (2026-09-23)
 `bash tests/calistir_testler.sh` (QT offscreen, her dosyanın TOPLAM satırı; çıkış = hatalı dosya
-sayısı). 12 dosya / 318 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
+sayısı). 12 dosya / 323 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
 `test_paket` 24, `test_stil` 16, `test_urun_yok` 40, `test_snapshot_olcek` 9, `test_paket_dur` 37,
-`test_urun_bulma` 17, `test_sekil_esik` 24, `test_operator` 68, `test_baslat` 15 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
+`test_urun_bulma` 17, `test_sekil_esik` 24, `test_operator` 73, `test_baslat` 15 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
 config (`main.load_config` yaması), `MainWindow.LOG_DIR` **ve `OPERATOR_DIR`** geçici, `_start_worker` no-op,
 `QMessageBox` susturma, sahte worker/picamera2 modülleri, `plc.type: null`.
 
@@ -1002,7 +1002,13 @@ karşılığı — elle senkron tutulur.
   (`_kayit_turu_adi`). Panel/PDF `operator_yanlis`; `OPERATOR_KARAR_METNI` YANLIS_CEKIM turuncu, CEVAPSIZ gri; bant
   "Program kararı: NOK | ÜRÜN YOK (yanlış çekim)".
 - Kapanan pencereler `deleteLater()` (tam çözünürlük pixmap taşırlar; 2026-09-28).
-- Test: `tests/test_operator.py` (68); `test_urun_yok.py` eski kutu yolunu `operator_review: False` ile test eder.
+- **Parti klasörü (2026-09-28 ~15:00):** `_parti_adi()` = `"parti_" + strftime("%Y-%m-%d_%H-%M-%S", baslangic)` (bozuksa
+  `parti_bilinmiyor`), `_parti_klasoru()` = `OPERATOR_DIR/<ad>`; `_operator_kaydet` resmi ve o partinin `operator_kayit.csv`'sini
+  (dosya sütunu = dosya adı) buraya yazar. `_parti_kapat(c)`: `parti_ozeti.txt` (başlangıç, sıfırlama zamanı, sayılar,
+  paket, resim sayısı, nokta-sebep dağılımı, sistem hataları) + `_write_report_pdf(kalite_raporu.pdf)` + log; `_reset_counters`
+  bunu `_review_penceresini_kapat()` sonrası, sayaç sıfırlanmadan ÖNCE çağırır. `_operator_eski_kayitlari_sil`: `parti_*` ve
+  `%Y-%m-%d` biçimleri, aktif parti (`_parti_adi()`) atlanır.
+- Test: `tests/test_operator.py` (73); `test_urun_yok.py` eski kutu yolunu `operator_review: False` ile test eder.
 
 ### Şekil kapısı eşikleri nokta başına — yuvarlaklık / dolgu (2026-09-24)
 - `features._evaluate_holes`: `eff_min_circ = ov.get('hole_min_circularity', min_circ)`, `eff_min_fill =

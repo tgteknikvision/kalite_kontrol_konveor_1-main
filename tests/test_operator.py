@@ -88,10 +88,12 @@ check("panel 'Operatör: 1 doğru / 0 hatalı / 0 yanlış çekim'", w.lbl_count
 check("PLC'ye ek yazım YOK (hâlâ tek sonuç)", w.plc.results == [False])
 import glob
 gun = time.strftime("%Y-%m-%d"); kdir = main.MainWindow.OPERATOR_DIR
-dosyalar = sorted(glob.glob(os.path.join(kdir, gun, "*_resim0001_DOGRU.jpg")))
-check("kayıt: gün klasöründe tarih-saat-resim0001-DOGRU.jpg (JPEG) yazıldı", len(dosyalar) == 1 and os.path.getsize(dosyalar[0]) > 1000 and os.path.basename(dosyalar[0]).startswith(gun + "_"), str(dosyalar))
-okay = list(csv.reader(open(os.path.join(kdir, "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))
-check("kayıt CSV: başlık + satır (tarih;saat;resim;karar;kamera;gerekce;dosya)", okay[0][:4] == ["tarih", "saat", "resim", "karar"] and okay[-1][0] == gun and okay[-1][2] == "1" and okay[-1][3] == "DOGRU" and "delik YOK" in okay[-1][5] and okay[-1][6].endswith("_DOGRU.jpg"), str(okay[-1]))
+def pk():   # aktif PARTI klasoru: operator_kontrol/parti_<sayac baslangici>/ (Sifirla -> yeni klasor)
+    return os.path.join(kdir, "parti_" + w._counters["baslangic"].replace(" ", "_").replace(":", "-"))
+dosyalar = sorted(glob.glob(os.path.join(pk(), "*_resim0001_DOGRU.jpg")))
+check("kayıt: PARTİ klasöründe (parti_<başlangıç>) tarih-saat-resim0001-DOGRU.jpg (JPEG) yazıldı", len(dosyalar) == 1 and os.path.getsize(dosyalar[0]) > 1000 and os.path.basename(dosyalar[0]).startswith(gun + "_"), str(dosyalar))
+okay = list(csv.reader(open(os.path.join(pk(), "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))
+check("kayıt CSV (parti klasöründe): başlık + satır (tarih;saat;resim;karar;kamera;gerekce;dosya)", okay[0][:4] == ["tarih", "saat", "resim", "karar"] and okay[-1][0] == gun and okay[-1][2] == "1" and okay[-1][3] == "DOGRU" and "delik YOK" in okay[-1][5] and okay[-1][6].endswith("_DOGRU.jpg") and os.path.basename(pk()).startswith("parti_20"), str(okay[-1]) + " | " + os.path.basename(pk()))
 check("log: kayıt yazıldı", any("[Operatör] Kayıt yazıldı: DOGRU" in l for l in loglar))
 # KARAR BANDI (2026-09-28): kayit resminin ustunde karar + tarih/saat + resim no + kamera + gerekce
 def renk_say(img, y0, y1, kosul):
@@ -120,8 +122,8 @@ check("NOK 1 kaldı, operator_hatali 1, CSV OPERATOR_HATALI", c["nok"] == 1 and 
 check("panel 'Operatör: 1 doğru / 1 hatalı / 0 yanlış çekim'", w.lbl_counter_operator.text() == "Operatör: 1 doğru / 1 hatalı / 0 yanlış çekim")
 check("pencerede 3. buton YANLIŞ ÇEKİM (turuncu vurgu), gerekçe etiketi 3 seçeneği açıklıyor", "YANLIŞ ÇEKİM" in dlg2.btn_yanlis.text() and dlg2.btn_yanlis.property("accent") == "warning")
 
-check("HATALI kaydı: resim0002_HATALI.jpg + CSV", len(glob.glob(os.path.join(kdir, gun, "*_resim0002_HATALI.jpg"))) == 1 and list(csv.reader(open(os.path.join(kdir, "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))[-1][3] == "HATALI")
-img2 = QImage(glob.glob(os.path.join(kdir, gun, "*_resim0002_HATALI.jpg"))[0])
+check("HATALI kaydı: resim0002_HATALI.jpg + CSV", len(glob.glob(os.path.join(pk(), "*_resim0002_HATALI.jpg"))) == 1 and list(csv.reader(open(os.path.join(pk(), "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))[-1][3] == "HATALI")
+img2 = QImage(glob.glob(os.path.join(pk(), "*_resim0002_HATALI.jpg"))[0])
 check("HATALI bandı kırmızı", img2.height() > 300 and renk_say(img2, 0, img2.height() - 300, kirmizi) >= 30, str(renk_say(img2, 0, img2.height() - 300, kirmizi)))
 check("HATALI band metni", w._operator_banner_lines(dlg2, "HATALI", "x")[0][0].startswith("OPERATÖR: HATALI") and "NOK sayıldı" in w._operator_banner_lines(dlg2, "HATALI", "x")[0][0])
 print("\n[YANLIŞ ÇEKİM seçeneği (NOK kaydı)]")
@@ -132,8 +134,8 @@ rows = list(csv.reader(open(csv_path, encoding="utf-8"), delimiter=";"))
 check("YANLIŞ ÇEKİM: NOK−1, yanlış çekim+1, OK değişmedi, operator_yanlis 1, CSV OPERATOR_YANLIS_CEKIM", c["nok"] == n_nok - 1 and c["urun_yok"] == n_uy + 1 and c["ok"] == 1 and c["operator_yanlis"] == 1 and rows[-1][3] == "OPERATOR_YANLIS_CEKIM", str({k: c[k] for k in ("nok", "urun_yok", "ok", "operator_yanlis")}))
 check("nokta dağılımı ve NOK listesi geri alındı (1 (delik) yine 1, son_nok 1)", sum(c["noktalar"].get("1 (delik)", {}).values()) == 1 and len(c["son_nok"]) == 1, str(c["noktalar"]))
 check("panel '1 doğru / 1 hatalı / 1 yanlış çekim' + yanlış çekim satırı 1", w.lbl_counter_operator.text() == "Operatör: 1 doğru / 1 hatalı / 1 yanlış çekim" and w.lbl_counter_missing.text().endswith(": 1"))
-dy = glob.glob(os.path.join(kdir, gun, "*_resim0003_YANLIS_CEKIM.jpg"))
-check("kayıt: resim0003_YANLIS_CEKIM.jpg + turuncu bant + CSV karar YANLIS_CEKIM", len(dy) == 1 and renk_say(QImage(dy[0]), 0, QImage(dy[0]).height() - 300, turuncu) >= 30 and list(csv.reader(open(os.path.join(kdir, "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))[-1][3] == "YANLIS_CEKIM")
+dy = glob.glob(os.path.join(pk(), "*_resim0003_YANLIS_CEKIM.jpg"))
+check("kayıt: resim0003_YANLIS_CEKIM.jpg + turuncu bant + CSV karar YANLIS_CEKIM", len(dy) == 1 and renk_say(QImage(dy[0]), 0, QImage(dy[0]).height() - 300, turuncu) >= 30 and list(csv.reader(open(os.path.join(pk(), "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))[-1][3] == "YANLIS_CEKIM")
 check("band metni YANLIŞ ÇEKİM (sayılmadı)", w._operator_banner_lines(dlg_y, "YANLIS_CEKIM", "x")[0][0].startswith("OPERATÖR: YANLIŞ ÇEKİM") and "sayılmadı" in w._operator_banner_lines(dlg_y, "YANLIS_CEKIM", "x")[0][0])
 check("PLC'ye ek yazım yok", len(w.plc.results) == 3)
 
@@ -144,8 +146,8 @@ check("yeni NOK gelince eski pencere kapandı/silindi (cevapsız → NOK kaldı)
 dlg4.close(); pump()
 c = w._counters
 check("X ile kapatma → NOK kaldı, sayaç değişmedi (NOK 3)", w._review_dlg is None and c["nok"] == 3 and any("#5: pencere cevapsız" in l for l in loglar))
-check("cevapsız kayıtlar: resim0004 ve resim0005 CEVAPSIZ", len(glob.glob(os.path.join(kdir, gun, "*_resim0004_CEVAPSIZ.jpg"))) == 1 and len(glob.glob(os.path.join(kdir, gun, "*_resim0005_CEVAPSIZ.jpg"))) == 1)
-img4 = QImage(glob.glob(os.path.join(kdir, gun, "*_resim0005_CEVAPSIZ.jpg"))[0])
+check("cevapsız kayıtlar: resim0004 ve resim0005 CEVAPSIZ", len(glob.glob(os.path.join(pk(), "*_resim0004_CEVAPSIZ.jpg"))) == 1 and len(glob.glob(os.path.join(pk(), "*_resim0005_CEVAPSIZ.jpg"))) == 1)
+img4 = QImage(glob.glob(os.path.join(pk(), "*_resim0005_CEVAPSIZ.jpg"))[0])
 gri_renk = lambda c: abs(c.red() - 176) < 25 and abs(c.green() - 183) < 25 and abs(c.blue() - 195) < 25   # (gri = kare dizisi, karıştırma)
 check("CEVAPSIZ bandı gri, metin 'cevaplanmadı'", renk_say(img4, 0, img4.height() - 300, gri_renk) >= 30 and "cevaplanmadı" in w._operator_banner_lines(dlg4, "CEVAPSIZ", "x")[0][0], str(renk_say(img4, 0, img4.height() - 300, gri_renk)))
 fm = QFontMetrics(QFont("Arial", 12))
@@ -172,14 +174,15 @@ w.config["inspection"]["operator_review"] = True
 
 print("\n[kayıt kapalı / eski klasör temizliği]")
 w.config["inspection"]["operator_kayit"] = False
-n_once = len(glob.glob(os.path.join(kdir, gun, "*.jpg")))
+n_once = len(glob.glob(os.path.join(pk(), "*.jpg")))
 cekim(); w._review_dlg.btn_ok.click(); pump()
-check("kayıt kapalıyken dosya yazılmaz", len(glob.glob(os.path.join(kdir, gun, "*.jpg"))) == n_once)
+check("kayıt kapalıyken dosya yazılmaz", len(glob.glob(os.path.join(pk(), "*.jpg"))) == n_once)
 w.config["inspection"]["operator_kayit"] = True
 eski = os.path.join(kdir, "2020-01-01"); os.makedirs(eski, exist_ok=True); open(os.path.join(eski, "x.jpg"), "w").close()
+eski_parti = os.path.join(kdir, "parti_2020-01-01_00-00-00"); os.makedirs(eski_parti, exist_ok=True)
 yabanci = os.path.join(kdir, "notlar"); os.makedirs(yabanci, exist_ok=True)
 cekim(); w._review_dlg.btn_nok.click(); pump()
-check("30 günden eski gün klasörü silindi, gün-dışı klasör dokunulmadı", not os.path.exists(eski) and os.path.isdir(yabanci) and any("Eski kayıt klasörü silindi" in l for l in loglar))
+check("30 günden eski gün ve parti klasörleri silindi, gün-dışı klasör ve AKTİF parti dokunulmadı", not os.path.exists(eski) and not os.path.exists(eski_parti) and os.path.isdir(yabanci) and os.path.isdir(pk()) and any("Eski kayıt klasörü silindi" in l for l in loglar))
 w.config["inspection"]["operator_kayit_gun"] = 0
 os.makedirs(eski, exist_ok=True); cekim(); w._review_dlg.btn_nok.click(); pump()
 check("saklama 0 gün = hiç silme", os.path.isdir(eski))
@@ -193,9 +196,17 @@ w._paket_penceresini_kapat()
 html = w._build_report_html()
 check("PDF: operatör satırı (sayaçla uyumlu)", "Operatör kontrolü" in html and f">{w._counters['operator_dogru']}</b> parça DOĞRU" in html and f">{w._counters['operator_hatali']}</b> parça HATALI" in html, html[html.find("Operatör kontrolü"):][:120])
 cekim(); check("sıfırlama öncesi pencere açık", w._review_dlg is not None)
+eski_pk = pk(); eski_c = dict(w._counters); loglar.clear(); time.sleep(1.1)      # yeni parti adı farklı olsun (saniye)
 w._reset_counters(); pump()
 check("parti Sıfırla → pencere kapandı, operatör sayaçları 0", w._review_dlg is None and w._counters["operator_dogru"] == 0 and w._counters["operator_hatali"] == 0)
-cekim(); w._review_dlg.btn_ok.click(); pump()
+ozet_yolu = os.path.join(eski_pk, "parti_ozeti.txt"); ozet = open(ozet_yolu, encoding="utf-8").read() if os.path.exists(ozet_yolu) else ""
+check("Sıfırla → biten parti klasöründe parti_ozeti.txt (başlangıç, sıfırlama zamanı, sayılar)", "Başlangıç" in ozet and eski_c["baslangic"] in ozet and "Sıfırlama (bitiş)" in ozet and f"OK               : {eski_c['ok']}" in ozet and f"NOK              : {eski_c['nok']}" in ozet and "Kayıtlı resim" in ozet, ozet[:200])
+pdf_yolu = os.path.join(eski_pk, "kalite_raporu.pdf")
+check("Sıfırla → biten parti klasöründe kalite_raporu.pdf", os.path.exists(pdf_yolu) and open(pdf_yolu, "rb").read(5) == b"%PDF-")
+check("açık pencere CEVAPSIZ olarak ESKİ partiye yazıldı + log 'Parti kapatıldı'", glob.glob(os.path.join(eski_pk, "*_CEVAPSIZ.jpg")) and any("[Sayaç] Parti kapatıldı" in l and "parti_ozeti.txt" in l for l in loglar))
+check("yeni parti klasör adı farklı (sıfırlama tarih-saati)", pk() != eski_pk and os.path.basename(pk()).startswith("parti_20"), f"{os.path.basename(eski_pk)} -> {os.path.basename(pk())}")
+cekim(); pid_yeni = w._review_dlg.part_id; w._review_dlg.btn_ok.click(); pump()
+check("sıfırlamadan sonraki kayıt YENİ parti klasörüne gitti, eski klasöre değil", len(glob.glob(os.path.join(pk(), f"*_resim{pid_yeni:04d}_DOGRU.jpg"))) == 1 and not glob.glob(os.path.join(eski_pk, f"*_resim{pid_yeni:04d}_*.jpg")))
 data = json.load(open(w._sayac_path(), encoding="utf-8"))
 check("sayac.json'da operator_dogru kalıcı", data.get("operator_dogru") == 1)
 eski = dict(data); eski.pop("operator_dogru"); eski.pop("operator_hatali"); json.dump(eski, open(w._sayac_path(), "w", encoding="utf-8"))
@@ -229,10 +240,10 @@ urun_yok_olayi(); w._review_dlg.btn_nok.click(); pump(); c = w._counters
 check("ürün yok + HATALI → yanlış çekim 0, NOK 1, NOK listesinde 'operatör: HATALI'", c["urun_yok"] == 0 and c["nok"] == 1 and c["ok"] == 1 and c["son_nok"] and "operatör: HATALI" in c["son_nok"][-1]["sebep"] and c["operator_hatali"] == 1, str(c["son_nok"][-1:]))
 urun_yok_olayi(); pid_y = w._review_dlg.part_id; w._review_dlg.btn_yanlis.click(); pump(); c = w._counters
 check("ürün yok + YANLIŞ ÇEKİM → yanlış çekim 1 (değişmez), NOK 1, OK 1, operator_yanlis 1", c["urun_yok"] == 1 and c["nok"] == 1 and c["ok"] == 1 and c["operator_yanlis"] == 1)
-fy = glob.glob(os.path.join(kdir, gun, f"*_resim{pid_y:04d}_YANLIS_CEKIM.jpg"))
+fy = glob.glob(os.path.join(pk(), f"*_resim{pid_y:04d}_YANLIS_CEKIM.jpg"))
 check("kayıt resmi: band 'Program kararı: ÜRÜN YOK'", len(fy) == 1 and "ÜRÜN YOK" in w._operator_banner_lines(type("D", (), {"part_id": pid_y, "cam_no": 1, "gerekce": "-", "kind": "urun_yok"})(), "YANLIS_CEKIM", "x")[1][0])
 urun_yok_olayi(); pid_x = w._review_dlg.part_id; w._review_dlg.close(); pump(); c = w._counters
-check("ürün yok + X → CEVAPSIZ, yanlış çekim 2 (kaldı), log 'yanlış çekim olarak kaldı'", c["urun_yok"] == 2 and w._review_dlg is None and len(glob.glob(os.path.join(kdir, gun, f"*_resim{pid_x:04d}_CEVAPSIZ.jpg"))) == 1 and any(f"#{pid_x}: pencere cevapsız" in l and "yanlış çekim olarak kaldı" in l for l in loglar))
+check("ürün yok + X → CEVAPSIZ, yanlış çekim 2 (kaldı), log 'yanlış çekim olarak kaldı'", c["urun_yok"] == 2 and w._review_dlg is None and len(glob.glob(os.path.join(pk(), f"*_resim{pid_x:04d}_CEVAPSIZ.jpg"))) == 1 and any(f"#{pid_x}: pencere cevapsız" in l and "yanlış çekim olarak kaldı" in l for l in loglar))
 check("panel: '1 doğru / 1 hatalı / 1 yanlış çekim', PDF satırında YANLIŞ ÇEKİM", w.lbl_counter_operator.text() == "Operatör: 1 doğru / 1 hatalı / 1 yanlış çekim" and "YANLIŞ ÇEKİM" in w._build_report_html())
 w.config["inspection"]["operator_review"] = False
 urun_yok_olayi()
@@ -244,7 +255,7 @@ print("\n[uygulama kapanırken açık pencere]")
 w.plc = RecPLC(); cekim(); pid_acik = w._review_dlg.part_id
 w.worker = None; w.worker2 = None
 ev = QCloseEvent(); w.closeEvent(ev)
-check("closeEvent: açık operatör penceresi CEVAPSIZ olarak kaydedildi", ev.isAccepted() and w._review_dlg is None and len(glob.glob(os.path.join(kdir, gun, f"*_resim{pid_acik:04d}_CEVAPSIZ.jpg"))) == 1)
+check("closeEvent: açık operatör penceresi CEVAPSIZ olarak kaydedildi", ev.isAccepted() and w._review_dlg is None and len(glob.glob(os.path.join(pk(), f"*_resim{pid_acik:04d}_CEVAPSIZ.jpg"))) == 1)
 basarisiz = [ad for ad, k in sonuc if not k]
 print(f"\nTOPLAM {len(sonuc)} test, {len(sonuc) - len(basarisiz)} geçti, {len(basarisiz)} başarısız", basarisiz or "")
 sys.exit(1 if basarisiz else 0)

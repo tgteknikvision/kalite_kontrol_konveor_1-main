@@ -88,10 +88,11 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (318 test, 12 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (323 test, 12 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
-operator_kontrol/       (git DIŞI, .gitignore) operatör kontrol kayıtları: GÜN/tarih-saat_resimNNNN_KARAR.jpg
-                        (resmin ÜSTÜNDE renkli karar bandı, 2026-09-28) + operator_kayit.csv (§8 `inspection.operator_kayit`).
+operator_kontrol/       (git DIŞI, .gitignore) operatör kontrol kayıtları, PARTİ başına klasör (2026-09-28):
+                        parti_<sayaç başlangıcı = son Sıfırla tarih-saati>/ → tarih-saat_resimNNNN_KARAR.jpg (üstte renkli
+                        karar bandı) + operator_kayit.csv; Sıfırla'da parti_ozeti.txt + kalite_raporu.pdf (§8 `inspection.operator_kayit`).
 tools/                  baslat.sh (masaüstü simgesinin başlatıcısı, 2026-09-28: güncel kod + ikinci kopya engeli),
                         kurulum_pi.sh, install_pi.sh (simgeyi baslat.sh'a bağlar), make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -307,9 +308,12 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   dediğinde de aynı pencere açılır (kapatılırsa yanlış çekim kalır); kutu kapalıysa eski "Kontrol ettim" uyarısı.
   PLC'ye ek yazım yok (§12).
 - **`inspection.operator_kayit`** (bool, vars. **true**) + **`inspection.operator_kayit_gun`** (int, vars. **30**,
-  0 = hiç silme): operatör kararı + kontrol edilen İŞARETLİ resim `<proje>/operator_kontrol/YYYY-AA-GG/
-  YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg` (JPEG q85) ve `operator_kontrol/operator_kayit.csv`'ye yazılır
-  (KARAR = DOGRU/HATALI/CEVAPSIZ); eski gün klasörleri silinir. Ayarlar'da iki kutu (2026-09-24, §12).
+  0 = hiç silme): operatör kararı + kontrol edilen İŞARETLİ resim `<proje>/operator_kontrol/parti_YYYY-AA-GG_SS-DD-ss/
+  YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg` (JPEG q85; klasör adı = sayacın `baslangic`'i = son Sıfırla anı) ve aynı
+  klasördeki `operator_kayit.csv`'ye yazılır (KARAR = DOGRU/HATALI/YANLIS_CEKIM/CEVAPSIZ). **Sıfırla** biten partinin klasörüne
+  `parti_ozeti.txt` (başlangıç, sıfırlama zamanı, sayılar, hata dağılımı) + `kalite_raporu.pdf` yazar, sonraki kayıtlar yeni
+  klasöre gider (2026-09-28). Eski `parti_*` ve `YYYY-AA-GG` gün klasörleri N günden eskiyse silinir, AKTİF parti asla
+  silinmez. Ayarlar'da iki kutu (2026-09-24, §12).
   **Kayıt resminin ÜSTÜNDE karar bandı (2026-09-28):** operatör kararı renkli/kalın (yeşil DOĞRU, kırmızı HATALI,
   turuncu CEVAPSIZ) + tarih-saat + resim no + kamera + programın gerekçesi; Qt ile çizilir (Türkçe harf), resim
   bandın altında değişmez. Uygulama açık pencereyle kapanırsa kayıt CEVAPSIZ olarak yine yazılır (`closeEvent`).
@@ -364,6 +368,20 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-28 itibarıyla)
+- **✅ 2026-09-28 ~15:00 — SIFIRLA = PARTİ KLASÖRÜNÜ KAPAT (kullanıcı: "Sıfırla'ya basınca o ana kadarki OK/NOK sayısı ve
+  yanlış çekim resimleri bir dosyaya; her sıfırlamada yeni dosya, adı sıfırlama tarih-saati olsun"):** Kayıt klasörü artık
+  PARTİ başına: `operator_kontrol/parti_YYYY-AA-GG_SS-DD-ss/` (`_parti_adi()` ← `_counters["baslangic"]`, yani son Sıfırla
+  anı; bozuksa `parti_bilinmiyor`). İçinde resimler (`tarih-saat_resimNNNN_KARAR.jpg`) + o partinin `operator_kayit.csv`'si
+  (dosya sütunu artık yalnız dosya adı). `_reset_counters`: onay metni klasörü söyler; açık operatör penceresi CEVAPSIZ olarak
+  ESKİ partiye yazılır; **`_parti_kapat(eski_sayac)`** sayaç sıfırlanmadan ÖNCE biten partinin klasörüne `parti_ozeti.txt`
+  (başlangıç, sıfırlama zamanı, geçen/OK/NOK/hata/yanlış çekim/operatör/paket, resim sayısı, nokta-sebep dağılımı, sistem
+  hataları, parça CSV yolu) + `kalite_raporu.pdf` (`_write_report_pdf`) yazar, `[Sayaç] Parti kapatıldı → …` loglar; yeni
+  `_bos_sayac()` yeni `baslangic` → yeni klasör. Restart'ta sayac.json'daki `baslangic` aynı klasörü sürdürür.
+  `_operator_eski_kayitlari_sil`: `parti_%Y-%m-%d_%H-%M-%S` VE eski `%Y-%m-%d` gün klasörleri; aktif parti klasörü hiç
+  silinmez. Bugünkü eski kayıtlar (`operator_kontrol/2026-09-28/` + kökteki `operator_kayit.csv`, eski kodun yazdığı)
+  olduğu gibi duruyor; yeni kodla ilk kayıt `parti_2026-09-28_12-48-33/`'e gider (son Sıfırla 12:48:33). 5 yeni test
+  (`test_operator.py` 73: parti klasöründe kayıt/CSV, Sıfırla → özet+PDF+CEVAPSIZ eski partiye, yeni klasör adı farklı,
+  sonraki kayıt yeni klasöre, eski parti/gün silinir & aktif korunur); takım 323/323. Çalışan uygulama eski kodda → restart.
 - **✅ 2026-09-28 ~14:30 — GÖREV ÇUBUĞUNDA ONLARCA PYTHON SİMGESİ = KONTROL MERKEZİ PENCERE SIZINTISI (kullanıcı,
   ekran görüntüsüyle: "bu üsttekiler ne, neden çıkıyor, çıkmasın"):** Kompozitörden (labwc, wlr-foreign-toplevel; saf soket
   istemcisi scratchpad `toplevel_listesi.py`) okundu: uygulamanın `main.py` başlıklı (başlıksız → Qt argv[0]'ı yazar)

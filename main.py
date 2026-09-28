@@ -2752,15 +2752,18 @@ class MainWindow(QMainWindow):
     def _reset_counters(self):
         yanit = QMessageBox.question(self, "Sayaçları sıfırla",
                                      "Sayaçlar sıfırlanacak (yeni parti/vardiya).\n"
+                                     f"Bu partinin resim kayıtları ve özeti operator_kontrol/{self._parti_adi()}/ klasöründe\n"
+                                     "kapatılır (parti_ozeti.txt + kalite_raporu.pdf); yeni kayıtlar yeni klasöre gider.\n"
                                      "CSV kayıtları silinmez. Devam edilsin mi?",
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if yanit != QMessageBox.Yes:
             return
         eski = dict(self._counters)
         self._paket_penceresini_kapat()
-        self._review_penceresini_kapat()
+        self._review_penceresini_kapat()                   # acik pencere CEVAPSIZ olarak ESKI partiye yazilir
         self._last_nok_record = None
         self._set_conveyor_stop(False, "parti sıfırlandı")
+        self._parti_kapat(dict(self._counters))            # biten parti: ozet + PDF (sayac resetlenmeden ONCE)
         self._counters = self._bos_sayac()
         self._save_counters()
         self._append_part_csv([time.strftime("%Y-%m-%d %H:%M:%S"), "-", "-", "SIFIRLA", "",
@@ -2953,6 +2956,70 @@ class MainWindow(QMainWindow):
     def _operator_kayit_on(self) -> bool:
         return bool((self.config.get("inspection", {}) or {}).get("operator_kayit", True))
 
+    # PARTI KLASORU (2026-09-28, kullanici: "her Sifirla'da yeni dosya acilsin, sifirlama tarih-saati adinda olsun"):
+    # kayitlar operator_kontrol/parti_YYYY-AA-GG_SS-DD-ss/ altina gider; ad = sayacin 'baslangic' zamani (= son
+    # sifirlama ani). Sifirla'da biten partinin klasorune parti_ozeti.txt + kalite_raporu.pdf yazilir (_parti_kapat),
+    # yeni sayac yeni 'baslangic' -> yeni klasor. Uygulama yeniden acilinca sayac.json'daki baslangic ayni klasoru surdurur.
+    def _parti_adi(self) -> str:
+        b = str(self._counters.get("baslangic", "") or "")
+        try:
+            return "parti_" + time.strftime("%Y-%m-%d_%H-%M-%S", time.strptime(b, "%Y-%m-%d %H:%M:%S"))
+        except ValueError:
+            return "parti_bilinmiyor"
+
+    def _parti_klasoru(self) -> str:
+        return os.path.join(self.OPERATOR_DIR, self._parti_adi())
+
+    def _parti_kapat(self, c: dict):
+        """Sifirlama aninda biten partinin klasorune ozet (parti_ozeti.txt: baslangic, sifirlama zamani, sayilar,
+        hata dagilimi) + PDF raporu yazar; klasoru doner. Sayac RESETLENMEDEN once cagrilmali."""
+        klasor = self._parti_klasoru()
+        simdi = time.strftime("%Y-%m-%d %H:%M:%S")
+        try:
+            os.makedirs(klasor, exist_ok=True)
+            t = int(c.get("toplam", 0)); ok = int(c.get("ok", 0)); nok = int(c.get("nok", 0))
+            yuzde = (lambda n: f"  (%{100.0 * n / t:.1f})") if t else (lambda n: "")
+            resimler = sorted(f for f in os.listdir(klasor) if f.lower().endswith(".jpg"))
+            satirlar = [
+                "PARTİ ÖZETİ (Sıfırla anında yazıldı)",
+                f"Başlangıç        : {c.get('baslangic', '-')}",
+                f"Sıfırlama (bitiş): {simdi}",
+                f"Geçen parça      : {t}",
+                f"OK               : {ok}{yuzde(ok)}",
+                f"NOK              : {nok}{yuzde(nok)}",
+                f"Sistem hatası    : {int(c.get('hata', 0))}",
+                f"Yanlış çekim (ürün yok): {int(c.get('urun_yok', 0))}",
+                f"Operatör         : {int(c.get('operator_dogru', 0))} doğru / {int(c.get('operator_hatali', 0))} hatalı / "
+                f"{int(c.get('operator_yanlis', 0))} yanlış çekim",
+                f"Paket            : {int(c.get('paket_ok', 0))} / {int(c.get('paket_esik', 0))}",
+                f"Kayıtlı resim    : {len(resimler)} (operatör kontrolleri; liste: operator_kayit.csv)",
+                "",
+                "Hata dağılımı (kontrol noktası: sebep = sayı):",
+            ]
+            noktalar = sorted((c.get("noktalar", {}) or {}).items(), key=lambda kv: -sum(kv[1].values()))
+            for etiket, kats in noktalar:
+                for kat, n in sorted(kats.items(), key=lambda kv: -kv[1]):
+                    satirlar.append(f"  {etiket}: {kat} = {n}")
+            if not noktalar:
+                satirlar.append("  (yok)")
+            hs = sorted((c.get("hata_sebepleri", {}) or {}).items(), key=lambda kv: -kv[1])
+            if hs:
+                satirlar.append("Sistem hataları:")
+                satirlar += [f"  {sebep} = {n}" for sebep, n in hs]
+            satirlar += ["", f"Parça CSV: {self.LOG_DIR}/parca-YYYY-AA-GG.csv (';' ayraçlı)"]
+            with open(os.path.join(klasor, "parti_ozeti.txt"), "w", encoding="utf-8") as f:
+                f.write("\n".join(satirlar) + "\n")
+            try:
+                self._write_report_pdf(os.path.join(klasor, "kalite_raporu.pdf"))
+                pdf_not = "kalite_raporu.pdf"
+            except Exception as exc:
+                pdf_not = f"PDF yazılamadı: {exc}"
+            self._append_log(f"[Sayaç] Parti kapatıldı → operator_kontrol/{self._parti_adi()}/ "
+                             f"(parti_ozeti.txt, {pdf_not}, {len(resimler)} resim). Yeni kayıtlar yeni parti klasörüne gider.")
+        except Exception as exc:
+            self._append_log(f"[Uyarı] Parti özeti yazılamadı: {exc}")
+        return klasor
+
     # KAYIT RESMINDEKI KARAR BANDI (2026-09-28, kullanici: "hata resmine baktigim zaman operator hatali mi
     # dogru mu demis gorebileyim; resim ve bilgiler ayni dosyada olsun"): karar + tarih/saat + resim no +
     # kamera + programin gerekcesi resmin USTUNE bant olarak islenir (urunu ortmez). Qt ile cizilir —
@@ -3039,7 +3106,7 @@ class MainWindow(QMainWindow):
         try:
             now = time.localtime()
             gun = time.strftime("%Y-%m-%d", now)
-            klasor = os.path.join(self.OPERATOR_DIR, gun)
+            klasor = self._parti_klasoru()                 # parti basina klasor (Sifirla -> yeni klasor)
             os.makedirs(klasor, exist_ok=True)
             dosya = ""
             pm = getattr(dlg, "_pm", None)
@@ -3052,7 +3119,7 @@ class MainWindow(QMainWindow):
                     kayit_pm = pm
                 if not kayit_pm.save(dosya, "JPG", 85):
                     dosya = ""
-            csv_path = os.path.join(self.OPERATOR_DIR, "operator_kayit.csv")
+            csv_path = os.path.join(klasor, "operator_kayit.csv")     # parti klasorunun kendi listesi
             yeni = not os.path.exists(csv_path)
             with open(csv_path, "a", encoding="utf-8", newline="") as f:
                 w = csv.writer(f, delimiter=";")
@@ -3060,10 +3127,10 @@ class MainWindow(QMainWindow):
                     w.writerow(["tarih", "saat", "resim", "karar", "kamera", "gerekce", "dosya"])
                 w.writerow([gun, time.strftime("%H:%M:%S", now), int(dlg.part_id), karar,
                             int(getattr(dlg, "cam_no", 1) or 1), getattr(dlg, "gerekce", "-"),
-                            os.path.relpath(dosya, self.OPERATOR_DIR) if dosya else "-"])
+                            os.path.basename(dosya) if dosya else "-"])
             self._operator_eski_kayitlari_sil()
-            self._append_log(f"[Operatör] Kayıt yazıldı: {karar} → operator_kontrol/"
-                             f"{os.path.relpath(dosya, self.OPERATOR_DIR) if dosya else gun + '/ (resim yok)'}"
+            self._append_log(f"[Operatör] Kayıt yazıldı: {karar} → operator_kontrol/{self._parti_adi()}/"
+                             f"{os.path.basename(dosya) if dosya else '(resim yok)'}"
                              + (" (resmin üstünde karar bandı)" if dosya else ""))
             return dosya or csv_path
         except Exception as exc:
@@ -3078,14 +3145,19 @@ class MainWindow(QMainWindow):
         if gun_sayisi <= 0 or not os.path.isdir(self.OPERATOR_DIR):
             return
         sinir = time.time() - gun_sayisi * 86400
+        guncel = self._parti_adi()                          # acik parti ne kadar eski olursa olsun SILINMEZ
         for ad in os.listdir(self.OPERATOR_DIR):
             yol = os.path.join(self.OPERATOR_DIR, ad)
-            if not os.path.isdir(yol):
+            if not os.path.isdir(yol) or ad == guncel:
                 continue
-            try:
-                t = time.mktime(time.strptime(ad, "%Y-%m-%d"))
-            except ValueError:
-                continue                                   # gun klasoru degil
+            t = None
+            for bicim in ("parti_%Y-%m-%d_%H-%M-%S", "%Y-%m-%d"):     # parti klasoru | eski gun klasoru
+                try:
+                    t = time.mktime(time.strptime(ad, bicim)); break
+                except ValueError:
+                    continue
+            if t is None:
+                continue                                   # kayit klasoru degil
             if t < sinir:
                 shutil.rmtree(yol, ignore_errors=True)
                 self._append_log(f"[Operatör] Eski kayıt klasörü silindi: operator_kontrol/{ad} ({gun_sayisi} günden eski).")

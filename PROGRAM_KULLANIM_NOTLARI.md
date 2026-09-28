@@ -71,7 +71,11 @@ uygulama kapansa da kaybolmaz.
   PLC → "Dur register" değiştirilir. Özellik Ayarlar → "Paket dolunca konveyörü durdur" ile kapatılır.
 - **PDF Rapor:** özet, nokta/sebep dağılımı, sistem hataları ve son 300 NOK parçanın listesi
   (zaman, resim no, sebep). Masaüstüne `kalite_raporu_TARİH_SAAT.pdf` olarak kaydeder ve açar.
-- **Sıfırla:** yeni parti/vardiya başlatır (onay sorar); önceki değerler loga ve CSV'ye yazılır.
+- **Sıfırla:** yeni parti/vardiya başlatır (onay sorar); önceki değerler loga ve CSV'ye yazılır. **Ayrıca (2026-09-28)**
+  biten partinin klasörü kapatılır: `operator_kontrol/parti_<başlangıç tarih-saat>/` içine `parti_ozeti.txt` (başlangıç,
+  sıfırlama zamanı, geçen/OK/NOK/hata/yanlış çekim/operatör sayıları, hata dağılımı) ve `kalite_raporu.pdf` yazılır; o
+  partide operatörün kontrol ettiği resimler zaten bu klasördedir. Sonraki kayıtlar, sıfırlama anının tarih-saatini taşıyan
+  YENİ bir klasöre gider; klasör adları bu yüzden hiç çakışmaz.
 - Her çekim için resimsiz bir satır `~/konveyor_loglari/parca-YYYY-AA-GG.csv` dosyasına eklenir
   (Excel ile açılır, ayırıcı `;`): zaman, resim no, kaynak (plc/elle), sonuç, gecikme, hatalı
   noktalar, sebepler, ölçümler. 16.000 parça yaklaşık 5 MB yer tutar.
@@ -114,10 +118,11 @@ o anki resim (kontrol noktaları işaretli), altında programın gerekçesi ve �
 - Sol panelde "Operatör: N doğru / M hatalı / K yanlış çekim" satırı, PDF raporunda özet.
 - Aynı pencere "ürün algılanamadı" durumunda da açılır (§3d); orada HATALI parçayı NOK'a taşır, DOĞRU OK'a.
 - Eşik ayarı sırasında çok NOK çıkıyorsa Ayarlar → "NOK'ta operatör kontrol penceresi" kutusunu kapatın.
-- **Kayıt:** her kontrolde operatörün gördüğü resim ve kararı program klasöründeki `operator_kontrol/` altına
-  yazılır: `operator_kontrol/2026-09-24/2026-09-24_15-42-07_resim0012_DOGRU.jpg` (gün klasörü; ad = tarih_saat_
-  resim no_karar; karar DOGRU / HATALI / YANLIS_CEKIM / CEVAPSIZ) + özet tablo `operator_kontrol/operator_kayit.csv`
-  (tarih;saat;resim;karar;kamera;gerekce;dosya — Excel/LibreOffice ile açılır). Resim ≈ 200-300 KB.
+- **Kayıt:** her kontrolde operatörün gördüğü resim ve kararı program klasöründeki `operator_kontrol/` altına, o
+  partinin klasörüne yazılır: `operator_kontrol/parti_2026-09-28_12-48-33/2026-09-28_14-01-54_resim0059_DOGRU.jpg`
+  (klasör adı = partinin başlangıcı, yani son Sıfırla tarih-saati; dosya adı = tarih_saat_resim no_karar; karar DOGRU /
+  HATALI / YANLIS_CEKIM / CEVAPSIZ) + aynı klasörde özet tablo `operator_kayit.csv` (tarih;saat;resim;karar;kamera;gerekce;
+  dosya — Excel/LibreOffice ile açılır). Resim ≈ 200-300 KB. Sıfırla'da klasöre `parti_ozeti.txt` + `kalite_raporu.pdf` eklenir.
   Ayarlar → "Operatör kontrollerini kaydet" kapatılabilir; "Operatör kayıtlarını sakla (gün)" (varsayılan 30,
   0 = hiç silme) günden eski gün klasörleri kendiliğinden silinir.
 - **Resmin üstünde karar bandı (2026-09-28):** kaydedilen resmi açınca en üstte büyük ve renkli yazıyla operatörün

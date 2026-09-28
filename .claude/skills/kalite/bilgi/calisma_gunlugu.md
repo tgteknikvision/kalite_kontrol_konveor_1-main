@@ -3,6 +3,16 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-28 ~15:00 — Sıfırla = parti klasörünü kapat; kayıtlar parti_<tarih-saat>/ altında (kullanıcı isteği)
+**Kullanıcı:** "Sıfırla'ya basınca o ana kadar kaydettiğin OK/NOK sayısını ve yanlış çekim resimlerini bir dosyaya koy; her
+sıfırlamada yeni dosya aç, adı çakışmasın diye sıfırlama tarih-saatini dosyaya kaydet". **Yapılan:** kayıt klasörü gün
+yerine PARTİ: `operator_kontrol/parti_YYYY-AA-GG_SS-DD-ss/` (ad = sayacın `baslangic`'i = son Sıfırla anı; restart'ta
+aynı klasör sürer) — resimler + o partinin `operator_kayit.csv`'si. `_reset_counters` → `_parti_kapat`: sayaç sıfırlanmadan
+önce biten klasöre `parti_ozeti.txt` (başlangıç/sıfırlama zamanı/sayılar/dağılım) + `kalite_raporu.pdf`; açık operatör
+penceresi CEVAPSIZ olarak eski partiye; onay metni klasörü söyler; log `[Sayaç] Parti kapatıldı → …`. Eski klasör
+temizliği `parti_*` + `YYYY-AA-GG`, aktif parti asla silinmez. 5 yeni test (`test_operator` 73), takım **323/323**.
+Bugünkü eski kayıtlar (`2026-09-28/` + kök CSV) olduğu gibi kaldı. Uygulama hâlâ eski kodda (13:51) → restart.
+
 ## 2026-09-28 ~14:30 — Görev çubuğunda onlarca Python simgesi → Kontrol Merkezi pencere sızıntısı (düzeltildi)
 **Kullanıcı (ekran görüntüsü):** üst çubukta 20+ Python simgesi, "bunlar ne, neden çıkıyor, çıkmasın". **Teşhis:**
 xwininfo/xdotool/lswt yok → wlr-foreign-toplevel protokolüyle saf soket istemcisi yazıldı (`toplevel_listesi.py`):
