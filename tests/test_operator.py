@@ -12,7 +12,7 @@ PROJ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJ); os.chdir(PROJ)
 import numpy as np
 from PyQt5.QtWidgets import QApplication, QMessageBox, QDialog
-from PyQt5.QtGui import QPixmap, QColor
+from PyQt5.QtGui import QPixmap, QColor, QImage, QCloseEvent, QFont, QFontMetrics
 from PyQt5.QtCore import Qt
 import main
 from inspector.plc import NullPLCAdapter, InspectionState
@@ -92,6 +92,23 @@ check("kayıt: gün klasöründe tarih-saat-resim0001-DOGRU.jpg (JPEG) yazıldı
 okay = list(csv.reader(open(os.path.join(kdir, "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))
 check("kayıt CSV: başlık + satır (tarih;saat;resim;karar;kamera;gerekce;dosya)", okay[0][:4] == ["tarih", "saat", "resim", "karar"] and okay[-1][0] == gun and okay[-1][2] == "1" and okay[-1][3] == "DOGRU" and "delik YOK" in okay[-1][5] and okay[-1][6].endswith("_DOGRU.jpg"), str(okay[-1]))
 check("log: kayıt yazıldı", any("[Operatör] Kayıt yazıldı: DOGRU" in l for l in loglar))
+# KARAR BANDI (2026-09-28): kayit resminin ustunde karar + tarih/saat + resim no + kamera + gerekce
+def renk_say(img, y0, y1, kosul):
+    n = 0
+    for y in range(y0, y1, 2):
+        for x in range(0, img.width(), 2):
+            if kosul(img.pixelColor(x, y)): n += 1
+    return n
+yesil = lambda c: c.green() > 150 and c.green() > c.red() + 60 and c.green() > c.blue() + 40
+kirmizi = lambda c: c.red() > 180 and c.red() > c.green() + 80 and c.red() > c.blue() + 80
+turuncu = lambda c: c.red() > 200 and 120 < c.green() < 220 and c.blue() < 130
+img = QImage(dosyalar[0]); band_h = img.height() - 300
+check("kayıt resmi: üstte karar bandı (genişlik aynı 400, yükseklik 300 + bant)", img.width() == 400 and 40 <= band_h <= 200, f"{img.width()}x{img.height()}")
+check("DOĞRU bandı yeşil (şerit + yazı)", renk_say(img, 0, band_h, yesil) >= 30, str(renk_say(img, 0, band_h, yesil)))
+orta = img.pixelColor(200, band_h + 150)
+check("bandın altında orijinal resim bozulmadan duruyor (#556677)", abs(orta.red() - 0x55) < 14 and abs(orta.green() - 0x66) < 14 and abs(orta.blue() - 0x77) < 14, orta.name())
+lines = w._operator_banner_lines(dlg, "DOGRU", "2026-09-28 12:48:23")
+check("band satırları: karar (yeşil, kalın) + tarih/resim/kamera + gerekçe", lines[0][0].startswith("OPERATÖR: DOĞRU") and lines[0][1] == "#2ecc71" and lines[0][2] is True and "2026-09-28 12:48:23" in lines[1][0] and "Resim #0001" in lines[1][0] and "Kamera 1" in lines[1][0] and lines[2][0].startswith("Gerekçe: 1: delik YOK"), str(lines))
 
 print("\n[HATALI → NOK kalır]")
 cekim(); dlg2 = w._review_dlg
@@ -101,6 +118,9 @@ rows = list(csv.reader(open(csv_path, encoding="utf-8"), delimiter=";"))
 check("NOK 1 kaldı, operator_hatali 1, CSV OPERATOR_HATALI", c["nok"] == 1 and c["ok"] == 1 and c["operator_hatali"] == 1 and rows[-1][3] == "OPERATOR_HATALI" and c["noktalar"].get("1 (delik)"))
 check("panel 'Operatör: 1 doğru / 1 hatalı'", w.lbl_counter_operator.text() == "Operatör: 1 doğru / 1 hatalı")
 check("HATALI kaydı: resim0002_HATALI.jpg + CSV", len(glob.glob(os.path.join(kdir, gun, "*_resim0002_HATALI.jpg"))) == 1 and list(csv.reader(open(os.path.join(kdir, "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))[-1][3] == "HATALI")
+img2 = QImage(glob.glob(os.path.join(kdir, gun, "*_resim0002_HATALI.jpg"))[0])
+check("HATALI bandı kırmızı", img2.height() > 300 and renk_say(img2, 0, img2.height() - 300, kirmizi) >= 30, str(renk_say(img2, 0, img2.height() - 300, kirmizi)))
+check("HATALI band metni", w._operator_banner_lines(dlg2, "HATALI", "x")[0][0].startswith("OPERATÖR: HATALI") and "NOK onaylandı" in w._operator_banner_lines(dlg2, "HATALI", "x")[0][0])
 
 print("\n[açıkken yeni NOK / cevapsız kapatma]")
 cekim(); dlg3 = w._review_dlg
@@ -110,6 +130,17 @@ dlg4.close(); pump()
 c = w._counters
 check("X ile kapatma → NOK kaldı, sayaç değişmedi (NOK 3)", w._review_dlg is None and c["nok"] == 3 and any("#4: pencere cevapsız" in l for l in loglar))
 check("cevapsız kayıtlar: resim0003 ve resim0004 CEVAPSIZ", len(glob.glob(os.path.join(kdir, gun, "*_resim0003_CEVAPSIZ.jpg"))) == 1 and len(glob.glob(os.path.join(kdir, gun, "*_resim0004_CEVAPSIZ.jpg"))) == 1)
+img4 = QImage(glob.glob(os.path.join(kdir, gun, "*_resim0004_CEVAPSIZ.jpg"))[0])
+check("CEVAPSIZ bandı turuncu, metin 'NOK kaldı'", renk_say(img4, 0, img4.height() - 300, turuncu) >= 30 and "NOK kaldı" in w._operator_banner_lines(dlg4, "CEVAPSIZ", "x")[0][0], str(renk_say(img4, 0, img4.height() - 300, turuncu)))
+fm = QFontMetrics(QFont("Arial", 12))
+uzun = " ".join(f"kelime{i}" for i in range(80))
+sar = w._wrap_text(uzun, fm, 200, 3)
+check("uzun gerekçe en fazla 3 satıra sarılır, sonu '…'", len(sar) == 3 and sar[-1].endswith("…") and all(fm.horizontalAdvance(s) <= 200 for s in sar), str(sar))
+check("kısa metin tek satır", w._wrap_text("kısa", fm, 200, 3) == ["kısa"])
+class _FakeDlg: part_id = 7; cam_no = 2; gerekce = uzun; _pm = pm
+buyuk = w._operator_kayit_resmi(pm, "HATALI", _FakeDlg(), "2026-09-28 13:00:00")
+kisa = w._operator_kayit_resmi(pm, "HATALI", dlg4, "2026-09-28 13:00:00")
+check("uzun gerekçede bant büyür ama sınırlı (≤ 2 ek satır)", buyuk.height() > kisa.height() and buyuk.height() - kisa.height() <= 2 * (QFontMetrics(QFont("Arial")).height() + 14) and buyuk.width() == 400, f"{kisa.height()} → {buyuk.height()}")
 
 print("\n[OK çekimde pencere yok / özellik kapalı]")
 w._handle_snapshot = lambda *a, **k: True
@@ -163,7 +194,11 @@ w.plc = RecPLC(); w._counters = w._bos_sayac(); w._last_nok_record = None
 w._operator_dogru(999)
 check("kayıt yokken DOĞRU sayaç değiştirmez, log uyarır", w._counters["ok"] == 0 and any("#999" in l and "kaydı bulunamadı" in l for l in loglar))
 
-w.worker = None; w.worker2 = None; w._review_penceresini_kapat(); w.close()
+print("\n[uygulama kapanırken açık pencere]")
+w.plc = RecPLC(); cekim(); pid_acik = w._review_dlg.part_id
+w.worker = None; w.worker2 = None
+ev = QCloseEvent(); w.closeEvent(ev)
+check("closeEvent: açık operatör penceresi CEVAPSIZ olarak kaydedildi", ev.isAccepted() and w._review_dlg is None and len(glob.glob(os.path.join(kdir, gun, f"*_resim{pid_acik:04d}_CEVAPSIZ.jpg"))) == 1)
 basarisiz = [ad for ad, k in sonuc if not k]
 print(f"\nTOPLAM {len(sonuc)} test, {len(sonuc) - len(basarisiz)} geçti, {len(basarisiz)} başarısız", basarisiz or "")
 sys.exit(1 if basarisiz else 0)

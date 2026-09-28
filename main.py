@@ -28,7 +28,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QFileDialog)
 from PyQt5.QtCore import Qt, pyqtSlot, pyqtSignal, QTimer, QUrl, QPoint, QEvent
 from PyQt5.QtGui import (QImage, QPixmap, QFont, QPalette, QColor, QTextDocument, QDesktopServices,
-                         QPainter, QPolygon, QPen)
+                         QPainter, QPolygon, QPen, QFontMetrics)
 
 from inspector.worker import InspectionWorker
 from inspector.plc import InspectionState, create_plc_adapter
@@ -2825,8 +2825,83 @@ class MainWindow(QMainWindow):
     def _operator_kayit_on(self) -> bool:
         return bool((self.config.get("inspection", {}) or {}).get("operator_kayit", True))
 
+    # KAYIT RESMINDEKI KARAR BANDI (2026-09-28, kullanici: "hata resmine baktigim zaman operator hatali mi
+    # dogru mu demis gorebileyim; resim ve bilgiler ayni dosyada olsun"): karar + tarih/saat + resim no +
+    # kamera + programin gerekcesi resmin USTUNE bant olarak islenir (urunu ortmez). Qt ile cizilir —
+    # cv2.putText Turkce harf cizemez. Karar rengi: DOGRU yesil, HATALI kirmizi, CEVAPSIZ turuncu.
+    OPERATOR_KARAR_METNI = {
+        "DOGRU": ("OPERATÖR: DOĞRU  —  parça OK sayıldı", "#2ecc71"),
+        "HATALI": ("OPERATÖR: HATALI  —  NOK onaylandı", "#ff4d4d"),
+        "CEVAPSIZ": ("OPERATÖR: CEVAPSIZ  —  NOK kaldı (pencere cevaplanmadı)", "#ffb454"),
+    }
+
+    def _operator_banner_lines(self, dlg, karar: str, zaman: str) -> list:
+        """Kayit resminin ust bandindaki satirlar: [(metin, renk, kalin), ...]. Ilk satir karar (renkli, kalin),
+        ikinci satir tarih/saat + resim no + kamera + program karari, ucuncu satir programin gerekcesi."""
+        baslik, renk = self.OPERATOR_KARAR_METNI.get(karar, (f"OPERATÖR: {karar}", "#d6dae2"))
+        cam = int(getattr(dlg, "cam_no", 1) or 1)
+        gerekce = str(getattr(dlg, "gerekce", "") or "-")
+        return [(baslik, renk, True),
+                (f"{zaman}   |   Resim #{int(dlg.part_id):04d}   |   Kamera {cam}   |   Program kararı: NOK",
+                 "#d6dae2", False),
+                ("Gerekçe: " + gerekce, "#c4c9d2", False)]
+
+    @staticmethod
+    def _wrap_text(text: str, fm, max_w: int, max_lines: int = 3) -> list:
+        """Metni kelime sinirindan max_w piksele sarar; max_lines'i asarsa son satiri '…' ile kisaltir."""
+        parts, cur = [], ""
+        for word in str(text).split():
+            dene = (cur + " " + word).strip()
+            if not cur or fm.horizontalAdvance(dene) <= max_w:
+                cur = dene
+            else:
+                parts.append(cur)
+                cur = word
+        if cur:
+            parts.append(cur)
+        if len(parts) > max_lines:
+            parts = parts[:max_lines]
+            parts[-1] = fm.elidedText(parts[-1] + " …", Qt.ElideRight, max_w)
+        return parts or [""]
+
+    def _operator_kayit_resmi(self, pm, karar: str, dlg, zaman: str):
+        """Operatorun gordugu resmin USTUNE karar bandi eklenmis kopyasi (QPixmap). Resmin kendisi
+        (kontrol noktasi kutulari, gecikme damgasi) bantin altinda degismeden durur."""
+        lines = self._operator_banner_lines(dlg, karar, zaman)
+        w = max(1, pm.width())
+        px = max(16, min(48, w // 26))                      # 728 px genislik -> 28 px, 1456 -> 48 px baslik
+        f_big = QFont("Arial"); f_big.setPixelSize(px); f_big.setBold(True)
+        f_small = QFont("Arial"); f_small.setPixelSize(max(11, int(px * 0.62)))
+        fm_big, fm_small = QFontMetrics(f_big), QFontMetrics(f_small)
+        pad = max(6, px // 3)
+        satirlar = []                                       # (metin, renk, kalin) — sarmalanmis
+        for text, color, bold in lines:
+            if bold:
+                satirlar.append((text, color, True))
+            else:
+                satirlar += [(p, color, False) for p in self._wrap_text(text, fm_small, w - 2 * pad, 3)]
+        h_band = 6 + pad + sum((fm_big if b else fm_small).height() + 2 for _t, _c, b in satirlar) + pad
+        out = QPixmap(w, pm.height() + h_band)
+        out.fill(QColor("#15171c"))
+        painter = QPainter(out)
+        try:
+            painter.fillRect(0, 0, w, 6, QColor(lines[0][1]))          # ustte karar renginde serit
+            y = 6 + pad
+            for text, color, bold in satirlar:
+                fm = fm_big if bold else fm_small
+                painter.setFont(f_big if bold else f_small)
+                painter.setPen(QColor(color))
+                painter.drawText(pad, y + fm.ascent(), text)
+                y += fm.height() + 2
+            painter.setPen(QPen(QColor(lines[0][1]), 2))
+            painter.drawLine(0, h_band - 1, w, h_band - 1)             # bant ile resim arasi renkli cizgi
+            painter.drawPixmap(0, h_band, pm)
+        finally:
+            painter.end()
+        return out
+
     def _operator_kaydet(self, dlg, karar: str):
-        """Operatorun gordugu resmi (isaretli, JPEG q85 ~%15-25 boyut) ve kararini diske yazar:
+        """Operatorun gordugu resmi (isaretli + USTTE KARAR BANDI, JPEG q85) ve kararini diske yazar:
         OPERATOR_DIR/YYYY-AA-GG/YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg + OPERATOR_DIR/operator_kayit.csv
         (tarih;saat;resim;karar;kamera;gerekce;dosya). Karar: DOGRU | HATALI | CEVAPSIZ.
         Eski gun klasorleri inspection.operator_kayit_gun (vars. 30) gun sonra silinir."""
@@ -2841,7 +2916,12 @@ class MainWindow(QMainWindow):
             pm = getattr(dlg, "_pm", None)
             if pm is not None and not pm.isNull():
                 dosya = os.path.join(klasor, f"{gun}_{time.strftime('%H-%M-%S', now)}_resim{int(dlg.part_id):04d}_{karar}.jpg")
-                if not pm.save(dosya, "JPG", 85):
+                try:
+                    kayit_pm = self._operator_kayit_resmi(pm, karar, dlg, f"{gun} {time.strftime('%H:%M:%S', now)}")
+                except Exception as exc:                    # bant cizilemezse resim yine de kaydedilsin
+                    self._append_log(f"[Uyarı] Karar bandı çizilemedi ({exc}); resim bantsız kaydediliyor.")
+                    kayit_pm = pm
+                if not kayit_pm.save(dosya, "JPG", 85):
                     dosya = ""
             csv_path = os.path.join(self.OPERATOR_DIR, "operator_kayit.csv")
             yeni = not os.path.exists(csv_path)
@@ -2854,7 +2934,8 @@ class MainWindow(QMainWindow):
                             os.path.relpath(dosya, self.OPERATOR_DIR) if dosya else "-"])
             self._operator_eski_kayitlari_sil()
             self._append_log(f"[Operatör] Kayıt yazıldı: {karar} → operator_kontrol/"
-                             f"{os.path.relpath(dosya, self.OPERATOR_DIR) if dosya else gun + '/ (resim yok)'}")
+                             f"{os.path.relpath(dosya, self.OPERATOR_DIR) if dosya else gun + '/ (resim yok)'}"
+                             + (" (resmin üstünde karar bandı)" if dosya else ""))
             return dosya or csv_path
         except Exception as exc:
             self._append_log(f"[Uyarı] Operatör kaydı yazılamadı: {exc}")
@@ -3109,6 +3190,11 @@ class MainWindow(QMainWindow):
         pencereyi yine de kapat ve kamera/libcamera thread'i C seviyesinde takılı
         kalabileceği için normal Python kapanışını BEKLEMEDEN `os._exit` ile sonlandır
         (aksi halde interpreter kapanışı da aynı şekilde asılı kalabilir)."""
+        # Acik operator kontrol penceresi varsa kayit kaybolmasin: CEVAPSIZ olarak yazilir (2026-09-28).
+        try:
+            self._review_penceresini_kapat()
+        except Exception:
+            pass
         for w in (self.worker, self.worker2):
             if w:
                 w.stop()

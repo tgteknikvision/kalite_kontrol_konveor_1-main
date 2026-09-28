@@ -599,9 +599,9 @@ hataları ("Camera frontend has timed out" = kablo) terminalde canlı görünür
 
 #### `tests/` — ekransız regresyon testleri (2026-09-23)
 `bash tests/calistir_testler.sh` (QT offscreen, her dosyanın TOPLAM satırı; çıkış = hatalı dosya
-sayısı). 11 dosya / 269 test (2026-09-24): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
+sayısı). 11 dosya / 280 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
 `test_paket` 24, `test_stil` 16, `test_urun_yok` 40, `test_snapshot_olcek` 9, `test_paket_dur` 37,
-`test_urun_bulma` 17, `test_sekil_esik` 19, `test_operator` 39 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
+`test_urun_bulma` 17, `test_sekil_esik` 19, `test_operator` 50 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
 config (`main.load_config` yaması), `MainWindow.LOG_DIR` **ve `OPERATOR_DIR`** geçici, `_start_worker` no-op,
 `QMessageBox` susturma, sahte worker/picamera2 modülleri, `plc.type: null`.
 
@@ -966,7 +966,13 @@ karşılığı — elle senkron tutulur.
   `[Operatör] Kayıt yazıldı`. Hata → `[Uyarı] Operatör kaydı yazılamadı`. `_operator_kayit_on()` ← `inspection.operator_kayit`
   (vars. true). Ayarlar: `chk_operator_kayit`, `spin_operator_gun` (0-3650) → `values()` `operator_kayit`/`operator_kayit_gun`
   → `_apply_settings`. **Testte `main.MainWindow.OPERATOR_DIR = <geçici>` şart** (aksi halde proje köküne yazar).
-- Test: `tests/test_operator.py` (39).
+- **Karar bandı (2026-09-28):** `OPERATOR_KARAR_METNI` (sınıf sözlüğü: karar → (başlık, renk)); `_operator_banner_lines(dlg,
+  karar, zaman)` → `[(metin, renk, kalın)]` (karar / tarih-resim-kamera-program / gerekçe); `_wrap_text(text, fm, max_w,
+  max_lines=3)` (staticmethod, kelime sınırı + `elidedText`); `_operator_kayit_resmi(pm, karar, dlg, zaman)` → yeni QPixmap
+  (üstte 6 px renkli şerit + satırlar + renkli ayırıcı çizgi + orijinal resim; yazı px = max(16, min(48, w//26)), küçük
+  satır 0.62×). `_operator_kaydet` bunu `save(..., "JPG", 85)` eder; çizim hatasında bantsız resim + `[Uyarı]`.
+  `closeEvent` başında `_review_penceresini_kapat()` (açık pencere → CEVAPSIZ kaydı). `QFontMetrics` import edildi.
+- Test: `tests/test_operator.py` (50).
 
 ### Şekil kapısı eşikleri nokta başına — yuvarlaklık / dolgu (2026-09-24)
 - `features._evaluate_holes`: `eff_min_circ = ov.get('hole_min_circularity', min_circ)`, `eff_min_fill =

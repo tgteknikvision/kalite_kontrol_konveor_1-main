@@ -107,6 +107,10 @@ o anki resim (kontrol noktaları işaretli), altında programın gerekçesi ve i
   (tarih;saat;resim;karar;kamera;gerekce;dosya — Excel/LibreOffice ile açılır). Resim ≈ 200-300 KB.
   Ayarlar → "Operatör kontrollerini kaydet" kapatılabilir; "Operatör kayıtlarını sakla (gün)" (varsayılan 30,
   0 = hiç silme) günden eski gün klasörleri kendiliğinden silinir.
+- **Resmin üstünde karar bandı (2026-09-28):** kaydedilen resmi açınca en üstte büyük ve renkli yazıyla operatörün
+  kararı görünür — **yeşil "OPERATÖR: DOĞRU — parça OK sayıldı"**, **kırmızı "OPERATÖR: HATALI — NOK onaylandı"**,
+  turuncu "CEVAPSIZ — NOK kaldı"; altında tarih-saat, resim numarası, kamera ve programın gerekçesi. Ürün resmi
+  bandın altında olduğu gibi durur. Uygulama, pencere açıkken kapatılırsa o kontrol CEVAPSIZ olarak kaydedilir.
 
 ## 4. Ayarlar (⚙)
 PLC (tip, IP, port, unit id, poll) · **Kamera 1 / Kamera 2** (grup başlığındaki kutu = kamerayı

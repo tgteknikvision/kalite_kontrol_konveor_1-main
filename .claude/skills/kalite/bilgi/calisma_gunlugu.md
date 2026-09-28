@@ -3,6 +3,17 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-28 ~13:20 — Kayıt resminin üstünde operatör karar bandı (kullanıcı isteği)
+**Kullanıcı:** "hata bulunan resim kaydedilsin, operatör hatalı mı doğru mu demiş bakılsın; resim ve bilgiler aynı
+dosyada/resimde olsun, hata resmine baktığımda görebileyim". Kayıt zaten vardı (dosya adında KARAR + CSV) ama resmin
+kendisinde karar yoktu. **Yapılan (main.py):** `OPERATOR_KARAR_METNI`, `_operator_banner_lines`, `_wrap_text`,
+`_operator_kayit_resmi` → resmin ÜSTÜNE bant: 6 px karar renginde şerit + kalın renkli başlık (OPERATÖR: DOĞRU — parça
+OK sayıldı / HATALI — NOK onaylandı / CEVAPSIZ — NOK kaldı) + `tarih saat | Resim #NNNN | Kamera N | Program kararı:
+NOK` + `Gerekçe: …` (≤3 satır, sonu …); QPainter (Türkçe harf), yazı boyutu genişliğe göre; hata olursa bantsız kayıt.
+`closeEvent` açık pencereyi CEVAPSIZ kaydeder (eskiden kayıp). Gerçek 28 Eylül resmiyle üç renk render edilip gözle
+doğrulandı (728×549 → 728×625). 11 yeni test (`test_operator.py` 50), takım **280/280**. Uygulama kapalı → sonraki
+açılışta devrede. Belgeler: CLAUDE.md §4/§8/§12, kullanım notları §3e, mimari, README, saha durumu.
+
 ## 2026-09-28 ~12:55 — /kalite: tam okuma (467040d) + canlı durum; ilk gerçek operatör kaydı sahada çalıştı
 **Son tam okuma: 467040d, çalışma ağacı temiz** (main.py 3189, features 660, roi_editor 724, worker 329, plc 322,
 alignment 217, config.yaml 167, conf 45, calistir.sh 22, tools 6 dosya 640, tests 11 dosya 1519 → 27 dosya, 7735

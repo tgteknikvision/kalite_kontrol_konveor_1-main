@@ -82,6 +82,9 @@
 - **Operatör kontrol kayıtları (2026-09-24 16:10, kodda; restart gerekli):** NOK'ta açılan kontrol
   penceresinin resmi + kararı `<proje>/operator_kontrol/GÜN/tarih-saat_resimNNNN_KARAR.jpg` + `operator_kayit.csv`
   (yalnız NOK'lar → günde en fazla birkaç yüz KB × NOK sayısı; 30 gün saklanır, Ayarlar'dan değişir).
+  **2026-09-28 13:20:** resmin ÜSTÜNDE renkli karar bandı (DOĞRU yeşil / HATALI kırmızı / CEVAPSIZ turuncu +
+  tarih-saat, resim no, kamera, gerekçe); uygulama kapanırken açık pencere CEVAPSIZ yazılır. Restart bekliyor
+  (bugünkü 12:48 kaydı eski kodla bantsız).
 - **Paket adedi (13:45):** `inspection.paket_adedi` = 100 (varsayılan); paket sayacı OK parçaları
   sayar, hedefte modal olmayan uyarı (Sıfırla/Devam et). Spinbox okları artık görünür.
 

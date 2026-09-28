@@ -85,10 +85,10 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (269 test, 11 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (280 test, 11 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 operator_kontrol/       (git DIŞI, .gitignore) operatör kontrol kayıtları: GÜN/tarih-saat_resimNNNN_KARAR.jpg
-                        + operator_kayit.csv (2026-09-24, §8 `inspection.operator_kayit`).
+                        (resmin ÜSTÜNDE renkli karar bandı, 2026-09-28) + operator_kayit.csv (§8 `inspection.operator_kayit`).
 tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
                         kamera_onizleme.sh (masaüstü "Kamera Önizleme" simgesi: programdan
@@ -303,6 +303,9 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   0 = hiç silme): operatör kararı + kontrol edilen İŞARETLİ resim `<proje>/operator_kontrol/YYYY-AA-GG/
   YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg` (JPEG q85) ve `operator_kontrol/operator_kayit.csv`'ye yazılır
   (KARAR = DOGRU/HATALI/CEVAPSIZ); eski gün klasörleri silinir. Ayarlar'da iki kutu (2026-09-24, §12).
+  **Kayıt resminin ÜSTÜNDE karar bandı (2026-09-28):** operatör kararı renkli/kalın (yeşil DOĞRU, kırmızı HATALI,
+  turuncu CEVAPSIZ) + tarih-saat + resim no + kamera + programın gerekçesi; Qt ile çizilir (Türkçe harf), resim
+  bandın altında değişmez. Uygulama açık pencereyle kapanırsa kayıt CEVAPSIZ olarak yine yazılır (`closeEvent`).
 - `inspection.paket_adedi` (vars. 100): bir pakete konacak OK parça sayısı (sol panel "Paket
   adedi" kutusu). Sayaç `sayac.json`'da `paket_ok`/`paket_esik`; hedefe ulaşınca uyarı (§12).
 - `inspection.trigger_delay_ms`: tetikten sonra çekime kadar bekleme (ürün ortalansın diye).
@@ -353,7 +356,21 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
 - (Kaldırıldı: `PADIM_COLAB_PROMPT.md`, `COLAB_PADIM_EGITIM_NOTLARI.md`,
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
-## 12. Mevcut durum (2026-09-24 itibarıyla)
+## 12. Mevcut durum (2026-09-28 itibarıyla)
+- **✅ 2026-09-28 ~13:20 — KAYIT RESMİNİN ÜSTÜNDE OPERATÖR KARAR BANDI (kullanıcı: "hata bulunan resim kaydedilsin,
+  operatör hatalı mı doğru mu demiş resimle aynı dosyada olsun, resme baktığımda görebileyim"):** Kayıt zaten vardı
+  (dosya adı + CSV); şimdi `_operator_kaydet` resmi `_operator_kayit_resmi(pm, karar, dlg, zaman)` ile kaydeder:
+  resmin ÜSTÜNE eklenen bant (ürünü örtmez) = 6 px karar renginde şerit + kalın başlık `OPERATÖR: DOĞRU — parça OK
+  sayıldı` / `HATALI — NOK onaylandı` / `CEVAPSIZ — NOK kaldı (pencere cevaplanmadı)` (`OPERATOR_KARAR_METNI`:
+  yeşil #2ecc71 / kırmızı #ff4d4d / turuncu #ffb454) + `tarih saat | Resim #NNNN | Kamera N | Program kararı: NOK`
+  + `Gerekçe: …` (`_wrap_text`: kelime sınırından sarar, en fazla 3 satır, sonu `…`). QPainter ile çizilir
+  (cv2 Türkçe harf çizemez); yazı boyutu genişliğe göre (728 px → 28 px, 1456 → 48 px); bant çizilemezse resim bantsız
+  kaydedilir (`[Uyarı] Karar bandı çizilemedi`). `_operator_banner_lines` satırları döndürür (test edilebilir).
+  **Ek:** `closeEvent` başında `_review_penceresini_kapat()` → uygulama açık pencereyle kapanırsa kayıt CEVAPSIZ olarak
+  yazılır (eskiden kayboluyordu). Gerçek 28 Eylül kaydıyla üç renk ekransız render edilip gözle doğrulandı. 11 yeni
+  test (`test_operator.py` 50: bant yüksekliği/genişliği, üç renk piksel sayımı, bandın altı bozulmaz, satır metinleri,
+  sarma/elision, uzun gerekçede sınırlı büyüme, closeEvent); takım 280/280. Bugün 12:48'de sahada ilk gerçek kayıt
+  (resim #2 HATALI) eski kodla bantsız yazıldı; uygulama kapalı → sonraki açılışta yeni kod.
 - **✅ 2026-09-24 ~16:10 — OPERATÖR KARARI + KONTROL EDİLEN RESİM PROGRAM KLASÖRÜNE KAYDEDİLİYOR (kullanıcı:
   "operatör doğru/hatalı seçecek ya, bunun ve kontrol edilen resmin kaydedilmesini istiyorum, program dosyasının
   içine gün tarih ve saatiyle"):** `MainWindow.OPERATOR_DIR = <proje>/operator_kontrol/` (sınıf niteliği; `.gitignore`).
