@@ -599,10 +599,11 @@ hataları ("Camera frontend has timed out" = kablo) terminalde canlı görünür
 
 #### `tests/` — ekransız regresyon testleri (2026-09-23)
 `bash tests/calistir_testler.sh` (QT offscreen, her dosyanın TOPLAM satırı; çıkış = hatalı dosya
-sayısı). Dosyalar: `test_gecikme_kamera.py` (worker gölgeleme/yedek/yarım nesne; gecikme kutusu,
-damga, aç/kapa sırası, Enter, imx477 modları), `test_closeevent.py`, `test_sayac.py`,
-`test_paket.py`. Ortak kalıp: geçici config (`main.load_config` yaması), `MainWindow.LOG_DIR`
-geçici, `_start_worker` no-op, `QMessageBox` susturma, sahte worker/picamera2 modülleri.
+sayısı). 11 dosya / 269 test (2026-09-24): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
+`test_paket` 24, `test_stil` 16, `test_urun_yok` 40, `test_snapshot_olcek` 9, `test_paket_dur` 37,
+`test_urun_bulma` 17, `test_sekil_esik` 19, `test_operator` 39 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
+config (`main.load_config` yaması), `MainWindow.LOG_DIR` **ve `OPERATOR_DIR`** geçici, `_start_worker` no-op,
+`QMessageBox` susturma, sahte worker/picamera2 modülleri, `plc.type: null`.
 
 ### 3.8 CLAUDE.md ve PROGRAM_KULLANIM_NOTLARI.md
 
@@ -628,8 +629,10 @@ geçici, `_start_worker` no-op, `QMessageBox` susturma, sahte worker/picamera2 m
 ## 4. `config.yaml` Anahtar Referansı (mevcut değerlerle)
 > ⚠ Bu bölümdeki "mevcut değerler" 2026-09-14 anlık görüntüsüdür. **Güncel değerler için
 > config.yaml'ın kendisini oku** (GUI her etkileşimde yeniden yazar). 2026-09-23 14:45 itibarıyla
-> öne çıkanlar: poz kilidi AÇIK 1000 µs; gecikme 300 ms; K1 3 nokta `reference_box [708,542]`,
-> `point_overrides` 1:{13, 9} 3:{25}; yön v3 +58; `inspection.paket_adedi` yok (varsayılan 100).
+> öne çıkanlar (2026-09-28 tam okuma, 467040d): poz kilidi AÇIK **200 µs**; gecikme **40 ms**; K1 3 nokta
+> `reference_box [723,566]`, `point_overrides` 1:{14, 12, yuvarlak 0.20} 2:{10, 2} 3:{25}; yön v3 +38.55;
+> `inspection.paket_adedi` **1000**; `alignment.metal_v_min` YOK (varsayılan 110); global `notch_dark_min` 50.
+> Tam liste: `bilgi/saha_durumu.md` "Uygulama ayarları".
 
 Tek kalıcı uygulama konfigürasyonu. `main.py::load_config` açılışta okur; GUI'deki her
 anlamlı etkileşimde `yaml.dump` ile **dosyanın tamamı yeniden yazılır** (yorumlar

@@ -3,6 +3,31 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-28 ~12:55 — /kalite: tam okuma (467040d) + canlı durum; ilk gerçek operatör kaydı sahada çalıştı
+**Son tam okuma: 467040d, çalışma ağacı temiz** (main.py 3189, features 660, roi_editor 724, worker 329, plc 322,
+alignment 217, config.yaml 167, conf 45, calistir.sh 22, tools 6 dosya 640, tests 11 dosya 1519 → 27 dosya, 7735
+satır) + hafıza dosyaları (saha_durumu, günlük, mimari, kullanım notları, CLAUDE.md). Kod değişmedi.
+**Canlı durum:** Pi ~12:47'de açıldı (uptime 7 dk), kullanıcı uygulamayı 12:48'de açtı (yeni kod: operatör kaydı
+dahil), 2 tetik geçti: #1 OK (açıklık 14.9 / derinlik 12.1 — eşik 14 / 12'nin hemen üstünde); **#2 NOK: nokta 1
+açıklık %14.0 < 14** (ölçülen 13.96 civarı, tam sınırda; derinlik 7.7 < 12 de kalırdı) → operatör penceresi
+açıldı, **HATALI** dendi → `operator_kontrol/2026-09-28/2026-09-28_12-48-23_resim0002_HATALI.jpg` (95 KB) +
+`operator_kayit.csv` satırı yazıldı — özellik sahada ilk kez çalıştı. Resimde delik 1'in üst yarısı parlak
+(24 Eylül'deki havşa yansıması örüntüsü). 12:48:33 **Sıfırla**: önceki parti (24 Eylül öğleden sonra) toplam 527,
+OK 426, NOK 87 (%16.5), hata 1, yanlış çekim 13. 12:48:35 uygulama kapatıldı (kapanışta PLC bir kez daha
+bağlanıyor: closeEvent `plc.close()` sonrası poll timer bir tur daha dönüyor — zararsız, kozmetik).
+Şu an uygulama KAPALI. Sayaç 0, paket hedefi **1000** (kullanıcı 24 Eylül'de paket adedini 100→1000 yapmış).
+**config.yaml gerçek değerleri (15:13:56 24 Eylül'den beri yazılmadı):** poz kilidi AÇIK **200 µs** / gain 16,
+1456×1088 @20 fps, zoom 1.0; gecikme **40 ms**; `reference_box [723,566]`; noktalar 1:[407,305,235,217] hole,
+2:[80,265,218,229] hole, 3:[78,6,604,116] notch; `point_overrides` 1:{açıklık 14, derinlik 12, yuvarlak 0.20},
+2:{10, 2}, 3:{oluk 25}; global `notch_dark_min` yine **50** (nokta 3 override'ı 25 olduğu için etkisiz),
+`alignment.metal_v_min` **YOK** (kod varsayılanı 110; bugünkü çerçeveler 727×565 / 728×549 → ürün doğru
+bulunuyor, 200 µs pozda bant eşiğin altında); `inspection.operator_review/operator_kayit/product_presence_check`
+anahtarları yok (varsayılan true); yön v3 +38.55 (24 Eylül'de yeniden alınmış). Ölü anahtarlar duruyor
+(`calibration` bloğu, `roi.handedness_reference` v2 base64, `handedness_margin`, `hole_use_circle_check`).
+**Açık işler:** PLC'ci HR102; nokta 1 eşikleri sınırda (açıklık 14 / derinlik 12 → sağlam parçalar 14.0-14.9 /
+7.7-12.1 okuyor; 24 Eylül önerisi 10 / 8 hâlâ geçerli, Kontrol Merkezi kutularından); `plc_smoke_test.py`
+HR102'yi bilmiyor (kozmetik).
+
 ## 2026-09-24 ~16:10 — Operatör kararı + kontrol edilen resim program klasörüne kaydediliyor
 **Kullanıcı:** "hata verince ekran çıkacak ya, operatör doğru/hatalı seçecek ya; bunun kaydedilmesini ve
 kontrol edilen resmin kaydedilmesini istiyorum, program dosyasının içine gün tarih ve saatiyle".

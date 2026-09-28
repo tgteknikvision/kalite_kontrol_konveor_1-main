@@ -1,7 +1,7 @@
 # Saha Durumu — Konveyör Kalite Kontrol
 
 > Bu dosya HEP güncel gerçeği tutar. Durum değişince ilgili satırı **üstüne yaz**.
-> Son güncelleme: 2026-09-23 ~14:45 (tam kod+config okumasıyla düzeltildi)
+> Son güncelleme: 2026-09-28 ~12:55 (/kalite tam okuma 467040d + config.yaml'ın gerçek hali)
 
 ## Donanım / Makine
 - **Raspberry Pi 5**, kullanıcı `tg_pi5_kalite_kontrol_konveor`, makine `tgpi5kalitekontrolkonveor`.
@@ -14,8 +14,10 @@
   Pi eth0 statik `192.168.10.50/24` (gateway YOK, internet wlan0'dan).
 
 ## ⚠️ AKTİF SORUNLAR (2026-09-23)
-000. **UYGULAMA 14:17'de KAPALI** (kullanıcı 13:50 ve 14:16'da yeni kodla açmış; 13:53'te PDF
-   rapor üretmiş). Son PLC tetiği 13:19:42. `sayac.json` ilk parçada oluşacak.
+000. **2026-09-28 12:55: UYGULAMA KAPALI.** Pi 12:47'de açıldı; kullanıcı 12:48'de uygulamayı açtı (yeni kod),
+   2 tetik (#1 OK, #2 NOK nokta 1 açıklık %14.0 < 14 → operatör HATALI → ilk gerçek operatör kaydı
+   `operator_kontrol/2026-09-28/` yazıldı), 12:48:33 parti Sıfırla (önceki parti 24 Eylül: 527 parça, 426 OK,
+   87 NOK, 1 hata, 13 yanlış çekim), 12:48:35 kapattı. Sayaç 0, paket hedefi 1000.
 00. ⚠️ **KAMERA 1 (cam0) FİZİKSEL BAĞLANTI SORUNU TEKRARLIYOR — bugün 7 zorla kapanış, hepsi
    gerçek takılma** (09:21-09:25 ×5, 13:09 ve 13:14 ×2; 13:06:38 tetikte "Kamera görüntüsü yok").
    Sağlıklı kapanış 0,45 s ölçüldü → 3 sn zaman aşımı doğru. **Kablo/konnektör değiştirilmeli.**
@@ -83,20 +85,31 @@
 - **Paket adedi (13:45):** `inspection.paket_adedi` = 100 (varsayılan); paket sayacı OK parçaları
   sayar, hedefte modal olmayan uyarı (Sıfırla/Devam et). Spinbox okları artık görünür.
 
-## Uygulama ayarları (config.yaml @ commit 45e8ba8, 2026-09-23 14:45 tam okuma)
+## Uygulama ayarları (config.yaml @ commit 467040d = disk, son yazım 2026-09-24 15:13:56; 2026-09-28 tam okuma)
 - `cameras`: camera1_enabled=**true**, camera2_enabled=**false**.
-- `resolution` 1456×1088, `resolution2` 800×600. `camera`: zoom 1.0, fps 20, **exposure 1000 µs,
-  gain 16, kilit AÇIK**. `camera2`: exposure 500, gain 16, kilit kapalı, zoom 1.0.
-- K1 noktaları: `dynamic_rois` 1:[430,285,209,210] hole, 2:[87,268,217,203] hole,
-  3:[88,5,548,115] notch; `reference_box [708,542]`; `point_overrides` 1:{hole_dark_ratio_min 13,
-  hole_core_ratio_min 9}, 3:{notch_dark_min 25}; global `hole_dark_ratio_min 10`, `notch_dark_min 50`.
-  **Yön v3: `handedness_hole_diff +58.02`, margin 12** (v2 base64 kalıntısı ölü anahtar).
+- `resolution` 1456×1088, `resolution2` 800×600. `camera`: zoom 1.0, fps 20, **exposure 200 µs, gain 16,
+  kilit AÇIK** (24 Eylül 13:1x'te 1000→200). `camera2`: exposure 500, gain 16, kilit kapalı, zoom 1.0.
+- K1 noktaları: `dynamic_rois` 1:[407,305,235,217] hole, 2:[80,265,218,229] hole, 3:[78,6,604,116] notch;
+  `reference_box [723,566]`; `point_overrides` 1:{açıklık 14, derinlik 12, yuvarlaklık 0.20}, 2:{açıklık 10,
+  derinlik 2}, 3:{oluk 25}; global `hole_dark_ratio_min 10`, **`notch_dark_min 50`** (25 yazılmıştı, çalışan
+  uygulama geri yazdı; nokta 3 override'ı 25 → etkisiz), yuvarlaklık 0.55 / dolgu 0.50.
+  **Yön v3: `handedness_hole_diff +38.55`, margin 12** (v2 base64 + `handedness_margin 0.05` ölü anahtar).
+- `alignment`: `metal_v_min` / `metal_s_max` **YOK** → kod varsayılanı 110/85 (200 µs pozda bant eşiğin altında;
+  28 Eylül çerçeveleri 727×565, 728×549 = referansa ±%3). Bant yine parlaklaşırsa Ayarlar'dan 160.
+- `inspection`: `trigger_delay_ms` **40**, `paket_adedi` **1000** (kullanıcı); `operator_review`, `operator_kayit`,
+  `operator_kayit_gun`, `product_presence_check`, `product_box_tolerance` yazılı değil → varsayılanlar
+  (true / true / 30 / true / 0.25).
+- PLC: modbus_tcp 192.168.10.10:502 unit 0, poll_ms 20, timeout 0.2, `registers {nok 100, trigger 101, stop 102}`,
+  `paket_dolu_durdur true`. Ölü: `calibration` bloğu, `hole_use_circle_check`.
 - K2 (pasif): imx296 dönemi 3 nokta + `reference_box [971,726]` + yön v3 (+48.4) → imx477 için GEÇERSİZ.
-- PLC: modbus_tcp, poll_ms 20, timeout 0.2 (elle çekim modu 2026-09-24'te kaldırıldı; `manual_mode` ölü anahtar).
-- `inspection.trigger_delay_ms`: **10** (2026-09-24 09:52'de kullanıcı 300→10 yaptı; 300 ile 09:47-09:50 arası 17/21 OK; `paket_adedi`
-  anahtarı henüz yok → varsayılan 100).
 
 ## Üretim durumu
+**2026-09-28 12:48 — GÜNÜN İLK 2 PARÇASI:** #1 OK (nokta 1 açıklık 14.9 / derinlik 12.1 — eşiklerin hemen
+üstünde), #2 NOK nokta 1 açıklık %14.0 < 14 (derinlik 7.7 de 12'nin altında) → operatör HATALI dedi (resimde delik
+1'in üst yarısı parlak, havşa yansıması örüntüsü). Ürün çerçevesi 727×565 / 728×549 (referans 723×566) → ürün
+bulma sağlam, gecikme 40 ms ile ürün kadrajda (y≈230). **Nokta 1 eşikleri (14 / 12) sağlam parçaların okuduğu
+değerin tam üstünde** → 24 Eylül önerisi (açıklık 10, derinlik 8, Kontrol Merkezi kutularından) hâlâ bekliyor.
+24 Eylül öğleden sonra partisi: 527 parça, 426 OK, 87 NOK (%16.5), 13 yanlış çekim, 1 hata (12:48'de sıfırlandı).
 **2026-09-24 13:20 — BANT PARLAKLAŞTI, ÜRÜN ÇERÇEVESİ BANTLA BİRLEŞİYORDU:** bant V 100-125, ürün 180-240;
 `alignment.metal_v_min` 110 → **160** yazıldı (config; Ayarlar'da da ayarlanır). Kullanıcı restart → Ürün
 Çerçevesi Bul → noktaları yeniden çiz → gecikme. Netlik 108/132 (odak düzeldi). Kamera bugün en az iki kez
