@@ -5,8 +5,14 @@
 > programının sahada nasıl kullanılacağını anlatır.
 
 ## 1. Başlatma
-- Menüdeki **"Konveyör Denetim Sistemi"** ikonu ya da proje klasöründe `./calistir.sh`.
-  Betik venv varsa onu, yoksa sistem Python'unu kullanır (bu Pi'de kütüphaneler apt'tan gelir).
+- **Masaüstündeki "Konveyör Denetim Sistemi" simgesine çift tıkla** (menüde de aynı ad). Simge her zaman proje
+  klasöründeki **güncel programı** açar; yazılımda revizyon yapıldığında ayrıca bir şey kurmak gerekmez. Hangi
+  revizyonun açıldığı pencere başlığında `[sürüm b2f5c8a 2026-09-28 13:09]` gibi yazar, logda da `[Sürüm]` satırı vardır.
+- Program zaten açıkken simgeye tıklarsan **ikinci kopya açılmaz**, "Program ZATEN AÇIK" penceresi çıkar (iki kopya
+  aynı anda PLC'ye yazamaz). Kütüphane eksikse ya da program açılışta hata verirse pencereyle söyler; ayrıntı
+  `~/konveyor_loglari/uygulama-stdout.log` dosyasında. Simge kaybolursa: `bash tools/install_pi.sh` yeniden kurar.
+- Komut satırından: proje klasöründe `./calistir.sh` (venv varsa onu, yoksa sistem Python'unu kullanır; bu Pi'de
+  kütüphaneler apt'tan gelir).
 - Açılışta doğrudan denetim ekranı gelir (mod seçimi / kalibrasyon kilidi yoktur).
 - Sol üstte **Sistem Durumu**: Durum `CANLI` (kamera akıyor), PLC `READY` ve logda `PLC bağlı`.
   **Poz** satırında 🔒 görünmeli; `⚠ OTO` yazıyorsa Ayarlar'dan Exposure/Gain kilidini aç.

@@ -39,12 +39,15 @@ APP_DIR="$HOME/.local/share/applications"
 DESKTOP="$APP_DIR/konveyor-denetim.desktop"
 mkdir -p "$APP_DIR"
 
+# Exec = tools/baslat.sh (2026-09-28): her zaman proje klasorundeki GUNCEL main.py'yi acar (revizyon
+# yapildikca simge son kodu calistirir), zaten acik program varsa ikinci kopya ACMAZ (PLC'ye cift yazim
+# yasak), kutuphane eksik / acilista cokme durumunda pencereyle uyarir, stdout'u loga yazar.
 cat > "$DESKTOP" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Konveyör Denetim Sistemi
-Comment=Konveyör Bant Kalite Kontrol Denetim Sistemi
-Exec=$PY $DIR/main.py
+Comment=Konveyör Bant Kalite Kontrol Denetim Sistemi (her zaman güncel revizyonu açar)
+Exec=bash $DIR/tools/baslat.sh
 Path=$DIR
 Icon=$DIR/app.png
 Terminal=false
@@ -52,6 +55,7 @@ Categories=Utility;Engineering;
 StartupNotify=true
 EOF
 chmod +x "$DESKTOP"
+chmod +x "$DIR/tools/baslat.sh" 2>/dev/null || true
 
 # Masaustune de kopyala. Klasor adi yerellestirilmis olabilir ("Masaüstü") —
 # once XDG'ye sor, sonra bilinen adlari dene.
@@ -64,6 +68,7 @@ fi
 if [ -n "$DESKTOP_DIR" ] && [ -d "$DESKTOP_DIR" ]; then
   cp "$DESKTOP" "$DESKTOP_DIR/konveyor-denetim.desktop"
   chmod +x "$DESKTOP_DIR/konveyor-denetim.desktop" || true
+  command -v gio >/dev/null 2>&1 && gio set "$DESKTOP_DIR/konveyor-denetim.desktop" metadata::trusted true 2>/dev/null || true
   echo "Masaustu   : $DESKTOP_DIR/konveyor-denetim.desktop"
 fi
 
@@ -96,7 +101,7 @@ command -v update-desktop-database >/dev/null 2>&1 && \
   update-desktop-database "$APP_DIR" >/dev/null 2>&1 || true
 
 echo "Kuruldu: $DESKTOP"
-echo "Calistirici: $PY $DIR/main.py"
+echo "Calistirici: bash $DIR/tools/baslat.sh  (python: $PY; her zaman bu klasordeki guncel main.py)"
 echo "Ikon       : $DIR/app.png"
 echo
 echo "Not: Masaustundeki ikona ilk tikta 'Allow Launching' / 'Guven' sorulabilir."

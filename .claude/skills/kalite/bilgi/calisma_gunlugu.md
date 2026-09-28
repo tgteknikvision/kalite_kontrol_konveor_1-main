@@ -3,6 +3,19 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-28 ~13:35 — Masaüstü simgesi: her zaman güncel revizyonu açan başlatıcı (kullanıcı isteği)
+**Kullanıcı:** "masaüstüne bir simge koy, programı açmak için kullanalım; her revizyon yapıldığında simgeden açılan
+program revizyonlu olsun". Durum: menüde Ağustos'tan kalma girdi (`python3 …/main.py`) vardı, masaüstünde simge YOKTU.
+**Yapılan:** `tools/baslat.sh` (güncel `main.py`'yi açar — kopya yok, revizyon otomatik; `zaten_acik_pid` ile ikinci
+kopya engeli + zenity bilgi; import hatası / 30 sn içinde çökme → zenity error + son log; stdout →
+`uygulama-stdout.log`; test kancaları DENEME/PY/LOG), `install_pi.sh` Exec'i buna bağlar + `gio trusted`; **bu Pi'de
+çalıştırıldı** → `~/Desktop/konveyor-denetim.desktop` (+x, trusted) ve menü girdisi güncel. `main.py`
+`program_revision()` → başlık `[sürüm b2f5c8a 2026-09-28 13:09]` + `[Sürüm]` logu (git yoksa .git/HEAD, yoksa `?`).
+**Tuzak:** ilk guard `*python*main.py*` desenini ajanın kendi `bash -c "... main.py ..."` kabuğuyla eşleştirip "zaten
+açık" dedi (4 test kırmızı) → sıkı eşleşme: ilk kelime `python*`, argümanda basename `main.py`, ` -c ` yok.
+14 test (`test_baslat.py`), takım **294/294**. Not: revizyon BAŞKA makinede (Windows) yapılırsa simge önce `git pull`
+ister — simge git çekmez (config.yaml çakışması riski; istenirse eklenir). Uygulama kapalı; sıradaki açılış simgeden.
+
 ## 2026-09-28 ~13:20 — Kayıt resminin üstünde operatör karar bandı (kullanıcı isteği)
 **Kullanıcı:** "hata bulunan resim kaydedilsin, operatör hatalı mı doğru mu demiş bakılsın; resim ve bilgiler aynı
 dosyada/resimde olsun, hata resmine baktığımda görebileyim". Kayıt zaten vardı (dosya adında KARAR + CSV) ama resmin

@@ -81,7 +81,8 @@ saha_ayarlari.conf      MAKİNE (Pi OS) seviyesi saha değerleri (statik IP, PLC
 calistir.sh             Pi başlatıcı (venv varsa venv, yoksa sistem python + import denetimi).
 calistir.bat            Windows başlatıcı (daima venv, pythonw, start "").
 tools/kurulum_pi.sh     Pi tam kurulum: apt + venv (--system-site-packages) + pip + ikon.
-tools/install_pi.sh     Menü/masaüstü ikonu (.desktop) kurulumu.
+tools/install_pi.sh     Menü/masaüstü ikonu (.desktop) kurulumu (Exec → tools/baslat.sh, 2026-09-28).
+tools/baslat.sh         Masaüstü simgesinin başlatıcısı: güncel main.py, ikinci kopya engeli, hata penceresi, stdout log.
 tools/yeni_pi_kur.sh    Yeni Pi'yi İKİZ yapar / --kontrol ile 6 maddelik salt-okunur denetim.
 tools/plc_smoke_test.py Bağımsız Modbus TCP PLC testi (uygulamasız).
 tools/make_icon.py      app.ico / app.png üretici (Pillow; runtime bağımlılığı değil).
@@ -586,6 +587,20 @@ düzeltildi, unit_id 0 doğrulandı (2026-07-29).
 (çoklu boyut) + `app.png`. Bağımlılık Pillow (yalnız bu araç için). `app.png` gitignore
 istisnası (`!app.png`).
 
+#### `tools/baslat.sh` — masaüstü simgesinin başlatıcısı (2026-09-28)
+`install_pi.sh` menü + masaüstü girdisini `Exec=bash <proje>/tools/baslat.sh` yapar (`chmod +x`, `gio set metadata::trusted`).
+Akış: (1) `zaten_acik_pid` — `pgrep -f 'main\.py'` adaylarını `ps -o args=` ile süzer: ilk kelime basename `python*`
+VE argümanlardan birinin basename'i `main.py` VE argümanlarda ` -c ` yok → "ZATEN AÇIK (pid)" zenity info, exit 0
+(ikinci kopya PLC'ye çift yazardı); (2) python seçimi calistir.sh gibi (venv varsa), `KONVEYOR_BASLAT_PY` ile ezilir;
+`import picamera2, PyQt5, cv2, yaml, pymodbus` başarısızsa zenity error + exit 1; (3) `git log -1` ile revizyon,
+kirli ağaçta `+yerel değişiklik`; log dosyasına `[baslat.sh] Başlatılıyor: … (revizyon …)`; `KONVEYOR_BASLAT_DENEME=1`
+ise burada `[DENEME] <py> <main.py> (revizyon …)` yazıp çıkar; (4) `"$PY" main.py >> LOG 2>&1`; rc≠0 ve süre <30 s ise
+son 12 log satırıyla zenity error. `mesaj()` GUI yoksa stderr'e yazar. Test: `tests/test_baslat.py` (14).
+**main.py `program_revision(proje_dir=None, with_status=False)`:** `git -C d log -1 --format='%h %cd'`
+(3 s timeout) → with_status'ta `git status --porcelain` dolu ise `+yerel değişiklik`; git yoksa `.git/HEAD` →
+`refs/heads/<dal>` ya da `packed-refs` → ilk 7 hex; hiçbiri yoksa `?`. `MainWindow.__init__`: `self._revizyon`,
+başlık `... [sürüm <rev>]`, `_init_ui` sonrası `[Sürüm] Program revizyonu: … (klasör: …)` logu.
+
 #### `tools/kamera_onizleme.sh` — programdan bağımsız canlı önizleme (2026-09-23)
 Masaüstü/menü simgesi "Kamera Önizleme" (`kamera-onizleme.desktop`, Terminal=true,
 Icon=camera-photo; `install_pi.sh` kurar). Akış: (1) denetim uygulaması açıksa (`ps args`
@@ -599,9 +614,9 @@ hataları ("Camera frontend has timed out" = kablo) terminalde canlı görünür
 
 #### `tests/` — ekransız regresyon testleri (2026-09-23)
 `bash tests/calistir_testler.sh` (QT offscreen, her dosyanın TOPLAM satırı; çıkış = hatalı dosya
-sayısı). 11 dosya / 280 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
+sayısı). 12 dosya / 294 test (2026-09-28): `test_gecikme_kamera` 29, `test_closeevent` 11, `test_sayac` 28,
 `test_paket` 24, `test_stil` 16, `test_urun_yok` 40, `test_snapshot_olcek` 9, `test_paket_dur` 37,
-`test_urun_bulma` 17, `test_sekil_esik` 19, `test_operator` 50 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
+`test_urun_bulma` 17, `test_sekil_esik` 19, `test_operator` 50, `test_baslat` 14 (ayrıntı `tests/README.md`). Ortak kalıp: geçici
 config (`main.load_config` yaması), `MainWindow.LOG_DIR` **ve `OPERATOR_DIR`** geçici, `_start_worker` no-op,
 `QMessageBox` susturma, sahte worker/picamera2 modülleri, `plc.type: null`.
 

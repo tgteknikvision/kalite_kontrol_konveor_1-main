@@ -51,8 +51,11 @@ verir → program kamera karesini yakalar → analiz eder → **OK/NOK** kararı
 Modbus TCP PLC, sinyal kulesi, HMI. Kamera sabit + ürün tekrarlanabilir konumda gelir.
 
 ## 2. Çalıştırma
-- **Raspberry Pi (saha):** `./calistir.sh` ya da menüdeki "Konveyör Denetim Sistemi" ikonu.
-  Sistem Python'u DEĞİL, `veri_toplama` venv'i kullanılır (pymodbus orada).
+- **Raspberry Pi (saha):** masaüstündeki / menüdeki **"Konveyör Denetim Sistemi"** simgesi → `tools/baslat.sh`
+  (2026-09-28): her zaman proje klasöründeki GÜNCEL `main.py`'yi açar (revizyon yapıldıkça simge son kodu
+  çalıştırır; başlıkta `[sürüm <hash tarih>]`, logda `[Sürüm]`), zaten açık program varsa İKİNCİ KOPYA AÇMAZ
+  (PLC'ye çift yazım yasak), kütüphane eksik / açılışta çökme → zenity uyarısı, stdout → `~/konveyor_loglari/
+  uygulama-stdout.log`. Komut satırı: `./calistir.sh`. Bu Pi'de venv YOK, sistem python'u (kütüphaneler apt'tan).
 - **Windows (geliştirme):** VSCode'dan, ya da `veri_toplama\Scripts\python.exe main.py`.
 - Açılışta doğrudan ROI/Eşik analiz penceresi açılır (mod seçme diyaloğu YOK; PaDiM kaldırıldı).
 
@@ -85,11 +88,12 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (280 test, 11 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (294 test, 12 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 operator_kontrol/       (git DIŞI, .gitignore) operatör kontrol kayıtları: GÜN/tarih-saat_resimNNNN_KARAR.jpg
                         (resmin ÜSTÜNDE renkli karar bandı, 2026-09-28) + operator_kayit.csv (§8 `inspection.operator_kayit`).
-tools/                  kurulum_pi.sh, install_pi.sh, make_icon.py, plc_smoke_test.py,
+tools/                  baslat.sh (masaüstü simgesinin başlatıcısı, 2026-09-28: güncel kod + ikinci kopya engeli),
+                        kurulum_pi.sh, install_pi.sh (simgeyi baslat.sh'a bağlar), make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
                         kamera_onizleme.sh (masaüstü "Kamera Önizleme" simgesi: programdan
                         bağımsız canlı kamera pencereleri, 2026-09-23)
@@ -357,6 +361,24 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-28 itibarıyla)
+- **✅ 2026-09-28 ~13:35 — MASAÜSTÜ SİMGESİ + HER ZAMAN GÜNCEL REVİZYON (kullanıcı: "masaüstüne bir simge koy,
+  programı açmak için kullanalım; her revizyonda simgeden açılan program revizyonlu olsun"):** Menüde Ağustos'tan
+  kalma girdi vardı (`Exec=/usr/bin/python3 …/main.py`), masaüstünde simge YOKTU. Yeni **`tools/baslat.sh`**
+  (masaüstü + menü `Exec=bash <proje>/tools/baslat.sh`, `install_pi.sh` yazar; `gio metadata::trusted`): (1) proje
+  klasöründeki GÜNCEL `main.py`'yi açar — kopya/paket yok, dolayısıyla her commit'ten sonra simge son kodu çalıştırır
+  (revizyon BAŞKA makinede yapıldıysa önce `git pull` gerekir); (2) `zaten_acik_pid`: ilk kelimesi `python*` olan ve
+  argümanında `main.py` dosyası bulunan süreç varsa zenity "Program ZATEN AÇIK (pid)" → ikinci kopya AÇILMAZ (`-c`
+  satır içi kod ve `bash -c "... main.py"` kabuk komutları SAYILMAZ — ilk sürüm ajanın kendi kabuğunu "açık program"
+  sanıyordu); (3) kütüphane import hatası → zenity error (modül adı + kurulum komutu), exit 1; (4) stdout/stderr
+  `~/konveyor_loglari/uygulama-stdout.log` (başına `[baslat.sh] Başlatılıyor: … (revizyon …)`); (5) program ilk 30 sn
+  içinde ≠0 ile kapanırsa son 12 log satırıyla hata penceresi. Test kancaları `KONVEYOR_BASLAT_DENEME=1` (açmaz, yazar),
+  `KONVEYOR_BASLAT_PY`, `KONVEYOR_BASLAT_LOG`. **main.py:** `program_revision(proje_dir, with_status)` → `git log -1`
+  (`b2f5c8a 2026-09-28 13:09`; `with_status` kirli ağaçta `+yerel değişiklik` — config.yaml GUI'de değiştiği için sık
+  görünür, normaldir), git yoksa `.git/HEAD`/`packed-refs`, o da yoksa `?`; pencere başlığı `[sürüm …]`, açılışta
+  `[Sürüm] Program revizyonu: … (klasör: …)` logu. Bu Pi'de `install_pi.sh` çalıştırıldı: `~/Desktop/konveyor-denetim.desktop`
+  (+x, trusted) ve menü girdisi güncel. 14 test (`tests/test_baslat.py`: revizyon/HEAD/packed-refs/?, başlık+log, deneme
+  modu, kukla `python3 …/main.py` → ZATEN AÇIK, `-c` kuklası sayılmaz, sahte python → kütüphane hatası, install_pi.sh
+  metni, +x/LF); takım 294/294. Uygulama kapalı; simgeye tıklanınca yeni kod (karar bandı dahil) açılır.
 - **✅ 2026-09-28 ~13:20 — KAYIT RESMİNİN ÜSTÜNDE OPERATÖR KARAR BANDI (kullanıcı: "hata bulunan resim kaydedilsin,
   operatör hatalı mı doğru mu demiş resimle aynı dosyada olsun, resme baktığımda görebileyim"):** Kayıt zaten vardı
   (dosya adı + CSV); şimdi `_operator_kaydet` resmi `_operator_kayit_resmi(pm, karar, dlg, zaman)` ile kaydeder:

@@ -316,6 +316,49 @@ def load_config(path: str = CONFIG_PATH) -> dict:
         return yaml.safe_load(f)
 
 
+def program_revision(proje_dir: str = None, with_status: bool = False) -> str:
+    """Calisan kodun git revizyonu: 'b2f5c8a 2026-09-28 13:09' (with_status=True ve calisma agaci
+    kirliyse ' +yerel degisiklik' eklenir). git komutu yoksa .git/HEAD'den kisa hash, o da yoksa '?'.
+    NEDEN (2026-09-28, kullanici: "simgeden acilan program hep revizyonlu olsun"): masaustu simgesi
+    proje klasorundeki guncel main.py'yi acar; hangi revizyonun acildigi pencere basliginda ve
+    '[Surum]' log satirinda gorunsun ki eski kodla calisildigi hemen anlasilsin."""
+    d = proje_dir or os.path.dirname(os.path.abspath(__file__))
+    try:
+        import subprocess
+        out = subprocess.run(["git", "-C", d, "log", "-1", "--format=%h %cd", "--date=format:%Y-%m-%d %H:%M"],
+                             capture_output=True, text=True, timeout=3)
+        rev = out.stdout.strip() if out.returncode == 0 else ""
+        if rev:
+            if with_status:
+                st = subprocess.run(["git", "-C", d, "status", "--porcelain"], capture_output=True, text=True, timeout=3)
+                if st.returncode == 0 and st.stdout.strip():
+                    rev += " +yerel değişiklik"
+            return rev
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(d, ".git", "HEAD"), encoding="utf-8") as f:
+            head = f.read().strip()
+        if head.startswith("ref: "):
+            ref_name = head[5:]
+            ref_path = os.path.join(d, ".git", *ref_name.split("/"))
+            if os.path.exists(ref_path):
+                with open(ref_path, encoding="utf-8") as f:
+                    return f.read().strip()[:7]
+            packed = os.path.join(d, ".git", "packed-refs")
+            if os.path.exists(packed):
+                with open(packed, encoding="utf-8") as f:
+                    for line in f:
+                        parts = line.split()
+                        if len(parts) == 2 and parts[1] == ref_name:
+                            return parts[0][:7]
+        elif head:
+            return head[:7]
+    except Exception:
+        pass
+    return "?"
+
+
 class ProductMissing(Exception):
     """Tetik geldi ama URUN KAREDE YOK (yanlis cekim, 2026-09-24). Analiz yapilmaz; NOK DEGIL,
     ayri kayit (sayac 'urun_yok', CSV URUN_YOK) + operator uyarisi; PLC'ye yine 1 (kullanici
@@ -972,11 +1015,16 @@ class MainWindow(QMainWindow):
         self._stop_desired = bool(int(self._counters.get("paket_ok", 0)) >= int(self._counters.get("paket_esik", 10 ** 9)))
         self._stop_written = None
 
-        self.setWindowTitle("Konveyör Denetim Sistemi - ROI Eşik")
+        # Pencere basliginda calisan revizyon (masaustu simgesi hep guncel kodu acar; hangisi acildi gorunsun).
+        self._revizyon = program_revision()
+        self.setWindowTitle(f"Konveyör Denetim Sistemi - ROI Eşik   [sürüm {self._revizyon}]")
         self.resize(1180, 720)
         self.setStyleSheet(build_stylesheet())
 
         self._init_ui()
+        self._append_log(f"[Sürüm] Program revizyonu: {program_revision(with_status=True)} "
+                         f"(klasör: {os.path.dirname(os.path.abspath(__file__))}). "
+                         "Masaüstü simgesi her zaman bu klasördeki güncel kodu açar.")
         self._start_worker()
 
     def _init_ui(self):

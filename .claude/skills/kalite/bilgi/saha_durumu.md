@@ -18,6 +18,9 @@
    2 tetik (#1 OK, #2 NOK nokta 1 açıklık %14.0 < 14 → operatör HATALI → ilk gerçek operatör kaydı
    `operator_kontrol/2026-09-28/` yazıldı), 12:48:33 parti Sıfırla (önceki parti 24 Eylül: 527 parça, 426 OK,
    87 NOK, 1 hata, 13 yanlış çekim), 12:48:35 kapattı. Sayaç 0, paket hedefi 1000.
+   **13:32: masaüstüne "Konveyör Denetim Sistemi" simgesi kuruldu** (`~/Desktop/konveyor-denetim.desktop` →
+   `tools/baslat.sh`; her zaman güncel kod, ikinci kopya engeli). Sonraki açılış bu simgeden: karar bandı +
+   başlıkta sürüm görünecek.
 00. ⚠️ **KAMERA 1 (cam0) FİZİKSEL BAĞLANTI SORUNU TEKRARLIYOR — bugün 7 zorla kapanış, hepsi
    gerçek takılma** (09:21-09:25 ×5, 13:09 ve 13:14 ×2; 13:06:38 tetikte "Kamera görüntüsü yok").
    Sağlıklı kapanış 0,45 s ölçüldü → 3 sn zaman aşımı doğru. **Kablo/konnektör değiştirilmeli.**
