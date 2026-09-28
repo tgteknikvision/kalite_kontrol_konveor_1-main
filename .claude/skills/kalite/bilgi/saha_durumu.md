@@ -92,8 +92,10 @@
   (bugünkü 12:48 kaydı eski kodla bantsız). **14:00: pencerede 3. seçenek YANLIŞ ÇEKİM** (OK'a da NOK'a da sayılmaz,
   yanlış çekim sayacına gider) ve "ürün algılanamadı" olayı da aynı pencereye gidiyor (DOĞRU=OK, HATALI=NOK,
   YANLIŞ ÇEKİM/kapatma=yanlış çekim kalır). **15:00: kayıtlar parti klasörlerinde** (`operator_kontrol/parti_<son Sıfırla
-  tarih-saati>/`; Sıfırla biten klasöre parti_ozeti.txt + kalite_raporu.pdf yazar). Bugünkü eski `2026-09-28/` gün klasörü ve
-  kökteki CSV eski kodun; yeni kodla ilk kayıt `parti_2026-09-28_12-48-33/`'e gider.
+  tarih-saati>/`; Sıfırla biten klasöre parti_ozeti.txt + kalite_raporu.pdf yazar ve parti CSV'sini ANA listeye
+  `operator_kontrol/operator_kayit.csv` ekler — 15:20). Bugünkü eski `2026-09-28/` gün klasörü kalır; kökteki eski biçimli
+  CSV yeni kodun ilk açılışında `parti` sütunuyla taşınır (parti = `2026-09-28`); yeni kodla ilk kayıt
+  `parti_2026-09-28_12-48-33/`'e gider.
 - **Paket adedi (13:45):** `inspection.paket_adedi` = 100 (varsayılan); paket sayacı OK parçaları
   sayar, hedefte modal olmayan uyarı (Sıfırla/Devam et). Spinbox okları artık görünür.
 

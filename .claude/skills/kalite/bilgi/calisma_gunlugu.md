@@ -3,6 +3,15 @@
 > En yeni madde EN ÜSTTE. Her turdan sonra buraya yeni madde eklenir.
 > Format: `## YYYY-AA-GG SS:DD — başlık` → kullanıcı isteği / bulgu / sonuç / açık iş.
 
+## 2026-09-28 ~15:20 — Ana kayıt listesi: Sıfırla'da parti CSV'si operator_kontrol/operator_kayit.csv'ye eklenir
+**Kullanıcı:** önce "bu CSV'yi neden koydun, her şey resimde var" → gerekçe anlatıldı (Excel'de toplu bakış), kararı soruldu;
+cevap: "kalsın; her partinin CSV'si parti klasöründe, TÜM kayıtların ana CSV'si (kökteki dosya) olsun, her sıfırlamada
+parti CSV'si kaydedilip ana CSV'ye eklensin". **Yapılan:** `ANA_CSV_BASLIK` (parti;tarih;saat;resim;karar;kamera;gerekce;
+dosya), `_ana_csv_ekle` (parti satırları + `parti/dosya`; `.ana_csv_satir` sayacıyla idempotent), `_parti_kapat` içinden
+çağrı + log; `_ana_csv_gecir` eski biçimli kök dosyayı açılışta `parti` sütunuyla taşır (bugünkü 21 satır → parti
+`2026-09-28`). Ana liste yalnız Sıfırla'da büyür (kullanıcı tasarımı). 7 test (`test_operator` 80), takım **330/330**.
+Uygulama hâlâ eski kodda (13:51) → restart.
+
 ## 2026-09-28 ~15:00 — Sıfırla = parti klasörünü kapat; kayıtlar parti_<tarih-saat>/ altında (kullanıcı isteği)
 **Kullanıcı:** "Sıfırla'ya basınca o ana kadar kaydettiğin OK/NOK sayısını ve yanlış çekim resimlerini bir dosyaya koy; her
 sıfırlamada yeni dosya aç, adı çakışmasın diye sıfırlama tarih-saatini dosyaya kaydet". **Yapılan:** kayıt klasörü gün

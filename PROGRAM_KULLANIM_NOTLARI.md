@@ -74,8 +74,9 @@ uygulama kapansa da kaybolmaz.
 - **Sıfırla:** yeni parti/vardiya başlatır (onay sorar); önceki değerler loga ve CSV'ye yazılır. **Ayrıca (2026-09-28)**
   biten partinin klasörü kapatılır: `operator_kontrol/parti_<başlangıç tarih-saat>/` içine `parti_ozeti.txt` (başlangıç,
   sıfırlama zamanı, geçen/OK/NOK/hata/yanlış çekim/operatör sayıları, hata dağılımı) ve `kalite_raporu.pdf` yazılır; o
-  partide operatörün kontrol ettiği resimler zaten bu klasördedir. Sonraki kayıtlar, sıfırlama anının tarih-saatini taşıyan
-  YENİ bir klasöre gider; klasör adları bu yüzden hiç çakışmaz.
+  partide operatörün kontrol ettiği resimler zaten bu klasördedir. Partinin listesi (`operator_kayit.csv`) bu anda
+  **ana listeye** `operator_kontrol/operator_kayit.csv` de eklenir (başına `parti` sütunu gelir; tüm partiler tek tabloda).
+  Sonraki kayıtlar, sıfırlama anının tarih-saatini taşıyan YENİ bir klasöre gider; klasör adları bu yüzden hiç çakışmaz.
 - Her çekim için resimsiz bir satır `~/konveyor_loglari/parca-YYYY-AA-GG.csv` dosyasına eklenir
   (Excel ile açılır, ayırıcı `;`): zaman, resim no, kaynak (plc/elle), sonuç, gecikme, hatalı
   noktalar, sebepler, ölçümler. 16.000 parça yaklaşık 5 MB yer tutar.
@@ -122,7 +123,9 @@ o anki resim (kontrol noktaları işaretli), altında programın gerekçesi ve �
   partinin klasörüne yazılır: `operator_kontrol/parti_2026-09-28_12-48-33/2026-09-28_14-01-54_resim0059_DOGRU.jpg`
   (klasör adı = partinin başlangıcı, yani son Sıfırla tarih-saati; dosya adı = tarih_saat_resim no_karar; karar DOGRU /
   HATALI / YANLIS_CEKIM / CEVAPSIZ) + aynı klasörde özet tablo `operator_kayit.csv` (tarih;saat;resim;karar;kamera;gerekce;
-  dosya — Excel/LibreOffice ile açılır). Resim ≈ 200-300 KB. Sıfırla'da klasöre `parti_ozeti.txt` + `kalite_raporu.pdf` eklenir.
+  dosya — Excel/LibreOffice ile açılır). Resim ≈ 200-300 KB. Sıfırla'da klasöre `parti_ozeti.txt` + `kalite_raporu.pdf` eklenir
+  ve partinin listesi ana listeye (`operator_kontrol/operator_kayit.csv`, `parti` sütunlu) aktarılır. Ana liste yalnız
+  Sıfırla'da güncellenir; devam eden partinin kayıtları kendi klasöründedir.
   Ayarlar → "Operatör kontrollerini kaydet" kapatılabilir; "Operatör kayıtlarını sakla (gün)" (varsayılan 30,
   0 = hiç silme) günden eski gün klasörleri kendiliğinden silinir.
 - **Resmin üstünde karar bandı (2026-09-28):** kaydedilen resmi açınca en üstte büyük ve renkli yazıyla operatörün

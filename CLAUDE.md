@@ -88,11 +88,12 @@ inspector/roi_editor.py Kontrol noktası çizim/düzenleme: tek "＋ Yeni Kontro
 saha_ayarlari.conf      Makine seviyesi saha degerleri (Pi statik IP, PLC IP/port,
                         beklenen kamera sayisi/sensoru, ajan adi). config.yaml
                         UYGULAMA ayarlarini tutar; bu dosya Pi OS ayarlarini.
-tests/                  Ekransız regresyon testleri (323 test, 12 dosya) + calistir_testler.sh;
+tests/                  Ekransız regresyon testleri (330 test, 12 dosya) + calistir_testler.sh;
                         gerçek config/log/kameraya DOKUNMAZ, uygulama açıkken de koşar (README).
 operator_kontrol/       (git DIŞI, .gitignore) operatör kontrol kayıtları, PARTİ başına klasör (2026-09-28):
                         parti_<sayaç başlangıcı = son Sıfırla tarih-saati>/ → tarih-saat_resimNNNN_KARAR.jpg (üstte renkli
-                        karar bandı) + operator_kayit.csv; Sıfırla'da parti_ozeti.txt + kalite_raporu.pdf (§8 `inspection.operator_kayit`).
+                        karar bandı) + operator_kayit.csv; Sıfırla'da parti_ozeti.txt + kalite_raporu.pdf; kökteki
+                        operator_kayit.csv = ANA liste (Sıfırla'da parti satırları eklenir) (§8 `inspection.operator_kayit`).
 tools/                  baslat.sh (masaüstü simgesinin başlatıcısı, 2026-09-28: güncel kod + ikinci kopya engeli),
                         kurulum_pi.sh, install_pi.sh (simgeyi baslat.sh'a bağlar), make_icon.py, plc_smoke_test.py,
                         yeni_pi_kur.sh (yeni Pi'yi IKIZ yapar / --kontrol ile denetler),
@@ -311,8 +312,11 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   0 = hiç silme): operatör kararı + kontrol edilen İŞARETLİ resim `<proje>/operator_kontrol/parti_YYYY-AA-GG_SS-DD-ss/
   YYYY-AA-GG_SS-DD-ss_resimNNNN_KARAR.jpg` (JPEG q85; klasör adı = sayacın `baslangic`'i = son Sıfırla anı) ve aynı
   klasördeki `operator_kayit.csv`'ye yazılır (KARAR = DOGRU/HATALI/YANLIS_CEKIM/CEVAPSIZ). **Sıfırla** biten partinin klasörüne
-  `parti_ozeti.txt` (başlangıç, sıfırlama zamanı, sayılar, hata dağılımı) + `kalite_raporu.pdf` yazar, sonraki kayıtlar yeni
-  klasöre gider (2026-09-28). Eski `parti_*` ve `YYYY-AA-GG` gün klasörleri N günden eskiyse silinir, AKTİF parti asla
+  `parti_ozeti.txt` (başlangıç, sıfırlama zamanı, sayılar, hata dağılımı) + `kalite_raporu.pdf` yazar, partinin CSV
+  satırlarını **ANA listeye** `operator_kontrol/operator_kayit.csv` (`parti;tarih;saat;resim;karar;kamera;gerekce;dosya`,
+  dosya = `parti/ad`) ekler (`_ana_csv_ekle`, `.ana_csv_satir` sayacıyla idempotent); sonraki kayıtlar yeni klasöre gider
+  (2026-09-28). Ana liste yalnız Sıfırla'da büyür (kullanıcı tasarımı); eski biçimli (parti sütunsuz) ana dosya açılışta
+  `_ana_csv_gecir` ile taşınır. Eski `parti_*` ve `YYYY-AA-GG` gün klasörleri N günden eskiyse silinir, AKTİF parti asla
   silinmez. Ayarlar'da iki kutu (2026-09-24, §12).
   **Kayıt resminin ÜSTÜNDE karar bandı (2026-09-28):** operatör kararı renkli/kalın (yeşil DOĞRU, kırmızı HATALI,
   turuncu CEVAPSIZ) + tarih-saat + resim no + kamera + programın gerekçesi; Qt ile çizilir (Türkçe harf), resim
@@ -368,6 +372,17 @@ sınırı (S)" (restart gerekmez; `[Ürün Bulma]` logu eşiği yazar). Sahada `
   `PLC_DEVREYE_ALMA_LISTESI.md`, `PLC_MODBUS_NOTLARI.md`.)
 
 ## 12. Mevcut durum (2026-09-28 itibarıyla)
+- **✅ 2026-09-28 ~15:20 — ANA KAYIT LİSTESİ (kullanıcı: "CSV kalsın; her partinin CSV'si parti klasöründe olsun, tüm
+  kayıtların ana CSV'si operator_kontrol/operator_kayit.csv'de olsun, her sıfırlamada partinin CSV'si oraya da eklensin"):**
+  `ANA_CSV_BASLIK = parti;tarih;saat;resim;karar;kamera;gerekce;dosya`. `_ana_csv_ekle(parti_adi)`: parti klasöründeki
+  `operator_kayit.csv` satırlarını (başlık hariç) ana dosyaya `parti` sütunu ve `parti/dosya` yoluyla ekler; parti klasöründe
+  `.ana_csv_satir` (eklenen satır sayısı) → aynı parti iki kez eklenmez, sonradan eklenen satırlar bir sonraki Sıfırla'da gider.
+  `_parti_kapat` özet+PDF'ten sonra çağırır; log `… ; N kayıt ana listeye (operator_kontrol/operator_kayit.csv) eklendi`.
+  `_ana_csv_gecir()` (açılışta `__init__` + her eklemeden önce): eski kodun parti sütunsuz kök dosyasını (`tarih;…`) yeni
+  başlığa taşır, `parti` = dosya yolundaki klasör (`2026-09-28/x.jpg` → `2026-09-28`), yeni biçimse dokunmaz. **Ana liste
+  yalnız Sıfırla'da büyür** (kullanıcının istediği akış; sıfırlanmadan `_bos_sayac()` ile terk edilen parti ana listeye
+  girmez — testte belgelendi). 7 yeni test (`test_operator.py` 80: ekleme/sütunlar/dosya varlığı, idempotent, yeni parti
+  henüz yok, log, ikinci Sıfırla büyütür, eski biçim göçü, yeniden göç yok); takım 330/330. Uygulama eski kodda → restart.
 - **✅ 2026-09-28 ~15:00 — SIFIRLA = PARTİ KLASÖRÜNÜ KAPAT (kullanıcı: "Sıfırla'ya basınca o ana kadarki OK/NOK sayısı ve
   yanlış çekim resimleri bir dosyaya; her sıfırlamada yeni dosya, adı sıfırlama tarih-saati olsun"):** Kayıt klasörü artık
   PARTİ başına: `operator_kontrol/parti_YYYY-AA-GG_SS-DD-ss/` (`_parti_adi()` ← `_counters["baslangic"]`, yani son Sıfırla

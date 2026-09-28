@@ -207,6 +207,13 @@ check("açık pencere CEVAPSIZ olarak ESKİ partiye yazıldı + log 'Parti kapat
 check("yeni parti klasör adı farklı (sıfırlama tarih-saati)", pk() != eski_pk and os.path.basename(pk()).startswith("parti_20"), f"{os.path.basename(eski_pk)} -> {os.path.basename(pk())}")
 cekim(); pid_yeni = w._review_dlg.part_id; w._review_dlg.btn_ok.click(); pump()
 check("sıfırlamadan sonraki kayıt YENİ parti klasörüne gitti, eski klasöre değil", len(glob.glob(os.path.join(pk(), f"*_resim{pid_yeni:04d}_DOGRU.jpg"))) == 1 and not glob.glob(os.path.join(eski_pk, f"*_resim{pid_yeni:04d}_*.jpg")))
+ana = os.path.join(kdir, "operator_kayit.csv")
+rows_ana = list(csv.reader(open(ana, encoding="utf-8"), delimiter=";"))
+parti_rows = list(csv.reader(open(os.path.join(eski_pk, "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))[1:]
+check("Sıfırla → biten partinin CSV'si ANA listeye eklendi (parti sütunu, parti/dosya yolu, satır sayısı eşit, dosyalar var)", rows_ana[0] == main.MainWindow.ANA_CSV_BASLIK and len(rows_ana) - 1 == len(parti_rows) >= 3 and all(r[0] == os.path.basename(eski_pk) for r in rows_ana[1:]) and all(r[7] == "-" or os.path.exists(os.path.join(kdir, r[7])) for r in rows_ana[1:]) and rows_ana[1][1:7] == parti_rows[0][:6], f"ana {len(rows_ana) - 1} / parti {len(parti_rows)}")
+check("aynı parti ikinci kez eklenmez (idempotent)", w._ana_csv_ekle(os.path.basename(eski_pk)) == 0 and len(list(csv.reader(open(ana, encoding="utf-8"), delimiter=";"))) == len(rows_ana))
+check("yeni partinin kaydı ana listede HENÜZ yok (Sıfırla'da eklenir), parti klasöründe var", not any(f"resim{pid_yeni:04d}" in r[3] and r[0] == os.path.basename(pk()) for r in rows_ana[1:]) and os.path.exists(os.path.join(pk(), "operator_kayit.csv")))
+check("log: 'N kayıt ana listeye eklendi'", any("kayıt ana listeye" in l and "eklendi" in l for l in loglar))
 data = json.load(open(w._sayac_path(), encoding="utf-8"))
 check("sayac.json'da operator_dogru kalıcı", data.get("operator_dogru") == 1)
 eski = dict(data); eski.pop("operator_dogru"); eski.pop("operator_hatali"); json.dump(eski, open(w._sayac_path(), "w", encoding="utf-8"))
@@ -250,6 +257,22 @@ urun_yok_olayi()
 check("operatör penceresi kapalıyken eski 'Kontrol ettim' kutusu (geriye uyum)", w._review_dlg is None and getattr(w, "_urun_yok_dlg", None) is not None and w._counters["urun_yok"] == 3)
 [b for b in w._urun_yok_dlg.buttons() if b.text() == "Kontrol ettim"][0].click(); pump()
 w.config["inspection"]["operator_review"] = True
+
+print("\n[ikinci Sıfırla → ana liste büyür; eski biçimli ana CSV göç]")
+n_ana0 = len(list(csv.reader(open(ana, encoding="utf-8"), delimiter=";"))) - 1
+parti3 = os.path.basename(pk()); n_p3 = len(list(csv.reader(open(os.path.join(pk(), "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))) - 1
+time.sleep(1.1); w._reset_counters(); pump()
+rows_ana = list(csv.reader(open(ana, encoding="utf-8"), delimiter=";"))
+check("ikinci Sıfırla: bu partinin satırları ana listeye eklendi (öncekiler korundu, sıra: parti adı)", len(rows_ana) - 1 == n_ana0 + n_p3 and n_p3 >= 3 and all(r[0] == parti3 for r in rows_ana[-n_p3:]), f"{n_ana0}+{n_p3} → {len(rows_ana) - 1}")
+kdir2 = os.path.join(tmpdir, "operator_kontrol_eski"); os.makedirs(os.path.join(kdir2, "2026-09-28"))
+open(os.path.join(kdir2, "operator_kayit.csv"), "w", encoding="utf-8").write("tarih;saat;resim;karar;kamera;gerekce;dosya\n2026-09-28;12:48:23;2;HATALI;1;1: delik YOK;2026-09-28/2026-09-28_12-48-23_resim0002_HATALI.jpg\n")
+main.MainWindow.OPERATOR_DIR = kdir2
+w4 = main.MainWindow(); w4.show(); pump()
+rows_g = list(csv.reader(open(os.path.join(kdir2, "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))
+check("eski biçimli ana CSV açılışta yeni başlığa taşındı (parti = klasör adı)", rows_g[0] == main.MainWindow.ANA_CSV_BASLIK and rows_g[1][0] == "2026-09-28" and rows_g[1][4] == "HATALI" and rows_g[1][7].startswith("2026-09-28/"), str(rows_g[:2]))
+w4._ana_csv_gecir(); rows_g2 = list(csv.reader(open(os.path.join(kdir2, "operator_kayit.csv"), encoding="utf-8"), delimiter=";"))
+check("yeni biçimli dosya tekrar taşınmaz", rows_g2 == rows_g)
+w4.worker = None; w4.worker2 = None; w4.close(); main.MainWindow.OPERATOR_DIR = kdir
 
 print("\n[uygulama kapanırken açık pencere]")
 w.plc = RecPLC(); cekim(); pid_acik = w._review_dlg.part_id

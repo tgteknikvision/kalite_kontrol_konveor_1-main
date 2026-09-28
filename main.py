@@ -1077,6 +1077,7 @@ class MainWindow(QMainWindow):
         self._append_log(f"[Sürüm] Program revizyonu: {program_revision(with_status=True)} "
                          f"(klasör: {os.path.dirname(os.path.abspath(__file__))}). "
                          "Masaüstü simgesi her zaman bu klasördeki güncel kodu açar.")
+        self._ana_csv_gecir()                  # eski bicimli ana kayit listesi varsa yeni basliga tasi
         self._start_worker()
 
     def _init_ui(self):
@@ -2970,6 +2971,76 @@ class MainWindow(QMainWindow):
     def _parti_klasoru(self) -> str:
         return os.path.join(self.OPERATOR_DIR, self._parti_adi())
 
+    # ANA CSV (2026-09-28, kullanici: "her partinin CSV'si parti klasorunde olsun; TUM kayitlarin tutuldugu ana CSV
+    # operator_kontrol/operator_kayit.csv'de olsun; her sifirlamada partinin CSV'si ana CSV'ye de eklensin"):
+    # ana liste = operator_kontrol/operator_kayit.csv, sutunlar parti;tarih;saat;resim;karar;kamera;gerekce;dosya
+    # (dosya = parti/dosya adi). Ekleme SIFIRLA aninda (_parti_kapat -> _ana_csv_ekle); ayni parti iki kez eklenmez
+    # (.ana_csv_satir sayaci). Eski kodun parti sutunsuz ana dosyasi acilista yeni basliga tasinir (_ana_csv_gecir).
+    ANA_CSV_BASLIK = ["parti", "tarih", "saat", "resim", "karar", "kamera", "gerekce", "dosya"]
+
+    def _ana_csv_yolu(self) -> str:
+        return os.path.join(self.OPERATOR_DIR, "operator_kayit.csv")
+
+    def _ana_csv_gecir(self):
+        """Eski bicimli (parti sutunsuz, 2026-09-24..28 kodunun yazdigi) ana CSV'yi yeni basliga tasir: eski satirin
+        'dosya' sutunundaki klasor adi parti olur (2026-09-28/x.jpg -> parti '2026-09-28'). Yeni bicimse dokunmaz."""
+        yol = self._ana_csv_yolu()
+        if not os.path.exists(yol):
+            return False
+        try:
+            with open(yol, encoding="utf-8", newline="") as f:
+                rows = [r for r in csv.reader(f, delimiter=";") if r]
+            if not rows or rows[0] == self.ANA_CSV_BASLIK or rows[0][:1] != ["tarih"]:
+                return False
+            yeni = [self.ANA_CSV_BASLIK]
+            for r in rows[1:]:
+                r = (r + [""] * 7)[:7]
+                parti = r[6].split("/")[0] if "/" in r[6] else "eski"
+                yeni.append([parti] + r)
+            tmp = yol + ".tmp"
+            with open(tmp, "w", encoding="utf-8", newline="") as f:
+                csv.writer(f, delimiter=";").writerows(yeni)
+            os.replace(tmp, yol)
+            self._append_log(f"[Operatör] Ana kayıt listesi yeni biçime taşındı (parti sütunu eklendi, {len(yeni) - 1} satır): "
+                             "operator_kontrol/operator_kayit.csv")
+            return True
+        except Exception as exc:
+            self._append_log(f"[Uyarı] Ana kayıt listesi taşınamadı: {exc}")
+            return False
+
+    def _ana_csv_ekle(self, parti_adi: str) -> int:
+        """Parti klasorundeki operator_kayit.csv satirlarini ana CSV'ye ekler ('parti' sutunu + 'parti/dosya' yolu).
+        Daha once eklenmis satirlar (.ana_csv_satir sayaci) atlanir -> ayni parti iki kez eklenmez. Doner: eklenen satir."""
+        klasor = os.path.join(self.OPERATOR_DIR, parti_adi)
+        parti_csv = os.path.join(klasor, "operator_kayit.csv")
+        if not os.path.exists(parti_csv):
+            return 0
+        isaret = os.path.join(klasor, ".ana_csv_satir")
+        try:
+            with open(isaret, encoding="utf-8") as f:
+                eklenmis = int(f.read().strip() or 0)
+        except Exception:
+            eklenmis = 0
+        with open(parti_csv, encoding="utf-8", newline="") as f:
+            veri = [r for r in csv.reader(f, delimiter=";") if r and r[:1] != ["tarih"]]
+        yeni = veri[eklenmis:]
+        if not yeni:
+            return 0
+        self._ana_csv_gecir()
+        yol = self._ana_csv_yolu()
+        ilk = not os.path.exists(yol)
+        with open(yol, "a", encoding="utf-8", newline="") as f:
+            w = csv.writer(f, delimiter=";")
+            if ilk:
+                w.writerow(self.ANA_CSV_BASLIK)
+            for r in yeni:
+                r = (r + [""] * 7)[:7]
+                dosya = r[6]
+                w.writerow([parti_adi] + r[:6] + [f"{parti_adi}/{dosya}" if dosya and dosya != "-" else "-"])
+        with open(isaret, "w", encoding="utf-8") as f:
+            f.write(str(len(veri)))
+        return len(yeni)
+
     def _parti_kapat(self, c: dict):
         """Sifirlama aninda biten partinin klasorune ozet (parti_ozeti.txt: baslangic, sifirlama zamani, sayilar,
         hata dagilimi) + PDF raporu yazar; klasoru doner. Sayac RESETLENMEDEN once cagrilmali."""
@@ -3014,8 +3085,14 @@ class MainWindow(QMainWindow):
                 pdf_not = "kalite_raporu.pdf"
             except Exception as exc:
                 pdf_not = f"PDF yazılamadı: {exc}"
+            try:
+                n_ana = self._ana_csv_ekle(self._parti_adi())
+                ana_not = f"{n_ana} kayıt ana listeye (operator_kontrol/operator_kayit.csv) eklendi"
+            except Exception as exc:
+                ana_not = f"ana listeye eklenemedi: {exc}"
             self._append_log(f"[Sayaç] Parti kapatıldı → operator_kontrol/{self._parti_adi()}/ "
-                             f"(parti_ozeti.txt, {pdf_not}, {len(resimler)} resim). Yeni kayıtlar yeni parti klasörüne gider.")
+                             f"(parti_ozeti.txt, {pdf_not}, {len(resimler)} resim); {ana_not}. "
+                             "Yeni kayıtlar yeni parti klasörüne gider.")
         except Exception as exc:
             self._append_log(f"[Uyarı] Parti özeti yazılamadı: {exc}")
         return klasor
