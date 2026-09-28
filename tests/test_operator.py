@@ -140,7 +140,7 @@ check("PLC'ye ek yazım yok", len(w.plc.results) == 3)
 print("\n[açıkken yeni NOK / cevapsız kapatma]")
 cekim(); dlg3 = w._review_dlg
 cekim(); dlg4 = w._review_dlg
-check("yeni NOK gelince eski pencere kapandı (cevapsız → NOK kaldı), yeni #5", dlg4 is not dlg3 and dlg4.part_id == 5 and not dlg3.isVisible() and any("#4 kontrol edilmeden" in l and "NOK olarak kaldı" in l for l in loglar))
+check("yeni NOK gelince eski pencere kapandı/silindi (cevapsız → NOK kaldı), yeni #5", dlg4 is not dlg3 and dlg4.part_id == 5 and (sip.isdeleted(dlg3) or not dlg3.isVisible()) and any("#4 kontrol edilmeden" in l and "NOK olarak kaldı" in l for l in loglar))
 dlg4.close(); pump()
 c = w._counters
 check("X ile kapatma → NOK kaldı, sayaç değişmedi (NOK 3)", w._review_dlg is None and c["nok"] == 3 and any("#5: pencere cevapsız" in l for l in loglar))
